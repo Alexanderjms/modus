@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
 const TOKEN_PLACEHOLDER = "•".repeat(20);
 
@@ -34,18 +35,12 @@ function EyeIcon({ hidden }: { hidden: boolean }) {
 }
 
 export function TursoCredentialsForm() {
+  const router = useRouter();
   const [showToken, setShowToken] = useState(false);
-  const [status, setStatus] = useState("");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatus(
-      "La comprobación con Turso aún no está integrada; no se han enviado datos.",
-    );
-  }
-
-  function clearStatus() {
-    if (status) setStatus("");
+    router.push("/onboarding/turso/perfil");
   }
 
   return (
@@ -71,7 +66,6 @@ export function TursoCredentialsForm() {
               autoComplete="url"
               spellCheck={false}
               defaultValue="libsql://tu-base.turso.io"
-              onChange={clearStatus}
               className="h-full min-w-0 flex-1 bg-transparent p-0 text-[12.5px] font-normal leading-normal text-[var(--muted)] outline-none placeholder:text-[var(--muted)]"
             />
           </div>
@@ -92,12 +86,13 @@ export function TursoCredentialsForm() {
               required
               autoComplete="off"
               placeholder={TOKEN_PLACEHOLDER}
-              onChange={clearStatus}
               className="h-full min-w-0 flex-1 bg-transparent p-0 text-[12.5px] font-normal leading-normal text-[var(--foreground)] outline-none placeholder:text-[var(--foreground)] placeholder:opacity-100"
             />
             <button
               type="button"
-              aria-label={showToken ? "Ocultar Auth Token" : "Mostrar Auth Token"}
+              aria-label={
+                showToken ? "Ocultar Auth Token" : "Mostrar Auth Token"
+              }
               aria-pressed={showToken}
               onClick={() => setShowToken((visible) => !visible)}
               className="flex size-7 shrink-0 items-center justify-center rounded-[5px] text-[var(--muted)] hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#007AFF]"
@@ -114,17 +109,6 @@ export function TursoCredentialsForm() {
       >
         Probar conexión
       </button>
-      <p
-        role="status"
-        aria-live="polite"
-        className={
-          status
-            ? "mt-3 w-full text-center text-[11.5px] leading-[17px] text-[var(--muted)]"
-            : "sr-only"
-        }
-      >
-        {status}
-      </p>
     </form>
   );
 }

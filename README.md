@@ -22,6 +22,7 @@
 ## 📸 Vistas y Flujo de Onboarding
 
 ### 1. Selección de Almacenamiento
+
 Elige entre almacenar tus proyectos de manera **Local** en tu dispositivo o en la nube mediante **Turso**.
 
 <div align="center">
@@ -31,6 +32,7 @@ Elige entre almacenar tus proyectos de manera **Local** en tu dispositivo o en l
 <br />
 
 ### 2. Opción A: Perfil Local
+
 Configuración de nombre y activación de protección local mediante PIN de acceso.
 
 <div align="center">
@@ -40,6 +42,7 @@ Configuración de nombre y activación de protección local mediante PIN de acce
 <br />
 
 ### 3. Opción B: Conexión con Turso
+
 Formulario de credenciales (`Database URL` y `Auth Token`) acompañado por una guía interactiva paso a paso para usuarios no técnicos.
 
 <div align="center">
@@ -49,6 +52,7 @@ Formulario de credenciales (`Database URL` y `Auth Token`) acompañado por una g
 <br />
 
 ### 4. Perfil Turso
+
 Registro de nombre y credenciales protegidas para vincular los datos del perfil a la base de datos distribuida.
 
 <div align="center">
@@ -58,6 +62,7 @@ Registro de nombre y credenciales protegidas para vincular los datos del perfil 
 <br />
 
 ### 5. Finalización
+
 Confirmación de configuración completada y bienvenida al espacio de trabajo.
 
 <div align="center">
@@ -69,23 +74,27 @@ Confirmación de configuración completada y bienvenida al espacio de trabajo.
 ## 🚀 Inicio Rápido
 
 ### Requisitos previos
+
 - [Node.js](https://nodejs.org/) (versión 18 o superior recomendada)
 - [pnpm](https://pnpm.io/) (`npm install -g pnpm`)
 
 ### Instalación
 
 1. **Clonar el repositorio:**
+
    ```bash
    git clone https://github.com/tu-usuario/modus.git
    cd modus
    ```
 
 2. **Instalar dependencias:**
+
    ```bash
    pnpm install
    ```
 
 3. **Iniciar servidor de desarrollo:**
+
    ```bash
    pnpm dev
    ```

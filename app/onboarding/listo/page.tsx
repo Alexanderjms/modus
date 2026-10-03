@@ -6,7 +6,7 @@ export default function ReadyPage() {
     <OnboardingFrame>
       <section
         aria-labelledby="ready-heading"
-        className="flex w-full max-w-[340px] flex-col items-center gap-6"
+        className="relative flex w-full max-w-[340px] flex-col items-center gap-6"
       >
         <header className="flex w-full flex-col items-center gap-5">
           <div className="flex w-full flex-col items-center gap-2 text-center">
@@ -25,7 +25,7 @@ export default function ReadyPage() {
         <div className="flex w-full items-center justify-center gap-[7px]">
           <span
             aria-hidden="true"
-            className="flex size-4 shrink-0 items-center justify-center rounded-[8px] bg-[#34C759]"
+            className="flex size-4 shrink-0 items-center justify-center rounded-[8px] bg-[var(--success)]"
           >
             <svg
               viewBox="0 0 13.99993896484375 14"
@@ -45,7 +45,7 @@ export default function ReadyPage() {
         </div>
 
         <Link
-          href="/"
+          href="/inicio"
           className="flex items-center gap-[5px] rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-xs font-semibold text-white [line-height:normal] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
         >
           Ir a Inicio

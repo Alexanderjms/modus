@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import { BrandHeader } from "./brand-header";
 
 export function OnboardingFrame({ children }: { children: ReactNode }) {
   return (
     <main className="relative isolate flex min-h-svh items-center justify-center overflow-hidden bg-[var(--page)] px-6 py-24 text-[var(--foreground)]">
+      <BrandHeader />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"

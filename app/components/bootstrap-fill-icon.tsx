@@ -6,7 +6,11 @@ type BootstrapFillIconProps = Omit<HTMLAttributes<HTMLElement>, "children"> & {
   name: BootstrapFillIconName;
 };
 
-export function BootstrapFillIcon({ name, className, ...props }: BootstrapFillIconProps) {
+export function BootstrapFillIcon({
+  name,
+  className,
+  ...props
+}: BootstrapFillIconProps) {
   return (
     <i
       aria-hidden="true"

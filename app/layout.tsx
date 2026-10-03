@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
-import { BrandHeader } from "./components/brand-header";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./globals.css";
 
@@ -23,12 +22,13 @@ export default function RootLayout({
   return (
     <html lang="es" className={geist.variable} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `try { const saved = localStorage.getItem("modus-theme"); document.documentElement.dataset.theme = saved === "dark" || saved === "light" ? saved : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; } catch { document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; }` }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try { const saved = localStorage.getItem("modus-theme"); document.documentElement.dataset.theme = saved === "dark" || saved === "light" ? saved : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; } catch { document.documentElement.dataset.theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; }`,
+          }}
+        />
       </head>
-      <body className="font-sans">
-        <BrandHeader />
-        {children}
-      </body>
+      <body className="font-sans">{children}</body>
     </html>
   );
 }
