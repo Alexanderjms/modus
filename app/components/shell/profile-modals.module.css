@@ -1,0 +1,80 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.input {
+  height: 34px;
+  width: 100%;
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 0 10px;
+  font-size: 12.5px;
+  color: var(--foreground);
+  border: none;
+  outline: 1px solid var(--divider);
+  outline-offset: -0.5px;
+}
+
+.input:focus,
+.form .field .input:focus-visible,
+.providerList .providerCard .input:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: -2px;
+}
+
+.providerList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.providerCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--page);
+  border: 1px solid var(--divider);
+}
+
+.providerHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.providerName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.providerBadge {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--divider);
+}
+
+.providerBadge.active {
+  background: #34c7591f;
+  color: #34c759;
+  border-color: #34c7594d;
+}

@@ -1,0 +1,339 @@
+{
+  "nodes": [
+    {
+      "id": "public_screenshots_05_todo_listo_onboarding_complete",
+      "label": "Onboarding completion screenshot confirming storage setup",
+      "file_type": "image",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_all_ready_screen",
+      "label": "Todo listo \u2014 All Ready Success Screen",
+      "file_type": "image",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_modus_brand_header",
+      "label": "Modus Brand Header (Logo Mark + Wordmark)",
+      "file_type": "image",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_theme_toggle_control",
+      "label": "Theme Toggle Control (Sun Icon Button, Top-Right)",
+      "file_type": "image",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_storage_configured_status",
+      "label": "Almacenamiento configurado Status Badge (Green Check)",
+      "file_type": "image",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_go_home_cta",
+      "label": "Ir a Inicio Primary CTA Button",
+      "file_type": "image",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_modus_workspace",
+      "label": "modus Workspace",
+      "file_type": "concept",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_modus_app",
+      "label": "Modus Application",
+      "file_type": "concept",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_onboarding_flow",
+      "label": "Onboarding Setup Flow",
+      "file_type": "concept",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_centered_empty_state_layout",
+      "label": "Centered Single-Column Empty-State Layout Pattern",
+      "file_type": "concept",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_dark_gradient_background",
+      "label": "Dark Ambient Gradient Background",
+      "file_type": "image",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_corner_badge_overlay",
+      "label": "'N' Circular Corner Badge Overlay (bottom-left)",
+      "file_type": "image",
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "public_screenshots_05_todo_listo_all_ready_screen",
+      "target": "public_screenshots_05_todo_listo_modus_brand_header",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_all_ready_screen",
+      "target": "public_screenshots_05_todo_listo_theme_toggle_control",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_all_ready_screen",
+      "target": "public_screenshots_05_todo_listo_storage_configured_status",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_all_ready_screen",
+      "target": "public_screenshots_05_todo_listo_go_home_cta",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_all_ready_screen",
+      "target": "public_screenshots_05_todo_listo_modus_workspace",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_all_ready_screen",
+      "target": "public_screenshots_05_todo_listo_centered_empty_state_layout",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_all_ready_screen",
+      "target": "public_screenshots_05_todo_listo_dark_gradient_background",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_all_ready_screen",
+      "target": "public_screenshots_05_todo_listo_corner_badge_overlay",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_modus_brand_header",
+      "target": "public_screenshots_05_todo_listo_modus_app",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_all_ready_screen",
+      "target": "public_screenshots_05_todo_listo_onboarding_flow",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_storage_configured_status",
+      "target": "public_screenshots_05_todo_listo_all_ready_screen",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_go_home_cta",
+      "target": "public_screenshots_05_todo_listo_modus_workspace",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_theme_toggle_control",
+      "target": "public_screenshots_05_todo_listo_dark_gradient_background",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 0.75
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_onboarding_flow",
+      "target": "public_screenshots_05_todo_listo_modus_app",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_corner_badge_overlay",
+      "target": "public_screenshots_05_todo_listo_theme_toggle_control",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.6,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 0.6
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_modus_app",
+      "target": "public_screenshots_05_todo_listo_modus_workspace",
+      "relation": "conceptually_related_to",
+      "confidence": "AMBIGUOUS",
+      "confidence_score": 0.3,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 0.3
+    },
+    {
+      "source": "public_screenshots_05_todo_listo_corner_badge_overlay",
+      "target": "public_screenshots_05_todo_listo_modus_app",
+      "relation": "references",
+      "confidence": "AMBIGUOUS",
+      "confidence_score": 0.25,
+      "source_file": "public/screenshots/05-todo-listo.png",
+      "source_location": null,
+      "weight": 0.25
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "public_screenshots_05_todo_listo_onboarding_completion_handoff",
+      "label": "Onboarding Completion and Workspace Handoff",
+      "nodes": [
+        "public_screenshots_05_todo_listo_all_ready_screen",
+        "public_screenshots_05_todo_listo_storage_configured_status",
+        "public_screenshots_05_todo_listo_go_home_cta",
+        "public_screenshots_05_todo_listo_onboarding_flow",
+        "public_screenshots_05_todo_listo_modus_workspace"
+      ],
+      "relation": "form",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "public/screenshots/05-todo-listo.png"
+    },
+    {
+      "id": "public_screenshots_05_todo_listo_app_chrome_layer",
+      "label": "Persistent App Chrome Layer (Brand, Theming, Background)",
+      "nodes": [
+        "public_screenshots_05_todo_listo_modus_brand_header",
+        "public_screenshots_05_todo_listo_theme_toggle_control",
+        "public_screenshots_05_todo_listo_dark_gradient_background",
+        "public_screenshots_05_todo_listo_corner_badge_overlay"
+      ],
+      "relation": "form",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "public/screenshots/05-todo-listo.png"
+    }
+  ]
+}

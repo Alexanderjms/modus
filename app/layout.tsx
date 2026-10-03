@@ -12,8 +12,8 @@ const geist = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Sona",
-  description: "Sona project",
+  title: "modus",
+  description: "modus project",
 };
 
 export default function RootLayout({

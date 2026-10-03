@@ -25,7 +25,7 @@ export function Header({
   themeToggleClassName?: string;
 }) {
   const placeholder =
-    active === "tareas" ? "Buscar en el proyecto…" : "Buscar en Sona…";
+    active === "tareas" ? "Buscar en el proyecto…" : "Buscar en modus…";
   return (
     <header
       className={`${styles.header} ${headerLeft ? styles.headerWithSelector : ""}`}
@@ -62,7 +62,7 @@ export function Header({
         <input
           type="search"
           aria-label={
-            active === "tareas" ? "Buscar en el proyecto" : "Buscar en Sona"
+            active === "tareas" ? "Buscar en el proyecto" : "Buscar en modus"
           }
           placeholder={placeholder}
           value={query}

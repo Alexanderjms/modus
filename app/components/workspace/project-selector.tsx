@@ -7,7 +7,7 @@ import shared from "../workspace.module.css";
 
 const projects = [
   "Observatorio Regional",
-  "Portfolio personal",
+  "Portfolio permodusl",
   "Lista de Compras",
 ];
 

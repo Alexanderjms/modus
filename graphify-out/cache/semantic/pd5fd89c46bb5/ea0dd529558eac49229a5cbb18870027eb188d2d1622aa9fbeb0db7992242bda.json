@@ -1,0 +1,299 @@
+{
+  "nodes": [
+    {
+      "id": "public_screenshots_02_perfil_local_local_profile",
+      "label": "Local profile screenshot with name field and optional PIN protection",
+      "file_type": "image",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_local_profile_screen",
+      "label": "Local Profile Setup Screen (Configura tu perfil)",
+      "file_type": "image",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "full-frame 1440x900 screenshot, dark UI onboarding view",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_modus_brand_header",
+      "label": "Modus Brand Header (logo mark + wordmark, top-left)",
+      "file_type": "image",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "top-left corner, x~24-140 y~30-60",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_theme_toggle_control",
+      "label": "Theme Toggle Control (sun icon, top-right)",
+      "file_type": "image",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "top-right corner, approximately x=1140-1178 y=30-64",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_display_name_field",
+      "label": "Nombre (Display Name) Text Input with value 'Alexander'",
+      "file_type": "image",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "centered form, label y~343, focused input y~355-375",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_local_protection_section",
+      "label": "Protecci\u00f3n local Settings Group",
+      "file_type": "image",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "centered form, section label y~413-470",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_pin_protection_toggle",
+      "label": "PIN Protection Toggle ('Proteger Modus con un PIN', off)",
+      "file_type": "image",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "centered form, switch at x~447 y~453 with title and helper text",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_continue_cta_button",
+      "label": "Continuar Primary Action Button",
+      "file_type": "image",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "centered, blue pill button at y~472-493",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_gradient_mesh_backdrop",
+      "label": "Dark Gradient Mesh Backdrop",
+      "file_type": "image",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "full canvas background: dark base with purple (top-left/center) and amber (bottom-right) glow blobs",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_first_run_onboarding_flow",
+      "label": "First-Run Profile Configuration Flow",
+      "file_type": "concept",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "headline 'Configura tu perfil' plus subtitle 'Permodusliza tu experiencia en Modus.'",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_local_only_privacy_model",
+      "label": "Local-Only Privacy Model (device-stored profile and PIN, no account)",
+      "file_type": "concept",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "copy: 'Protecci\u00f3n local' / 'Proteger Modus con un PIN' / 'Solicitar un PIN al abrir Modus.'",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "public_screenshots_02_perfil_local_nextjs_dev_indicator",
+      "label": "Next.js Development Overlay Indicator (circular 'N' badge, bottom-left)",
+      "file_type": "image",
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "bottom-left corner, circular badge x~19-45 y~705-731",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "public_screenshots_02_perfil_local_local_profile_screen",
+      "target": "public_screenshots_02_perfil_local_modus_brand_header",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "top-left brand lockup rendered within the screen frame",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_local_profile_screen",
+      "target": "public_screenshots_02_perfil_local_theme_toggle_control",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "theme control in the screen's top-right chrome",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_local_profile_screen",
+      "target": "public_screenshots_02_perfil_local_display_name_field",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "central form region of the screenshot",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_local_profile_screen",
+      "target": "public_screenshots_02_perfil_local_local_protection_section",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "central form region below the name field",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_local_protection_section",
+      "target": "public_screenshots_02_perfil_local_pin_protection_toggle",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "toggle row nested under the 'Protecci\u00f3n local' heading",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_local_profile_screen",
+      "target": "public_screenshots_02_perfil_local_continue_cta_button",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "primary action centered beneath the form controls",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_local_profile_screen",
+      "target": "public_screenshots_02_perfil_local_gradient_mesh_backdrop",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "full-canvas background layer of the screenshot",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_local_profile_screen",
+      "target": "public_screenshots_02_perfil_local_first_run_onboarding_flow",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "headline + subtitle + single Continue action indicate a first-run setup step",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_display_name_field",
+      "target": "public_screenshots_02_perfil_local_local_only_privacy_model",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "profile name entered during local-only setup step, stored alongside local protections",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_pin_protection_toggle",
+      "target": "public_screenshots_02_perfil_local_local_only_privacy_model",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "helper text 'Solicitar un PIN al abrir Modus.' realizes the local access-protection model",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_continue_cta_button",
+      "target": "public_screenshots_02_perfil_local_first_run_onboarding_flow",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "single forward affordance advancing the onboarding step sequence",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_nextjs_dev_indicator",
+      "target": "public_screenshots_02_perfil_local_local_profile_screen",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "Next.js dev-mode overlay badge captured together with the screen, implying the screenshot was taken from a local dev build",
+      "weight": 1.0
+    },
+    {
+      "source": "public_screenshots_02_perfil_local_theme_toggle_control",
+      "target": "public_screenshots_02_perfil_local_gradient_mesh_backdrop",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.65,
+      "source_file": "public/screenshots/02-perfil-local.png",
+      "source_location": "theme control acts on the app-wide visual treatment rendered by the gradient backdrop",
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "local_profile_onboarding_form",
+      "label": "Local Profile Onboarding Form Composition",
+      "nodes": [
+        "public_screenshots_02_perfil_local_local_profile_screen",
+        "public_screenshots_02_perfil_local_display_name_field",
+        "public_screenshots_02_perfil_local_local_protection_section",
+        "public_screenshots_02_perfil_local_pin_protection_toggle",
+        "public_screenshots_02_perfil_local_continue_cta_button"
+      ],
+      "relation": "form",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "public/screenshots/02-perfil-local.png"
+    },
+    {
+      "id": "dark_theme_visual_system",
+      "label": "Dark Theme Visual System (backdrop, chrome control, brand lockup)",
+      "nodes": [
+        "public_screenshots_02_perfil_local_gradient_mesh_backdrop",
+        "public_screenshots_02_perfil_local_theme_toggle_control",
+        "public_screenshots_02_perfil_local_modus_brand_header",
+        "public_screenshots_02_perfil_local_local_profile_screen"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "public/screenshots/02-perfil-local.png"
+    }
+  ]
+}

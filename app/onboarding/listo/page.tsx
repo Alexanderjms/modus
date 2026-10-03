@@ -17,7 +17,7 @@ export default function ReadyPage() {
               Todo listo
             </h1>
             <p className="w-full text-[12.5px] leading-[18px] text-[var(--muted)]">
-              Ya puedes empezar a trabajar en Sona.
+              Ya puedes empezar a trabajar en Modus.
             </p>
           </div>
         </header>

@@ -110,8 +110,9 @@
   justify-content: center;
   transition: background 140ms ease-out, color 140ms ease-out;
 }
-.projectsToggle i {
+.sidebar .projectsToggle i {
   font-size: 11px;
+  transform: rotate(0deg);
   transition: transform 200ms var(--ease-drawer), color 140ms ease-out;
 }
 .projectsToggle[aria-expanded="false"] i {
@@ -154,7 +155,7 @@
   .projectTreeSlot {
     transition: none;
   }
-  .projectsToggle i {
+  .sidebar .projectsToggle i {
     transition: none;
   }
   .projectTreeSlot[data-closed="true"] .projectTree {

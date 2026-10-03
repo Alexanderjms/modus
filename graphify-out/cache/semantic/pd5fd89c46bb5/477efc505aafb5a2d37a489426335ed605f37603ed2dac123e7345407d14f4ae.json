@@ -1,0 +1,718 @@
+{
+  "nodes": [
+    {
+      "id": "ref_13_proyectos_vista_general_export_projects_overview",
+      "label": "Projects overview",
+      "file_type": "document",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "label": "13 \u00b7 Proyectos \u2014 Vista general (Projects Overview Screen)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Light-theme modus workspace artboard (1728x1080) presenting all projects as a two-column card grid so the user can scan progress, ownership and status at a glance; the header pairs the section badge with a global search, while the toolbar carries list-scoping controls."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_proyectos_menu_de_proyecto",
+      "label": "14 \u00b7 Proyectos \u2014 Men\u00fa de proyecto (Project Menu Screen)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Second artboard of the export: the identical Proyectos layout rendered together with the project card context menu, used to document the per-card action state rather than a different page."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_card_menu",
+      "label": "Card Menu (Project Context Menu)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Floating 224px popover anchored to the card's ellipsis button; six actions are split into three groups by dividers (Abrir / Editar / Duplicar \u2014 Marcar como completado / Archivar \u2014 Eliminar) so destructive 'Eliminar' is isolated and tinted #B3261E."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_projects_grid",
+      "label": "Projects Grid",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_project_card",
+      "label": "Project Card",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Uniform card anatomy (icon + name + ellipsis, description, progress row, meta row, status row) keeps every project comparable; state variants change only the trailing affordances (hover actions for active cards, restaurar/eliminar for archived, a Completado/Archivado chip in the header)."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_sidebar_navigation",
+      "label": "Sidebar Navigation (App Nav Rail)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Icon-only 52px rail (Inicio, Proyectos, Tareas, Configuraci\u00f3n + avatar) keeps the canvas width for content; the active destination is signalled by a filled #007AFF tile."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_app_logo",
+      "label": "App Logo (Sparkles Glyph)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_section_context_badge",
+      "label": "Section Context Badge",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_global_search_field",
+      "label": "Search Field (Buscar en modus\u2026)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Pinned in the top header so global search is always reachable regardless of the section shown; placeholder names the product ('modus') instead of the scope."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_project_search_field",
+      "label": "Project Search Field",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Scoped search lives inside the content toolbar ('Buscar proyectos\u2026') so it filters only the grid, deliberately separate from the header's global search."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_filter_tabs",
+      "label": "Filter Tabs (Todos / Activos / Completados / Archivados)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Segmented control in a #F0F0F2 track; the selected tab is a raised white pill with a soft shadow, encoding selection by elevation instead of an underline."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_sort_control",
+      "label": "Sort Button (Ordenar por: \u00daltima actividad)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Shows the active sort value inline ('\u00daltima actividad') with an up/down arrow icon plus chevron, so the current ordering is legible without opening the control."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_new_project_button",
+      "label": "Nuevo proyecto Button",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_progress_bar",
+      "label": "Progress Row (Track / Fill / Percent)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "5px track with a #007AFF fill (w-[128px] fixed sample widths in the export) plus a numeric percentage label, giving both a glanceable and an exact completion signal."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_avatar_stack",
+      "label": "Avatar Stack",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Overlapping 18px initials avatars with white outlines (AL, MG) show collaborator presence inside a 30px slot without expanding the meta row."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_status_chip",
+      "label": "Project Status Chip (Completado / Archivado)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Replaces the ellipsis button in the card header for terminal states, making finished/archived cards visually distinct at grid level."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_hover_actions",
+      "label": "Hover Actions (Abrir proyecto)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Primary action is revealed at the bottom of the card (states described as hover-revealed) to keep the resting card clean while giving a one-click path into the project."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_archived_actions",
+      "label": "Archived Actions (Restaurar / Eliminar)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Archived cards swap the open action for Restaurar plus a destructive trash control, giving archived items a recover-or-delete exit path."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_ambient_glow",
+      "label": "Ambient Glow Backdrop",
+      "file_type": "rationale",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Four 640px radial-gradient ellipses (#4D9BFF, #B37DF0, #FFB86B, #5AC8FA at ~24% alpha) layered behind the content at z-index 0-3; they add depth and brand colour to a flat #F2F2F4 canvas without competing with the white surface cards stacked above (z-index 4+)."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_modus",
+      "label": "modus (Application)",
+      "file_type": "concept",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Product identity implied by the search placeholder 'Buscar en modus\u2026' and the sparkles app logo; the design is an app shell (logo + nav rail + section header + content) rather than a standalone page."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_project_entity",
+      "label": "Project (Domain Entity)",
+      "file_type": "concept",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Fields evidenced by the card: name, icon/colour, description, percent complete, task count ('14 / 40 tareas'), assignee avatars, in-progress task count, last-updated timestamp and status."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_project_lifecycle_states",
+      "label": "Project Lifecycle States (Activo / En progreso / Completado / Archivado)",
+      "file_type": "concept",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "A four-state model reused across the UI: the filter tabs name the states, the card header chip displays the terminal ones, and the status row shows live progress ('3 en progreso', 'Completado hace 2 semanas', 'Archivado hace 1 mes')."
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_lucide_icons",
+      "label": "Lucide Icon Set",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_tailwind_css",
+      "label": "Tailwind CSS (Play CDN)",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_geist_typeface",
+      "label": "Geist Typeface",
+      "file_type": "code",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "ref_13_proyectos_vista_general_export_design_tokens",
+      "label": "Design Token Palette (#007AFF accent on #F2F2F4 canvas)",
+      "file_type": "rationale",
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Single accent #007AFF for interactive/selected elements, neutral ramp for surfaces (#F2F2F4 canvas, #EDEDF0 header, #E7E7EA rail, #FFFFFF cards), text ramp (#1D1D1F / #6E6E73 / #8E8E93), amber #FF9500 for in-progress dots and #B3261E reserved for destructive actions."
+    }
+  ],
+  "edges": [
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_projects_grid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_sidebar_navigation",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_app_logo",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_section_context_badge",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_global_search_field",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_filter_tabs",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_project_search_field",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_sort_control",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_new_project_button",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_project_card",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_ambient_glow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_menu_de_proyecto",
+      "target": "ref_13_proyectos_vista_general_export_card_menu",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_projects_grid",
+      "target": "ref_13_proyectos_vista_general_export_project_card",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_project_card",
+      "target": "ref_13_proyectos_vista_general_export_progress_bar",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_project_card",
+      "target": "ref_13_proyectos_vista_general_export_avatar_stack",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_project_card",
+      "target": "ref_13_proyectos_vista_general_export_status_chip",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_project_card",
+      "target": "ref_13_proyectos_vista_general_export_hover_actions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_project_card",
+      "target": "ref_13_proyectos_vista_general_export_archived_actions",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_modus",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_lucide_icons",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_tailwind_css",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_geist_typeface",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_menu_de_proyecto",
+      "target": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_project_card",
+      "target": "ref_13_proyectos_vista_general_export_card_menu",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_project_card",
+      "target": "ref_13_proyectos_vista_general_export_project_entity",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_status_chip",
+      "target": "ref_13_proyectos_vista_general_export_project_lifecycle_states",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_filter_tabs",
+      "target": "ref_13_proyectos_vista_general_export_project_lifecycle_states",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_archived_actions",
+      "target": "ref_13_proyectos_vista_general_export_project_lifecycle_states",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_sidebar_navigation",
+      "target": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "relation": "references",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_app_logo",
+      "target": "ref_13_proyectos_vista_general_export_modus",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "target": "ref_13_proyectos_vista_general_export_design_tokens",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_project_search_field",
+      "target": "ref_13_proyectos_vista_general_export_global_search_field",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_hover_actions",
+      "target": "ref_13_proyectos_vista_general_export_archived_actions",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_progress_bar",
+      "target": "ref_13_proyectos_vista_general_export_status_chip",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "ref_13_proyectos_vista_general_export_ambient_glow",
+      "target": "ref_13_proyectos_vista_general_export_proyectos_vista_general",
+      "relation": "rationale_for",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "project_card_anatomy",
+      "label": "Project Card Anatomy",
+      "nodes": [
+        "ref_13_proyectos_vista_general_export_project_card",
+        "ref_13_proyectos_vista_general_export_progress_bar",
+        "ref_13_proyectos_vista_general_export_avatar_stack",
+        "ref_13_proyectos_vista_general_export_status_chip",
+        "ref_13_proyectos_vista_general_export_hover_actions"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html"
+    },
+    {
+      "id": "projects_toolbar_controls",
+      "label": "Projects Toolbar (scope, search, sort, create)",
+      "nodes": [
+        "ref_13_proyectos_vista_general_export_filter_tabs",
+        "ref_13_proyectos_vista_general_export_project_search_field",
+        "ref_13_proyectos_vista_general_export_sort_control",
+        "ref_13_proyectos_vista_general_export_new_project_button"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html"
+    },
+    {
+      "id": "project_lifecycle_management_flow",
+      "label": "Project Lifecycle Management Flow",
+      "nodes": [
+        "ref_13_proyectos_vista_general_export_project_card",
+        "ref_13_proyectos_vista_general_export_card_menu",
+        "ref_13_proyectos_vista_general_export_status_chip",
+        "ref_13_proyectos_vista_general_export_archived_actions",
+        "ref_13_proyectos_vista_general_export_project_lifecycle_states"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "ref/13 \u00b7 Proyectos \u2014 Vista general-export.html"
+    }
+  ]
+}

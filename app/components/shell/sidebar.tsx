@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 import type { Project } from "../projects-data";
 import styles from "./sidebar.module.css";
 import { ProfileMenu } from "./profile-menu";
+import { ProfileModal, ProvidersModal } from "./profile-modals";
 
 export function Sidebar({
   active = "inicio",
@@ -19,8 +20,15 @@ export function Sidebar({
 }) {
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showProvidersModal, setShowProvidersModal] = useState(false);
+
   const profileId = useId();
   const projectsId = useId();
+  const visibleProjects = projects.filter(
+    (project) => project.status !== "archived",
+  );
+
   return (
     <>
       <div
@@ -56,17 +64,19 @@ export function Sidebar({
                 <i aria-hidden="true" className="bi bi-folder" />
                 <span className={styles.navLabel}>Proyectos</span>
               </Link>
-              <button
-                className={styles.projectsToggle}
-                aria-label={
-                  projectsOpen ? "Colapsar proyectos" : "Expandir proyectos"
-                }
-                aria-expanded={projectsOpen}
-                aria-controls={projectsId}
-                onClick={() => setProjectsOpen((open) => !open)}
-              >
-                <i aria-hidden="true" className="bi bi-chevron-down" />
-              </button>
+              {visibleProjects.length > 0 && (
+                <button
+                  className={styles.projectsToggle}
+                  aria-label={
+                    projectsOpen ? "Colapsar proyectos" : "Expandir proyectos"
+                  }
+                  aria-expanded={projectsOpen}
+                  aria-controls={projectsId}
+                  onClick={() => setProjectsOpen((open) => !open)}
+                >
+                  <i aria-hidden="true" className="bi bi-chevron-down" />
+                </button>
+              )}
             </div>
             <div
               id={projectsId}
@@ -79,21 +89,19 @@ export function Sidebar({
                 className={styles.projectTree}
                 aria-label="Proyectos disponibles"
               >
-                {projects
-                  .filter((project) => project.status !== "archived")
-                  .map((project) => (
-                    <li key={project.id}>
-                      <Link
-                        href={`/workspace?project=${encodeURIComponent(project.name)}`}
-                        title={project.name}
-                        aria-current={
-                          activeProject === project.name ? "page" : undefined
-                        }
-                      >
-                        <span>{project.name}</span>
-                      </Link>
-                    </li>
-                  ))}
+                {visibleProjects.map((project) => (
+                  <li key={project.id}>
+                    <Link
+                      href={`/workspace?project=${encodeURIComponent(project.name)}`}
+                      title={project.name}
+                      aria-current={
+                        activeProject === project.name ? "page" : undefined
+                      }
+                    >
+                      <span>{project.name}</span>
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
             <div className={styles.spacer} />
@@ -113,7 +121,21 @@ export function Sidebar({
           </aside>
         </div>
       </div>
-      <ProfileMenu id={profileId} onToggle={(open) => setProfileOpen(open)} />
+      <ProfileMenu
+        id={profileId}
+        onToggle={(open) => setProfileOpen(open)}
+        onOpenProfile={() => setShowProfileModal(true)}
+        onOpenProviders={() => setShowProvidersModal(true)}
+      />
+      <ProfileModal
+        open={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        storageType="local"
+      />
+      <ProvidersModal
+        open={showProvidersModal}
+        onClose={() => setShowProvidersModal(false)}
+      />
     </>
   );
 }

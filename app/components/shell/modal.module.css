@@ -1,0 +1,139 @@
+.dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-width: 100%;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 24px 48px #00000040, 0 4px 12px #0000001a;
+  opacity: 0;
+  transform: scale(0.96) translateY(8px);
+  transition:
+    opacity 240ms var(--ease-drawer, cubic-bezier(0.32, 0.72, 0, 1)),
+    transform 240ms var(--ease-drawer, cubic-bezier(0.32, 0.72, 0, 1)),
+    overlay 240ms allow-discrete,
+    display 240ms allow-discrete;
+}
+
+.dialog[open] {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+@starting-style {
+  .dialog[open] {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+}
+
+.dialog::backdrop {
+  background: #0000004d;
+  backdrop-filter: blur(8px) saturate(180%);
+  -webkit-backdrop-filter: blur(8px) saturate(180%);
+  opacity: 0;
+  transition:
+    opacity 240ms ease-out,
+    overlay 240ms allow-discrete,
+    display 240ms allow-discrete;
+}
+
+.dialog[open]::backdrop {
+  opacity: 1;
+}
+
+@starting-style {
+  .dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  transition: background-color 140ms ease-out, color 140ms ease-out;
+}
+
+.closeButton:hover {
+  background: var(--page);
+  color: var(--foreground);
+}
+
+.body {
+  padding: 20px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--divider);
+  background: var(--page);
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+
+.cancelButton {
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+  transition: background-color 140ms ease-out, color 140ms ease-out;
+}
+
+.cancelButton:hover {
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.primaryButton {
+  padding: 6px 14px;
+  border-radius: 7px;
+  background: #007aff;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: filter 140ms ease-out, transform 100ms ease-out;
+}
+
+.primaryButton:hover {
+  filter: brightness(1.08);
+}
+
+.primaryButton:active {
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog,
+  .dialog::backdrop {
+    transition: opacity 160ms ease-out;
+    transform: none !important;
+  }
+}

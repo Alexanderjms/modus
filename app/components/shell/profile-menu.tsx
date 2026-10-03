@@ -6,12 +6,24 @@ import styles from "./profile-menu.module.css";
 export function ProfileMenu({
   id,
   onToggle,
+  onOpenProfile,
+  onOpenProviders,
 }: {
   id?: string;
   onToggle?: (open: boolean) => void;
+  onOpenProfile?: () => void;
+  onOpenProviders?: () => void;
 }) {
   const generatedId = useId();
   const menuId = id ?? generatedId;
+
+  function closeMenu() {
+    const popover = document.getElementById(menuId);
+    if (popover && "hidePopover" in popover) {
+      (popover as HTMLElement).hidePopover();
+    }
+  }
+
   return (
     <div
       id={menuId}
@@ -21,13 +33,25 @@ export function ProfileMenu({
       onToggle={(event) => onToggle?.(event.newState === "open")}
     >
       <p>Alexander</p>
-      <button disabled title="Esta función aún no está integrada.">
+      <button
+        type="button"
+        onClick={() => {
+          closeMenu();
+          onOpenProfile?.();
+        }}
+      >
         <i aria-hidden="true" className="bi bi-person" />
         Perfil
       </button>
-      <button disabled title="Esta función aún no está integrada.">
-        <i aria-hidden="true" className="bi bi-gear" />
-        Configuración
+      <button
+        type="button"
+        onClick={() => {
+          closeMenu();
+          onOpenProviders?.();
+        }}
+      >
+        <i aria-hidden="true" className="bi bi-key" />
+        Proveedores
       </button>
     </div>
   );

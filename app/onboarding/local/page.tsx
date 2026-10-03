@@ -5,7 +5,7 @@ import { OnboardingBackButton } from "../../components/onboarding-back-button";
 
 export const metadata: Metadata = {
   title: "Configura tu perfil | Modus",
-  description: "Personaliza tu experiencia en Modus.",
+  description: "Permodusliza tu experiencia en Modus.",
 };
 
 export default function LocalOnboardingPage() {
@@ -25,7 +25,7 @@ export default function LocalOnboardingPage() {
               Configura tu perfil
             </h1>
             <p className="w-full text-[12.5px] leading-[18px] text-[var(--muted)]">
-              Personaliza tu experiencia en Modus.
+              Permodusliza tu experiencia en Modus.
             </p>
           </div>
         </header>

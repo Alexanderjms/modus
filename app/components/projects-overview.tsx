@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "./app-shell";
 import styles from "./projects-overview.module.css";
+import { EmptyState } from "./empty-state";
 import { initialProjects, type Project } from "./projects-data";
 import { ProjectsToolbar } from "./projects/projects-toolbar";
 import { ProjectCard } from "./projects/project-card";
@@ -76,6 +77,7 @@ export function ProjectsOverview() {
     });
   }
 
+  const hasProjects = projects.length > 0;
   const visible = projects.filter(
     (project) =>
       (filter === 0
@@ -105,28 +107,44 @@ export function ProjectsOverview() {
             <h1>Proyectos</h1>
             <p>Organiza todo lo que estás construyendo.</p>
           </div>
-          <button className={styles.primary} disabled title={unavailable}>
-            <Icon name="plus" className={styles.primaryIcon} />
-            Nuevo proyecto
-          </button>
+          {hasProjects && (
+            <button className={styles.primary} disabled title={unavailable}>
+              <Icon name="plus" className={styles.primaryIcon} />
+              Nuevo proyecto
+            </button>
+          )}
         </header>
-        <ProjectsToolbar
-          filter={filter}
-          setFilter={setFilter}
-          query={query}
-          setQuery={setQuery}
-          sort={sort}
-          setSort={setSort}
-        />
-        <div className={styles.grid}>
-          {visible.map((project) => (
-            <ProjectCard key={project.id} project={project} onAction={action} />
-          ))}
-        </div>
-        {!visible.length && (
-          <p className={styles.empty} role="status">
-            No hay proyectos que coincidan con estos filtros.
-          </p>
+        {hasProjects ? (
+          <>
+            <ProjectsToolbar
+              filter={filter}
+              setFilter={setFilter}
+              query={query}
+              setQuery={setQuery}
+              sort={sort}
+              setSort={setSort}
+            />
+            <div className={styles.grid}>
+              {visible.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onAction={action}
+                />
+              ))}
+            </div>
+            {!visible.length && (
+              <p className={styles.empty} role="status">
+                No hay proyectos que coincidan con estos filtros.
+              </p>
+            )}
+          </>
+        ) : (
+          <EmptyState
+            icon="folder-plus"
+            title="Aún no tienes proyectos"
+            description="Crea tu primer proyecto para organizar tareas, conversaciones y contexto en un solo lugar."
+          />
         )}
       </main>
     </AppShell>

@@ -22,7 +22,7 @@ export function TodayPlan({
       <header className={styles.planHeader}>
         <Icon name="stars" className={styles.planIcon} />
         <h2 id="plan-heading">Plan para hoy</h2>
-        <span className={styles.suggested}>Sugerido por Sona</span>
+        <span className={styles.suggested}>Sugerido por modus</span>
         <span className={styles.planMeta}>
           {tasks.length - completedCount}{" "}
           {tasks.length - completedCount === 1 ? "pendiente" : "pendientes"}

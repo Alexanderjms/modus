@@ -5,8 +5,8 @@ import { TursoCredentialsForm } from "../../components/turso-credentials-form";
 import { TursoGuide } from "../../components/turso-guide";
 
 export const metadata: Metadata = {
-  title: "Conecta Turso | Sona",
-  description: "Conecta tu base de datos de Turso con Sona.",
+  title: "Conecta Turso | modus",
+  description: "Conecta tu base de datos de Turso con modus.",
 };
 
 export default function TursoOnboardingPage() {
