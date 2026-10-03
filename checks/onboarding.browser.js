@@ -1,0 +1,91 @@
+async (page) => {
+  const base = new URL(page.url()).origin;
+  const check = (condition, message) => { if (!condition) throw new Error(message); };
+  await page.goto(base);
+  const previousTheme = await page.evaluate(() => localStorage.getItem("modus-theme"));
+  await page.evaluate(() => localStorage.removeItem("modus-theme"));
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.reload();
+  check(await page.locator("html").getAttribute("data-theme") === "dark", "System dark theme ignored");
+  await page.getByRole("button", { name: "Cambiar a modo claro" }).click();
+  await page.reload();
+  check(await page.locator("html").getAttribute("data-theme") === "light", "Saved theme lost on reload");
+  await page.emulateMedia({ colorScheme: null });
+  for (const width of [1728, 390, 320]) {
+    await page.setViewportSize({ width, height: width === 1728 ? 1080 : 844 });
+    for (const route of ["local", "turso/perfil", "listo"]) {
+      await page.goto(`${base}/onboarding/${route}`);
+      check(await page.locator("h1").count() === 1, `Missing heading: ${route}`);
+      check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Overflow: ${route} at ${width}`);
+      check(await page.getByText("Modus", { exact: true }).count() === 1, `Missing brand header: ${route}`);
+      check(await page.locator('main svg path[fill="#FFFFFF"]').count() <= (route === "listo" ? 1 : 0), `AI icon still present: ${route}`);
+      for (const theme of ["dark", "light"]) {
+        await page.getByRole("button", { name: theme === "dark" ? "Cambiar a modo oscuro" : "Cambiar a modo claro" }).click();
+        check(await page.locator("html").getAttribute("data-theme") === theme, `Theme switch failed: ${route}`);
+        const background = await page.locator("main").evaluate(e => getComputedStyle(e).backgroundColor);
+        check(background === (theme === "dark" ? "rgb(18, 19, 24)" : "rgb(242, 242, 244)"), `Wrong background: ${route} ${theme}`);
+      }
+    }
+  }
+  await page.goto(base);
+  await page.getByRole("button", { name: "Continuar", exact: true }).click();
+  await page.waitForURL("**/onboarding/local");
+  const name = page.getByLabel("Nombre", { exact: true });
+  await name.fill("   ");
+  await page.getByRole("button", { name: "Continuar", exact: true }).click();
+  check(page.url().endsWith("/onboarding/local"), "Whitespace name accepted");
+  await name.fill("Alexander");
+  const toggle = page.getByRole("switch");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await toggle.focus();
+  await page.keyboard.press("Space");
+  check(await toggle.getAttribute("aria-checked") === "true", "PIN switch keyboard activation failed");
+  const thumb = toggle.locator("span");
+  check(await thumb.evaluate(e => getComputedStyle(e).transitionDuration) === "0.16s", "PIN motion timing missing");
+  await page.waitForFunction(() => new DOMMatrix(getComputedStyle(document.querySelector('[role="switch"] span')).transform).m41 === 16);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  check(await thumb.evaluate(e => getComputedStyle(e).transitionDuration) === "0s", "Reduced-motion preference ignored");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  check(await page.getByLabel("PIN", { exact: true }).count() === 1, "PIN input missing");
+  check(await page.getByLabel("Confirmar PIN", { exact: true }).count() === 1, "PIN confirmation missing");
+  await page.getByLabel("PIN", { exact: true }).fill("1234");
+  await page.getByLabel("Confirmar PIN", { exact: true }).fill("5678");
+  await toggle.click();
+  await page.waitForFunction(() => new DOMMatrix(getComputedStyle(document.querySelector('[role="switch"] span')).transform).m41 === 0);
+  check(await page.getByLabel("PIN", { exact: true }).count() === 0, "Disabled PIN inputs still visible");
+  await toggle.click();
+  check(await page.getByLabel("PIN", { exact: true }).inputValue() === "", "PIN retained after disabling");
+  await page.getByLabel("PIN", { exact: true }).fill("1234");
+  await page.getByLabel("Confirmar PIN", { exact: true }).fill("5678");
+  await page.getByRole("button", { name: "Continuar", exact: true }).click();
+  await page.waitForURL("**/onboarding/listo");
+  await page.getByRole("link", { name: "Ir a Inicio", exact: true }).click();
+  await page.waitForURL(base + "/");
+  await page.getByRole("radio", { name: "Turso", exact: true }).focus();
+  await page.keyboard.press("Space");
+  await page.getByRole("button", { name: "Continuar", exact: true }).click();
+  await page.waitForURL("**/onboarding/turso");
+  check(await page.getByRole("heading", { name: "Conecta Turso", exact: true }).count() === 1, "Existing Turso route broken");
+  await page.goto(`${base}/onboarding/turso/perfil`);
+  await page.getByRole("button", { name: "Mostrar contraseña", exact: true }).click();
+  check(await page.getByLabel("Contraseña", { exact: true }).getAttribute("type") === "text", "Password visibility failed");
+  check(await page.getByLabel("Confirmar contraseña", { exact: true }).getAttribute("type") === "password", "Password toggles are coupled");
+  await page.getByRole("button", { name: "Mostrar confirmar contraseña", exact: true }).click();
+  check(await page.getByLabel("Confirmar contraseña", { exact: true }).getAttribute("type") === "text", "Confirmation visibility failed");
+  await page.getByLabel("Contraseña", { exact: true }).fill("short");
+  await page.getByLabel("Confirmar contraseña", { exact: true }).fill("short");
+  await page.getByRole("button", { name: "Crear perfil", exact: true }).click();
+  check(await page.getByLabel("Contraseña", { exact: true }).evaluate(e => e.validity.tooShort), "Short password accepted");
+  await page.getByLabel("Contraseña", { exact: true }).fill("abcdefgh");
+  await page.getByLabel("Confirmar contraseña", { exact: true }).fill("different");
+  await page.getByRole("button", { name: "Crear perfil", exact: true }).click();
+  check(await page.getByLabel("Confirmar contraseña", { exact: true }).evaluate(e => !e.validity.valid), "Password mismatch accepted");
+  await page.getByLabel("Confirmar contraseña", { exact: true }).fill("abcdefgh");
+  await page.getByRole("button", { name: "Crear perfil", exact: true }).click();
+  check(page.url().endsWith("/onboarding/turso/perfil"), "Unconnected Turso submitted successfully");
+  check(await page.getByRole("status").innerText() !== "", "Missing Turso integration notice");
+  await page.evaluate(theme => { if (theme) localStorage.setItem("modus-theme", theme); else localStorage.removeItem("modus-theme"); }, previousTheme);
+  await page.reload();
+  await page.emulateMedia({ reducedMotion: null });
+  return "Onboarding: themes, persistence, responsive, navigation, keyboard and validation passed.";
+}

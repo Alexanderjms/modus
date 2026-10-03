@@ -1,0 +1,31 @@
+.panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 200ms cubic-bezier(0.23, 1, 0.32, 1),
+    opacity 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.panel[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.chevron {
+  transition: transform 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.chevron[data-open="true"] {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    transition: opacity 125ms ease;
+  }
+
+  .chevron {
+    transition: none;
+  }
+}
