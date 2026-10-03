@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties } from "react";
+import Link from "next/link";
 import { AppShell } from "./app-shell";
 import styles from "./home-dashboard.module.css";
 
@@ -96,15 +97,14 @@ export function HomeDashboard() {
         <section aria-labelledby="continue-heading" className={styles.continue}>
           <div className={styles.sectionHeader}>
             <h2 id="continue-heading">Continuar trabajando</h2>
-            <button
+            <Link
+              href="/proyectos"
               className={styles.textButton}
               aria-label="Ver todos los proyectos"
-              title={unavailable}
-              disabled
             >
               Ver todos
               <Icon name="chevron-right" className={styles.textButtonIcon} />
-            </button>
+            </Link>
           </div>
           <div className={styles.projects}>
             {visibleProjects.length ? (

@@ -37,6 +37,4 @@ next-env.d.ts
 .commandcode/
 .playwright-mcp/
 
-# Local browser verification scripts
-/checks/*.browser.js
-/checks/*.browser.cjs
+/checks/

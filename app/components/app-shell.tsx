@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { ThemeToggle } from "./brand-header";
+import { initialProjects, type Project } from "./projects-data";
 import logo from "../public/Logo.png";
 import styles from "./home-dashboard.module.css";
 
@@ -13,16 +14,27 @@ export function AppShell({
   query,
   onSearch,
   headerLeft,
+  projects = initialProjects,
+  activeProject,
 }: {
   children: ReactNode;
-  active?: "inicio" | "tareas";
+  active?: "inicio" | "tareas" | "proyectos";
   query: string;
   onSearch: (value: string) => void;
   headerLeft?: ReactNode;
+  projects?: readonly Project[];
+  activeProject?: string;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [projectsOpen, setProjectsOpen] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileId = useId();
+  const projectsId = useId();
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 640px)").matches) setSidebarOpen(false);
+  }, []);
   const placeholder =
-    active === "inicio" ? "Buscar en Sona…" : "Buscar en el proyecto…";
+    active === "tareas" ? "Buscar en el proyecto…" : "Buscar en Sona…";
   return (
     <div className={styles.dashboard}>
       <div aria-hidden="true" className={styles.ambient}>
@@ -33,16 +45,14 @@ export function AppShell({
       </div>
       <div
         className={`${styles.navSlot} panel-slot`}
-        data-closed={!sidebarOpen}
+        data-collapsed={!sidebarOpen}
       >
         <div className="panel-clip">
           <aside
             id="main-sidebar"
-            className={`${styles.sidebar} panel-slide-left`}
+            className={styles.sidebar}
             aria-label="Navegación principal"
-            data-closed={!sidebarOpen}
-            aria-hidden={!sidebarOpen}
-            inert={!sidebarOpen}
+            data-collapsed={!sidebarOpen}
           >
             <Link
               href="/inicio"
@@ -52,34 +62,74 @@ export function AppShell({
               className={active === "inicio" ? styles.activeNav : undefined}
             >
               <i aria-hidden="true" className="bi bi-house" />
+              <span className={styles.navLabel}>Inicio</span>
             </Link>
-            <button
-              aria-label="Proyectos"
-              title="Esta función aún no está integrada."
-              disabled
+            <div
+              className={`${styles.projectsNav} ${active === "proyectos" || active === "tareas" ? styles.activeNav : ""}`}
             >
-              <i aria-hidden="true" className="bi bi-folder" />
-            </button>
-            <Link
-              href="/workspace"
-              aria-label="Tareas"
-              title="Tareas"
-              aria-current={active === "tareas" ? "page" : undefined}
-              className={active === "tareas" ? styles.activeNav : undefined}
+              <Link
+                href="/proyectos"
+                aria-label="Proyectos"
+                title="Proyectos"
+                aria-current={active === "proyectos" ? "page" : undefined}
+              >
+                <i aria-hidden="true" className="bi bi-folder" />
+                <span className={styles.navLabel}>Proyectos</span>
+              </Link>
+              <button
+                className={styles.projectsToggle}
+                aria-label={
+                  projectsOpen ? "Colapsar proyectos" : "Expandir proyectos"
+                }
+                aria-expanded={projectsOpen}
+                aria-controls={projectsId}
+                onClick={() => setProjectsOpen((open) => !open)}
+              >
+                <i aria-hidden="true" className="bi bi-chevron-down" />
+              </button>
+            </div>
+            <div
+              id={projectsId}
+              className={styles.projectTreeSlot}
+              data-closed={!sidebarOpen || !projectsOpen}
+              aria-hidden={!sidebarOpen || !projectsOpen}
+              inert={!sidebarOpen || !projectsOpen}
             >
-              <i aria-hidden="true" className="bi bi-list-check" />
-            </Link>
+              <ul
+                className={styles.projectTree}
+                aria-label="Proyectos disponibles"
+              >
+                {projects
+                  .filter((project) => project.status !== "archived")
+                  .map((project) => (
+                    <li key={project.id}>
+                      <Link
+                        href={`/workspace?project=${encodeURIComponent(project.name)}`}
+                        title={project.name}
+                        aria-current={
+                          activeProject === project.name ? "page" : undefined
+                        }
+                      >
+                        <span>{project.name}</span>
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            </div>
             <div className={styles.spacer} />
             <button
-              aria-label="Configuración"
-              title="Esta función aún no está integrada."
-              disabled
+              className={styles.sidebarUser}
+              aria-label="Menú de Alexander"
+              aria-expanded={profileOpen}
+              aria-controls={profileId}
+              popoverTarget={profileId}
+              title="Menú de Alexander"
             >
-              <i aria-hidden="true" className="bi bi-gear" />
+              <span className={styles.avatar} aria-label="Alexander">
+                AL
+              </span>
+              <span className={styles.navLabel}>Alexander</span>
             </button>
-            <span className={styles.avatar} aria-label="Alexander">
-              AL
-            </span>
           </aside>
         </div>
       </div>
@@ -91,9 +141,11 @@ export function AppShell({
             <button
               className={styles.sidebarToggle}
               aria-label={
-                sidebarOpen ? "Ocultar navegación" : "Mostrar navegación"
+                sidebarOpen ? "Colapsar navegación" : "Expandir navegación"
               }
-              title={sidebarOpen ? "Ocultar navegación" : "Mostrar navegación"}
+              title={
+                sidebarOpen ? "Colapsar navegación" : "Expandir navegación"
+              }
               aria-expanded={sidebarOpen}
               aria-controls="main-sidebar"
               onClick={() => setSidebarOpen((open) => !open)}
@@ -123,7 +175,7 @@ export function AppShell({
             <input
               type="search"
               aria-label={
-                active === "inicio" ? "Buscar en Sona" : "Buscar en el proyecto"
+                active === "tareas" ? "Buscar en el proyecto" : "Buscar en Sona"
               }
               placeholder={placeholder}
               value={query}
@@ -132,6 +184,23 @@ export function AppShell({
           </label>
         </header>
         {children}
+      </div>
+      <div
+        id={profileId}
+        popover="auto"
+        className={styles.profileMenu}
+        aria-label="Opciones de Alexander"
+        onToggle={(event) => setProfileOpen(event.newState === "open")}
+      >
+        <p>Alexander</p>
+        <button disabled title="Esta función aún no está integrada.">
+          <i aria-hidden="true" className="bi bi-person" />
+          Perfil
+        </button>
+        <button disabled title="Esta función aún no está integrada.">
+          <i aria-hidden="true" className="bi bi-gear" />
+          Configuración
+        </button>
       </div>
     </div>
   );

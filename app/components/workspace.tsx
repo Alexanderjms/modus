@@ -8,9 +8,13 @@ import { WorkspaceContext } from "./workspace-context";
 import { columns, initialTasks } from "./workspace-data";
 import styles from "./workspace.module.css";
 
-export function Workspace() {
+export function Workspace({
+  initialProject = "Observatorio Regional",
+}: {
+  initialProject?: string;
+}) {
   const [query, setQuery] = useState("");
-  const [project, setProject] = useState("Observatorio Regional");
+  const [project, setProject] = useState(initialProject);
   const [chatOpen, setChatOpen] = useState(true);
   const [contextOpen, setContextOpen] = useState(true);
   const [tasks, setTasks] = useState(initialTasks);
@@ -92,6 +96,7 @@ export function Workspace() {
   }
   return (
     <AppShell
+      activeProject={project}
       active="tareas"
       query={query}
       onSearch={setQuery}

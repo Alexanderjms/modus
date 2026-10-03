@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import styles from "./workspace.module.css";
 
 const projects = [
@@ -102,10 +103,10 @@ export function ProjectSelector({
             .includes(query.trim().toLocaleLowerCase("es")),
         ) && <p className={styles.notice}>Sin proyectos que coincidan.</p>}
         <div className={styles.projectMenuActions}>
-          <button disabled title="Esta función aún no está integrada.">
+          <Link href="/proyectos">
             <i aria-hidden="true" className="bi bi-grid" />
             Ver todos los proyectos
-          </button>
+          </Link>
           <button disabled title="Esta función aún no está integrada.">
             <i aria-hidden="true" className="bi bi-plus" />
             Nuevo proyecto
