@@ -1,0 +1,49 @@
+.ambient {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+.ambient > div {
+  position: absolute;
+  width: 640px;
+  height: 640px;
+  border-radius: 50%;
+}
+.ambient > div:nth-child(1) {
+  left: -160px;
+  top: 420px;
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    var(--ambient-blue),
+    transparent
+  );
+}
+.ambient > div:nth-child(2) {
+  left: 360px;
+  top: -140px;
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    var(--ambient-violet),
+    transparent
+  );
+}
+.ambient > div:nth-child(3) {
+  left: 780px;
+  top: 420px;
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    var(--ambient-peach),
+    transparent
+  );
+}
+.ambient > div:nth-child(4) {
+  left: 1220px;
+  top: -140px;
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 50%,
+    var(--ambient-cyan),
+    transparent
+  );
+}

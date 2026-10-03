@@ -1,0 +1,132 @@
+.icon {
+  color: #007aff;
+}
+.menu {
+  position: relative;
+  flex-shrink: 0;
+}
+.menu::details-content {
+  transition: content-visibility 180ms allow-discrete;
+}
+.menu summary {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--muted);
+  font-size: 14px;
+}
+.menu summary::-webkit-details-marker {
+  display: none;
+}
+.menu summary:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.menuBody {
+  position: absolute;
+  right: 0;
+  top: 29px;
+  z-index: 3;
+  width: 224px;
+  padding: 5px;
+  border: 1px solid var(--divider);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 10px 24px #00000029;
+  transform-origin: top right;
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity 180ms var(--ease-drawer),
+    transform 180ms var(--ease-drawer);
+}
+.menu:not([open]) .menuBody {
+  opacity: 0;
+  transform: scale(0.95);
+  pointer-events: none;
+}
+@starting-style {
+  .menu[open] .menuBody {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+.menuBody :is(a, button) {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  text-align: left;
+  font-size: 12.5px;
+  border-radius: 5px;
+}
+.menuBody button:disabled {
+  color: var(--muted);
+}
+.menuBody .danger {
+  color: #b3261e;
+}
+.sortMenu {
+  z-index: 25;
+}
+.sortMenu > summary {
+  display: flex;
+  width: auto;
+  height: 30px;
+  padding: 0 11px;
+  gap: 6px;
+  font-size: 11.5px;
+  border-radius: 7px;
+}
+.sortMenu .menuBody {
+  top: calc(100% + 6px);
+  width: max(224px, 100%);
+}
+.sortMenu .sortOption span {
+  flex: 1;
+}
+.menuBody .sortOption[aria-pressed="true"] {
+  background: #007aff;
+  color: white;
+  font-weight: 600;
+}
+.sortOption[aria-pressed="true"] .icon {
+  color: white;
+}
+.danger .icon {
+  color: inherit;
+}
+:global([data-theme="dark"]) .menuBody .danger {
+  color: #ff8a80;
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu summary:hover,
+  .menu[open] summary,
+  .menuBody :is(a, button:enabled):hover {
+    background: var(--page);
+  }
+}
+@media (max-width: 640px) {
+  .sortMenu,
+  .sortMenu > summary {
+    width: 100%;
+  }
+  .sortMenu .menuBody {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menuBody,
+  .menu:not([open]) .menuBody {
+    transform: none;
+    transition: opacity 120ms ease;
+  }
+  .menu::details-content {
+    transition-duration: 120ms;
+  }
+}

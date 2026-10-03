@@ -1,0 +1,117 @@
+.header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  height: 48px;
+  padding: 0 14px;
+}
+.headerLeft {
+  position: absolute;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+.sidebarToggle {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 16px;
+}
+.brand {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.brand img {
+  transform: translateY(-2px);
+}
+.brandName {
+  line-height: 1;
+}
+@media (max-width: 640px) {
+  .header {
+    height: 88px;
+    padding-top: 40px;
+  }
+  .headerLeft {
+    top: 8px;
+  }
+  .brand {
+    top: 8px;
+  }
+  .headerWithSelector {
+    height: 128px;
+    padding-top: 80px;
+  }
+  .headerWithSelector .headerLeft {
+    top: 48px;
+    width: calc(100% - 28px);
+    max-width: calc(100% - 28px);
+  }
+}
+.themeToggle {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  background: var(--surface);
+  color: var(--muted);
+  outline: 1px solid var(--divider);
+  outline-offset: -0.5px;
+}
+.themeToggle i {
+  font-size: 14px;
+}
+.search {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 190px;
+  padding: 5px 10px;
+  background: var(--surface);
+  outline: 1px solid var(--divider);
+  outline-offset: -0.5px;
+  border-radius: 6px;
+  color: var(--secondary);
+  font-size: 13px;
+}
+.search input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12.5px;
+}
+.search input::placeholder {
+  color: var(--secondary);
+  opacity: 1;
+}
+.search:focus-within {
+  outline: 2px solid #007aff;
+  outline-offset: -2px;
+}
+.search input:focus-visible {
+  outline: none;
+}
+@media (max-width: 480px) {
+  .header {
+    padding: 40px 10px 0;
+    gap: 8px;
+  }
+  .search {
+    width: 150px;
+    flex: 1;
+  }
+}

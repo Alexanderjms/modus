@@ -1,0 +1,43 @@
+.dashboard {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-height: 100svh;
+  overflow: clip;
+  background: var(--page);
+  color: var(--foreground);
+  line-height: normal;
+  --secondary: #6e6e73;
+  --track: #ececef;
+  --plan-header: #f2f7ff;
+  --plan-accent: #007aff;
+  --plan-chip: #e5f0ff;
+  --plan-chip-text: #005bbf;
+}
+:global([data-theme="dark"]) .dashboard {
+  --secondary: #a5a5af;
+  --track: #373840;
+  --plan-header: #426585;
+  --plan-accent: #a8d4ff;
+  --plan-chip: #244a70;
+  --plan-chip-text: #c2e1ff;
+}
+.dashboard button,
+.dashboard a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 7px;
+}
+.dashboard button:disabled {
+  cursor: not-allowed;
+}
+.dashboard :is(button, a, input):focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 3px;
+}
+.content {
+  flex: 1;
+  min-width: 0;
+}

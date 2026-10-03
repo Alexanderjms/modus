@@ -1,0 +1,200 @@
+.sidebar {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: 100svh;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px 8px;
+}
+.navSlot {
+  --panel-size: 176px;
+  position: sticky;
+  top: 0;
+  height: 100svh;
+}
+.navSlot[data-collapsed="true"] {
+  --panel-size: 52px;
+}
+.navLabel {
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+}
+.sidebar[data-collapsed="true"] .navLabel {
+  display: none;
+}
+.sidebar .sidebarUser {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px;
+  transition: background 140ms ease-out, color 140ms ease-out;
+}
+.sidebarUser[aria-expanded="true"] {
+  background: var(--selected);
+}
+@media (hover: hover) and (pointer: fine) {
+  .sidebar .sidebarUser:hover {
+    background: var(--selected);
+    filter: none;
+  }
+}
+.sidebar :is(button, a) > i {
+  width: 20px;
+  flex-shrink: 0;
+  color: #007aff;
+  transition: color 140ms ease-out;
+}
+.sidebar .activeNav > i {
+  color: white;
+}
+.sidebar :is(button, a) {
+  flex-shrink: 0;
+  width: 100%;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 17px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 8px;
+  transition: background 140ms ease-out, color 140ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .sidebar > a:hover {
+    background: #007aff;
+    color: white;
+    filter: none;
+  }
+  .sidebar > a:hover > i {
+    color: white;
+  }
+  .sidebar .projectsNav:hover {
+    background: #007aff;
+    filter: none;
+  }
+  .sidebar .projectsNav:hover :is(a, button, i) {
+    color: white;
+    filter: none;
+  }
+}
+.sidebar .activeNav {
+  background: #007aff;
+  color: white;
+}
+.projectsNav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  transition: background 140ms ease-out, color 140ms ease-out;
+}
+.sidebar .projectsNav {
+  border-radius: 8px;
+}
+.sidebar .projectsNav.activeNav :is(a, button, i) {
+  color: white;
+}
+.sidebar .projectsNav > a {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar .projectsToggle {
+  width: 26px;
+  padding: 0;
+  justify-content: center;
+  transition: background 140ms ease-out, color 140ms ease-out;
+}
+.projectsToggle i {
+  font-size: 11px;
+  transition: transform 200ms var(--ease-drawer), color 140ms ease-out;
+}
+.projectsToggle[aria-expanded="false"] i {
+  transform: rotate(-90deg);
+}
+.sidebar[data-collapsed="true"] .projectsToggle {
+  display: none;
+}
+.projectTreeSlot {
+  display: grid;
+  grid-template-rows: 1fr;
+  min-height: 0;
+  opacity: 1;
+  transition:
+    grid-template-rows 200ms var(--ease-drawer),
+    opacity 200ms var(--ease-drawer);
+}
+.projectTreeSlot[data-closed="true"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.projectTree {
+  list-style: none;
+  min-height: 0;
+  margin: 0 0 0 20px;
+  padding: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  visibility: visible;
+  transition: visibility 0s;
+}
+.projectTree::-webkit-scrollbar {
+  display: none;
+}
+.projectTreeSlot[data-closed="true"] .projectTree {
+  visibility: hidden;
+  transition-delay: 200ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .projectTreeSlot {
+    transition: none;
+  }
+  .projectsToggle i {
+    transition: none;
+  }
+  .projectTreeSlot[data-closed="true"] .projectTree {
+    transition-delay: 0s;
+  }
+}
+.sidebar .projectTree a {
+  cursor: pointer;
+  height: 30px;
+  font-size: 11.5px;
+  transition: background 140ms ease-out, color 140ms ease-out;
+}
+.projectTree a span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar .projectTree a[aria-current="page"] {
+  background: var(--selected);
+  color: #007aff;
+  font-weight: 600;
+}
+@media (hover: hover) and (pointer: fine) {
+  .projectTree a:hover {
+    background: var(--selected);
+    filter: none;
+  }
+}
+.spacer {
+  flex: 1;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #dce3f2;
+  color: #3b4a66;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import styles from "./workspace.module.css";
+import styles from "./project-selector.module.css";
+import shared from "../workspace.module.css";
 
 const projects = [
   "Observatorio Regional",
@@ -101,7 +102,7 @@ export function ProjectSelector({
           name
             .toLocaleLowerCase("es")
             .includes(query.trim().toLocaleLowerCase("es")),
-        ) && <p className={styles.notice}>Sin proyectos que coincidan.</p>}
+        ) && <p className={shared.notice}>Sin proyectos que coincidan.</p>}
         <div className={styles.projectMenuActions}>
           <Link href="/proyectos">
             <i aria-hidden="true" className="bi bi-grid" />

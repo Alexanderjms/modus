@@ -1,0 +1,167 @@
+.taskCard,
+.doneCard {
+  position: relative;
+  flex-shrink: 0;
+  padding: 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px #00000010;
+  cursor: grab;
+}
+.taskCard {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.taskCard h3,
+.doneCard h3 {
+  font-size: 12.5px;
+  line-height: 16px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.tags > span {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  background: #e3eeff;
+  color: #2a5aa8;
+}
+.tags > [data-tag="Rendimiento"] {
+  background: #ffe9da;
+  color: #a85a17;
+}
+.tags > [data-tag="Infraestructura"] {
+  background: #ececef;
+  color: #5b5b62;
+}
+.tags > [data-tag="Testing"] {
+  background: #ede3ff;
+  color: #7144a8;
+}
+.tags > [data-tag="Investigadores"] {
+  background: #e0f3e7;
+  color: #2c7a50;
+}
+.tags > [data-tag="Investigación"],
+.tags > [data-tag="Documentación"] {
+  background: #fff1cf;
+  color: #8a6100;
+}
+.tags > [data-tag="UI/UX"] {
+  background: #f1e0f7;
+  color: #8a3aa8;
+}
+.tags > [data-tag="Bug"] {
+  background: #ffe5e3;
+  color: #b3261e;
+}
+.taskMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.priority {
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.priority b {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34c759;
+}
+.priority[data-priority="media"] b {
+  background: #ff9500;
+}
+.priority[data-priority="alta"] b {
+  background: #ff3b30;
+}
+.assignee {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  background: #dce3f2;
+  color: #3b4a66;
+  border-radius: 50%;
+  font-size: 8px;
+}
+.assignee[data-person="MG"] {
+  background: #f4e0ea;
+  color: #8a3a66;
+}
+.assignee[data-person="JL"] {
+  background: #ddeedc;
+  color: #3a6a3f;
+}
+.assignee[data-person="AR"] {
+  background: #efe0f7;
+  color: #6a3a8a;
+}
+.doneCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+}
+.doneBadge {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #34c759;
+  color: white;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.doneCard h3 {
+  flex: 1;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.doneCard > span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.moveTask {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: 5px;
+}
+.taskCard:hover .moveTask,
+.doneCard:hover .moveTask,
+.moveTask:focus-visible {
+  opacity: 1;
+}
+@media (max-width: 760px) {
+  .moveTask {
+    opacity: 1;
+  }
+  .taskCard h3 {
+    padding-right: 20px;
+  }
+  .doneCard {
+    padding-right: 30px;
+  }
+}
