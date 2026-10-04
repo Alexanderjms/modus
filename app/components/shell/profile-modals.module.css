@@ -36,13 +36,18 @@
   outline-offset: -2px;
 }
 
+.providersDialog.providersDialog {
+  width: min(840px, calc(100vw - 32px));
+}
+
 .providerList {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
 .providerCard {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -56,11 +61,23 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .providerName {
   font-size: 13px;
   font-weight: 600;
+}
+
+.providerLogo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex: 0 0 24px;
+}
+
+:global([data-theme="dark"]) .invertInDark {
+  filter: invert(1);
 }
 
 .providerBadge {
@@ -77,4 +94,10 @@
   background: #34c7591f;
   color: #34c759;
   border-color: #34c7594d;
+}
+
+@media (max-width: 600px) {
+  .providerList {
+    grid-template-columns: 1fr;
+  }
 }

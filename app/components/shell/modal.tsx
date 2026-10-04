@@ -10,6 +10,7 @@ export function Modal({
   children,
   onSubmit,
   submitLabel = "Guardar",
+  className = "",
 }: {
   open: boolean;
   onClose: () => void;
@@ -17,6 +18,7 @@ export function Modal({
   children: ReactNode;
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   submitLabel?: string;
+  className?: string;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -34,7 +36,7 @@ export function Modal({
   return (
     <dialog
       ref={dialogRef}
-      className={styles.dialog}
+      className={`${styles.dialog} ${className}`}
       onClose={onClose}
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();

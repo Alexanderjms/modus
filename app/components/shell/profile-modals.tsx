@@ -93,7 +93,10 @@ export function ProfileModal({
               />
             </div>
             <div className={styles.field}>
-              <label htmlFor="profile-confirm-password" className={styles.label}>
+              <label
+                htmlFor="profile-confirm-password"
+                className={styles.label}
+              >
                 Confirmar contraseña
               </label>
               <input
@@ -120,9 +123,48 @@ export function ProvidersModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const [openaiKey, setOpenaiKey] = useState("");
-  const [anthropicKey, setAnthropicKey] = useState("");
-  const [groqKey, setGroqKey] = useState("");
+  const [keys, setKeys] = useState<Record<string, string>>({});
+
+  const providers = [
+    {
+      id: "bedrock",
+      name: "AWS Amazon Bedrock",
+      placeholder: "API key",
+      logo: "aws-amazon-bedrock.svg",
+    },
+    {
+      id: "cerebras",
+      name: "Cerebras",
+      placeholder: "API key",
+      logo: "cerebras.svg",
+    },
+    {
+      id: "deepinfra",
+      name: "DeepInfra",
+      placeholder: "API key",
+      logo: "deepinfra.svg",
+    },
+    { id: "google", name: "Google AI Studio", placeholder: "API key", logo: "google.svg" },
+    { id: "groq", name: "Groq", placeholder: "gsk_...", logo: "groq.svg" },
+    {
+      id: "nvidia",
+      name: "NVIDIA",
+      placeholder: "API key",
+      logo: "nvidia.svg",
+    },
+    {
+      id: "opencode",
+      name: "OpenCode",
+      placeholder: "API key",
+      logo: "opencode.svg",
+    },
+    {
+      id: "openrouter",
+      name: "OpenRouter",
+      placeholder: "API key",
+      logo: "openrouter-mono.svg",
+    },
+  ];
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -134,71 +176,40 @@ export function ProvidersModal({
       open={open}
       onClose={onClose}
       title="Proveedores y API Keys"
+      className={styles.providersDialog}
       onSubmit={handleSubmit}
     >
       <div className={styles.providerList}>
-        <div className={styles.providerCard}>
-          <div className={styles.providerHeader}>
-            <i aria-hidden="true" className="bi bi-cpu text-[16px] text-[#007AFF]" />
-            <span className={styles.providerName}>OpenAI</span>
-            <span
-              className={`${styles.providerBadge} ${openaiKey ? styles.active : ""}`}
-            >
-              {openaiKey ? "Configurado" : "Sin conectar"}
-            </span>
-          </div>
-          <input
-            type="password"
-            placeholder="sk-..."
-            value={openaiKey}
-            onChange={(e) => setOpenaiKey(e.target.value)}
-            className={styles.input}
-          />
-        </div>
-
-        <div className={styles.providerCard}>
-          <div className={styles.providerHeader}>
-            <i
-              aria-hidden="true"
-              className="bi bi-stars text-[16px] text-[#AF52DE]"
+        {providers.map(({ id, name, placeholder, logo }) => (
+          <div className={styles.providerCard} key={id}>
+            <div className={styles.providerHeader}>
+              <img
+                alt=""
+                aria-hidden="true"
+                className={`${styles.providerLogo} ${id === "opencode" || id === "openrouter" ? styles.invertInDark : ""}`}
+                src={`/providers/${logo}`}
+              />
+              <span className={styles.providerName}>{name}</span>
+              <span
+                className={`${styles.providerBadge} ${keys[id] ? styles.active : ""}`}
+              >
+                {keys[id] ? "Configurado" : "Sin conectar"}
+              </span>
+            </div>
+            <input
+              id={`provider-key-${id}`}
+              aria-label={`${name} API key`}
+              type="password"
+              autoComplete="off"
+              placeholder={placeholder}
+              value={keys[id] ?? ""}
+              onChange={(event) =>
+                setKeys((current) => ({ ...current, [id]: event.target.value }))
+              }
+              className={styles.input}
             />
-            <span className={styles.providerName}>Anthropic</span>
-            <span
-              className={`${styles.providerBadge} ${anthropicKey ? styles.active : ""}`}
-            >
-              {anthropicKey ? "Configurado" : "Sin conectar"}
-            </span>
           </div>
-          <input
-            type="password"
-            placeholder="sk-ant-..."
-            value={anthropicKey}
-            onChange={(e) => setAnthropicKey(e.target.value)}
-            className={styles.input}
-          />
-        </div>
-
-        <div className={styles.providerCard}>
-          <div className={styles.providerHeader}>
-            <i
-              aria-hidden="true"
-              className="bi bi-lightning-charge text-[16px] text-[#FF9500]"
-            />
-            <span className={styles.providerName}>Groq</span>
-            <span
-              className={`${styles.providerBadge} ${groqKey ? styles.active : ""}`}
-            >
-              {groqKey ? "Configurado" : "Sin conectar"}
-            </span>
-          </div>
-          <input
-            type="password"
-            placeholder="gsk_..."
-            value={groqKey}
-            onChange={(e) => setGroqKey(e.target.value)}
-            className={styles.input}
-          />
-        </div>
+        ))}
       </div>
     </Modal>
   );

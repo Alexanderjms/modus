@@ -14,6 +14,7 @@ const geist = Geist({
 export const metadata: Metadata = {
   title: "modus",
   description: "modus project",
+  icons: { icon: "/favicon.png" },
 };
 
 export default function RootLayout({
