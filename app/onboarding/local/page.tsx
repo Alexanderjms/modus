@@ -5,30 +5,16 @@ import { OnboardingBackButton } from "../../components/onboarding-back-button";
 
 export const metadata: Metadata = {
   title: "Configura tu perfil | Modus",
-  description: "Permodusliza tu experiencia en Modus.",
 };
 
 export default function LocalOnboardingPage() {
   return (
     <OnboardingFrame>
       <section
-        aria-labelledby="local-profile-title"
+        aria-label="Perfil local"
         className="relative z-10 flex w-full max-w-[400px] flex-col items-center gap-6"
       >
         <OnboardingBackButton />
-        <header className="flex w-full flex-col items-center gap-5">
-          <div className="flex w-full flex-col items-center gap-2 text-center">
-            <h1
-              id="local-profile-title"
-              className="w-full text-[20px] font-bold leading-[normal] tracking-[-0.3px] text-[var(--foreground)]"
-            >
-              Configura tu perfil
-            </h1>
-            <p className="w-full text-[12.5px] leading-[18px] text-[var(--muted)]">
-              Permodusliza tu experiencia en Modus.
-            </p>
-          </div>
-        </header>
         <LocalProfileForm />
       </section>
     </OnboardingFrame>

@@ -5,10 +5,12 @@ export function EmptyState({
   icon,
   title,
   description,
+  onCreate,
 }: {
   icon: string;
   title: string;
   description: string;
+  onCreate?: () => void;
 }) {
   const headingId = useId();
   return (
@@ -20,8 +22,9 @@ export function EmptyState({
       <p>{description}</p>
       <button
         className={styles.primary}
-        title="Esta función aún no está integrada."
-        disabled
+        onClick={onCreate}
+        title={onCreate ? undefined : "Esta función aún no está integrada."}
+        disabled={!onCreate}
       >
         <i aria-hidden="true" className="bi bi-plus" />
         Nuevo proyecto

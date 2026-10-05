@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { LocalStoragePreparation } from "./local-storage-preparation";
 import styles from "./turso-guide.module.css";
 
 const INPUT_CLASS =
@@ -10,29 +11,311 @@ const INPUT_CLASS =
 export function LocalProfileForm() {
   const router = useRouter();
   const nameInput = useRef<HTMLInputElement>(null);
-  const pinFields = useRef<HTMLFieldSetElement>(null);
+  const pinInput = useRef<HTMLInputElement>(null);
+  const confirmationInput = useRef<HTMLInputElement>(null);
+  const screenTitle = useRef<HTMLHeadingElement>(null);
+  const requestPending = useRef(false);
   const [pinEnabled, setPinEnabled] = useState(false);
+  const [name, setName] = useState("");
+  const [pin, setPin] = useState("");
+  const [pinConfirmation, setPinConfirmation] = useState("");
+  const [screen, setScreen] = useState<"form" | "confirm" | "pending">("form");
+  const [error, setError] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState("Iniciando la creación…");
 
   useEffect(() => {
-    const input = nameInput.current;
-    if (input) {
-      input.focus();
-      input.setSelectionRange(input.value.length, input.value.length);
-    }
-  }, []);
+    if (screen === "form") nameInput.current?.focus();
+    else screenTitle.current?.focus();
+  }, [screen]);
 
   useEffect(() => {
-    const inputs = pinFields.current?.querySelectorAll("input");
-    if (pinEnabled) inputs?.[0]?.focus({ preventScroll: true });
-    else
-      inputs?.forEach((input) => {
-        input.value = "";
-      });
+    if (pinEnabled) pinInput.current?.focus({ preventScroll: true });
   }, [pinEnabled]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    router.push("/onboarding/local/preparando");
+    setError("");
+    if (!name.trim()) {
+      setError("Introduce tu nombre.");
+      nameInput.current?.focus();
+      return;
+    }
+    if (pinEnabled && !/^[0-9]+$/.test(pin)) {
+      setError("Introduce un PIN formado solo por números.");
+      pinInput.current?.focus();
+      return;
+    }
+    if (pinEnabled && pin !== pinConfirmation) {
+      setError("Los PIN deben coincidir.");
+      confirmationInput.current?.focus();
+      return;
+    }
+    setScreen("confirm");
+  }
+
+  async function createStorage() {
+    if (requestPending.current) return;
+    requestPending.current = true;
+    setError("");
+    setProgress(0);
+    setProgressMessage("Iniciando la creación…");
+    setScreen("pending");
+
+    let succeeded = false;
+    let failureMessage = "";
+    try {
+      const response = await fetch("/api/onboarding/local", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/x-ndjson",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          pinEnabled,
+          ...(pinEnabled ? { pin, pinConfirmation } : {}),
+        }),
+      });
+
+      const fail = (message: string): Error => {
+        failureMessage = message;
+        return new Error(message);
+      };
+
+      if (response.status !== 200) {
+        const result = (await response.json().catch(() => null)) as {
+          error?: unknown;
+        } | null;
+        throw fail(
+          response.status === 409
+            ? "Ya existe un perfil local y no se sobrescribió."
+            : typeof result?.error === "string"
+              ? result.error
+              : "No se pudo crear el almacenamiento local. Inténtalo de nuevo.",
+        );
+      }
+
+      if (
+        !response.headers
+          .get("content-type")
+          ?.toLowerCase()
+          .startsWith("application/x-ndjson")
+      ) {
+        try {
+          await response.body?.cancel();
+        } catch {}
+        throw fail("La respuesta del servidor no contiene avances válidos. Inténtalo de nuevo.");
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw fail("No se recibió el progreso de creación. Inténtalo de nuevo.");
+
+      const decoder = new TextDecoder("utf-8", { fatal: true });
+      let buffer = "";
+      let lastProgress = 0;
+      let completionMessage: string | null = null;
+
+      const consumeLine = (line: string) => {
+        if (!line.trim()) throw fail("La respuesta de creación contiene una línea inválida.");
+
+        let event: unknown;
+        try {
+          event = JSON.parse(line);
+        } catch {
+          throw fail("La respuesta de creación contiene datos inválidos.");
+        }
+
+        if (!event || typeof event !== "object" || Array.isArray(event)) {
+          throw fail("La respuesta de creación contiene un evento inesperado.");
+        }
+
+        const record = event as Record<string, unknown>;
+        if (completionMessage !== null) {
+          throw fail("La respuesta de creación continuó después de completarse.");
+        }
+
+        if (record.type === "progress") {
+          if (
+            !Number.isInteger(record.progress) ||
+            (record.progress as number) < lastProgress ||
+            (record.progress as number) < 0 ||
+            (record.progress as number) > 99 ||
+            typeof record.message !== "string"
+          ) {
+            throw fail("La respuesta contiene un avance inválido.");
+          }
+          lastProgress = record.progress as number;
+          setProgress(lastProgress);
+          setProgressMessage(record.message as string);
+          return;
+        }
+
+        if (record.type === "complete") {
+          if (
+            record.progress !== 100 ||
+            typeof record.message !== "string" ||
+            record.message !== "Almacenamiento local creado."
+          ) {
+            throw fail("La respuesta de finalización no es válida.");
+          }
+          completionMessage = record.message as string;
+          return;
+        }
+
+        if (record.type === "error") {
+          if (
+            typeof record.error !== "string" ||
+            !Number.isInteger(record.status) ||
+            (record.status as number) < 400 ||
+            (record.status as number) > 599
+          ) {
+            throw fail("La respuesta contiene un error inválido.");
+          }
+          throw fail(
+            record.status === 409
+              ? "Ya existe un perfil local y no se sobrescribió."
+              : (record.error as string),
+          );
+        }
+
+        throw fail("La respuesta de creación contiene un tipo de evento inesperado.");
+      };
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          try {
+            buffer += decoder.decode(value, { stream: true });
+          } catch {
+            throw fail("La respuesta contiene texto UTF-8 inválido.");
+          }
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          lines.forEach(consumeLine);
+        }
+        try {
+          buffer += decoder.decode();
+        } catch {
+          throw fail("La respuesta terminó con texto UTF-8 incompleto.");
+        }
+        if (buffer.length > 0) {
+          throw fail("La respuesta de creación terminó de forma incompleta.");
+        }
+        if (completionMessage === null) {
+          throw fail("La respuesta terminó antes de confirmar la creación.");
+        }
+      } catch (cause) {
+        try {
+          await reader.cancel();
+        } catch {}
+        throw cause;
+      } finally {
+        reader.releaseLock();
+      }
+
+      setProgress(100);
+      setProgressMessage(completionMessage as string);
+      succeeded = true;
+      setPin("");
+      setPinConfirmation("");
+      router.replace("/onboarding/listo");
+    } catch (cause) {
+      setError(
+        failureMessage ||
+          (cause instanceof Error && cause.message
+            ? "La conexión se interrumpió durante la creación. Inténtalo de nuevo."
+            : "No se pudo conectar para crear el almacenamiento. Inténtalo de nuevo."),
+      );
+      setScreen("confirm");
+    } finally {
+      if (!succeeded) {
+        requestPending.current = false;
+      }
+    }
+  }
+
+  if (screen === "pending") {
+    return (
+      <LocalStoragePreparation progress={progress} message={progressMessage} />
+    );
+  }
+
+  if (screen === "confirm") {
+    return (
+      <section
+        aria-labelledby="local-confirmation-title"
+        className="flex w-full flex-col items-center gap-5"
+      >
+        <h2
+          ref={screenTitle}
+          id="local-confirmation-title"
+          tabIndex={-1}
+          className="w-full text-center text-[16px] font-semibold leading-[normal] text-[var(--foreground)] outline-none"
+        >
+          Revisa el almacenamiento local
+        </h2>
+
+        <dl className="flex w-full flex-col gap-3 text-[12.5px]">
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-[var(--muted)]">Nombre</dt>
+            <dd className="min-w-0 break-words text-right font-medium text-[var(--foreground)]">
+              {name.trim()}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-[var(--muted)]">Protección con PIN</dt>
+            <dd className="font-medium text-[var(--foreground)]">
+              {pinEnabled ? "Activada" : "Desactivada"}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="w-full text-left">
+          <p className="mb-2 text-[11px] font-semibold text-[var(--muted)]">
+            Al continuar, Modus realizará este proceso:
+          </p>
+          <ol className="list-decimal space-y-1 pl-5 text-[12px] leading-[18px] text-[var(--foreground)]">
+            <li>Crear el archivo SQLite local.</li>
+            <li>Crear las tablas y relaciones.</li>
+            <li>Cargar los estados y prioridades iniciales.</li>
+            <li>Guardar el nombre y, si activaste el PIN, su hash.</li>
+          </ol>
+        </div>
+
+        <p className="w-full text-[11.5px] leading-[17px] text-[var(--muted)]">
+          Tus datos se guardarán localmente en tu equipo, sin enviarse a internet.
+          Tú tendrás el control de tus archivos y su seguridad.
+        </p>
+
+        {error && (
+          <p role="alert" className="w-full text-[12px] leading-[18px] text-[#c2413a]">
+            {error}
+          </p>
+        )}
+
+        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              setScreen("form");
+            }}
+            className="rounded-[7px] px-[11px] py-[5px] text-[12px] font-semibold text-[var(--muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
+          >
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={createStorage}
+            className="inline-flex w-fit items-center justify-center rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-[12px] font-semibold leading-[normal] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
+          >
+            Crear almacenamiento local
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -54,14 +337,12 @@ export function LocalProfileForm() {
           name="name"
           type="text"
           required
+          maxLength={100}
           pattern={".*\\S.*"}
           autoComplete="given-name"
-          defaultValue="Alexander"
-          onChange={(event) => {
-            event.currentTarget.setCustomValidity(
-              event.currentTarget.value.trim() ? "" : "Introduce tu nombre.",
-            );
-          }}
+          placeholder="Tu nombre"
+          value={name}
+          onChange={(event) => setName(event.currentTarget.value)}
           className={INPUT_CLASS}
         />
       </div>
@@ -78,7 +359,16 @@ export function LocalProfileForm() {
             aria-labelledby="local-pin-label"
             aria-describedby="local-pin-help"
             aria-controls="local-pin-fields"
-            onClick={() => setPinEnabled((enabled) => !enabled)}
+            onClick={() => {
+              if (pinEnabled) {
+                setPinEnabled(false);
+                setPin("");
+                setPinConfirmation("");
+                confirmationInput.current?.setCustomValidity("");
+              } else {
+                setPinEnabled(true);
+              }
+            }}
             className={`relative h-5 w-9 shrink-0 rounded-[10px] transition-colors duration-[160ms] outline outline-1 -outline-offset-[0.5px] focus-visible:ring-2 focus-visible:ring-[#007AFF] focus-visible:ring-offset-2 ${
               pinEnabled
                 ? "bg-[#007AFF] outline-[#007AFF]"
@@ -103,7 +393,7 @@ export function LocalProfileForm() {
               id="local-pin-help"
               className="text-[11.5px] leading-[normal] text-[var(--muted)]"
             >
-              Solicitar un PIN al abrir Modus.
+              Guardar el hash de un PIN junto al perfil local.
             </p>
           </div>
         </div>
@@ -116,7 +406,6 @@ export function LocalProfileForm() {
         >
           <div className="min-h-0 overflow-hidden">
             <fieldset
-              ref={pinFields}
               disabled={!pinEnabled}
               aria-label="Configura tu PIN"
               className="flex w-full flex-col gap-4 pb-px pt-6"
@@ -130,10 +419,23 @@ export function LocalProfileForm() {
                 </label>
                 <input
                   id="local-pin"
+                  ref={pinInput}
                   type="password"
                   inputMode="numeric"
+                  pattern="[0-9]+"
+                  required
                   autoComplete="new-password"
                   placeholder="Introduce tu PIN"
+                  value={pin}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setPin(value);
+                    confirmationInput.current?.setCustomValidity(
+                      pinConfirmation && value !== pinConfirmation
+                        ? "Los PIN deben coincidir."
+                        : "",
+                    );
+                  }}
                   className={INPUT_CLASS}
                 />
               </div>
@@ -146,10 +448,21 @@ export function LocalProfileForm() {
                 </label>
                 <input
                   id="local-pin-confirmation"
+                  ref={confirmationInput}
                   type="password"
                   inputMode="numeric"
+                  pattern="[0-9]+"
+                  required
                   autoComplete="new-password"
                   placeholder="Repite tu PIN"
+                  value={pinConfirmation}
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setPinConfirmation(value);
+                    event.currentTarget.setCustomValidity(
+                      value && value !== pin ? "Los PIN deben coincidir." : "",
+                    );
+                  }}
                   className={INPUT_CLASS}
                 />
               </div>
@@ -157,6 +470,12 @@ export function LocalProfileForm() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <p role="alert" className="w-full text-[12px] leading-[18px] text-[#c2413a]">
+          {error}
+        </p>
+      )}
 
       <button
         type="submit"

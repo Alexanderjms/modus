@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, type FormEvent, type ReactNode } from "react";
 import styles from "./modal.module.css";
 
 export function Modal({
@@ -11,6 +11,7 @@ export function Modal({
   onSubmit,
   submitLabel = "Guardar",
   className = "",
+  pending = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -19,8 +20,10 @@ export function Modal({
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   submitLabel?: string;
   className?: string;
+  pending?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -37,18 +40,20 @@ export function Modal({
     <dialog
       ref={dialogRef}
       className={`${styles.dialog} ${className}`}
+      aria-labelledby={titleId}
       onClose={onClose}
-      onClick={(e) => {
-        if (e.target === dialogRef.current) onClose();
+      onCancel={(event) => {
+        event.preventDefault();
       }}
     >
-      <form onSubmit={onSubmit}>
+      <form onSubmit={onSubmit} aria-busy={pending || undefined}>
         <div className={styles.header}>
-          <h2>{title}</h2>
+          <h2 id={titleId}>{title}</h2>
           <button
             type="button"
             className={styles.closeButton}
             onClick={onClose}
+            disabled={pending}
             aria-label="Cerrar"
           >
             <i aria-hidden="true" className="bi bi-x-lg" />
@@ -57,13 +62,10 @@ export function Modal({
         <div className={styles.body}>{children}</div>
         <div className={styles.footer}>
           <button
-            type="button"
-            className={styles.cancelButton}
-            onClick={onClose}
+            type="submit"
+            className={styles.primaryButton}
+            disabled={pending}
           >
-            Cancelar
-          </button>
-          <button type="submit" className={styles.primaryButton}>
             {submitLabel}
           </button>
         </div>

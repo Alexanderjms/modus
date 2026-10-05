@@ -56,7 +56,6 @@ export function Header({
         />
         <span className={styles.brandName}>Modus</span>
       </Link>
-      <ThemeToggle className={themeToggleClassName} />
       <label className={styles.search}>
         <i aria-hidden="true" className="bi bi-search" />
         <input
@@ -69,6 +68,7 @@ export function Header({
           onChange={(event) => onSearch(event.target.value)}
         />
       </label>
+      <ThemeToggle className={themeToggleClassName} />
     </header>
   );
 }

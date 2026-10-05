@@ -75,10 +75,10 @@ Confirmación de configuración completada y bienvenida al espacio de trabajo.
 
 ### Requisitos previos
 
-- [Node.js](https://nodejs.org/) (versión 18 o superior recomendada)
+- [Node.js](https://nodejs.org/) (versión 22.13+ o 24 recomendada para soporte nativo de `node:sqlite`)
 - [pnpm](https://pnpm.io/) (`npm install -g pnpm`)
 
-### Instalación
+### Instalación y Primer Uso
 
 1. **Clonar el repositorio:**
 
@@ -99,7 +99,13 @@ Confirmación de configuración completada y bienvenida al espacio de trabajo.
    pnpm dev
    ```
 
-4. Abre [http://localhost:3000](http://localhost:3000) en tu navegador para ver la aplicación.
+4. Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+5. Elige **Almacenamiento Local**, ingresa tu nombre y opcionalmente activa el PIN. Revisa el resumen y el proceso, y pulsa **Crear almacenamiento local**. La base de datos SQLite (`.local/modus.sqlite`), tablas, catálogos y perfil se crean automáticamente, sin comandos adicionales. Al finalizar, aparece **Todo listo**.
+
+> **Nota sobre alcance y seguridad:**
+> - `node:sqlite` se ejecuta en el proceso Node.js del servidor: los datos residen en el dispositivo del usuario cuando corre localmente (`pnpm dev`).
+> - El PIN se almacena como hash criptográfico `scrypt`, nunca en texto plano; no cifra el archivo SQLite físico en disco.
+> - La configuración del PIN queda persistida para la creación del perfil; la pantalla de desbloqueo posterior tras reinicio de sesión forma parte de una integración futura.
 
 ---
 

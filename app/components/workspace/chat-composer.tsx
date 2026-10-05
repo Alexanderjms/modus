@@ -12,7 +12,6 @@ export function ChatComposer({ onSend }: { onSend: (text: string) => void }) {
     onSend(draft.trim());
     setDraft("");
   }
-  // shared.composer keeps `.workspace .composer textarea:focus-visible` matching.
   return (
     <form className={`${styles.composer} ${shared.composer}`} onSubmit={submit}>
       <div>

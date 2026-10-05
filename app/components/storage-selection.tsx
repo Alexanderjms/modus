@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { BootstrapFillIcon } from "./bootstrap-fill-icon";
+import tursoIcon from "../public/turso.svg";
 
 type StorageLocation = "local" | "turso";
 
@@ -34,10 +36,17 @@ function StorageOption({
         className="peer sr-only"
       />
       <span className="relative flex h-[148px] flex-col items-center justify-center gap-3 rounded-[10px] bg-[var(--surface)] px-4 py-6 text-[var(--muted)] shadow-[0px_1px_2px_#0000000A] transition-[background-color,color,outline-color] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] outline outline-1 -outline-offset-[0.5px] outline-[var(--card-border)] peer-checked:bg-[var(--selected)] peer-checked:text-[#007AFF] peer-checked:outline-[#007AFF] peer-focus-visible:ring-2 peer-focus-visible:ring-[#007AFF] peer-focus-visible:ring-offset-4 peer-focus-visible:ring-offset-[var(--page)] motion-reduce:duration-[125ms] sm:px-6">
-        <BootstrapFillIcon
-          name={value === "local" ? "hdd" : "cloud"}
-          className="text-xl leading-none"
-        />
+        {value === "turso" ? (
+          <Image
+            src={tursoIcon}
+            alt=""
+            width={24}
+            height={20}
+            className="h-5 w-6 object-contain"
+          />
+        ) : (
+          <BootstrapFillIcon name="hdd" className="text-xl leading-none" />
+        )}
         <span className="flex w-full flex-col items-center gap-[5px] [line-height:normal]">
           <span
             id={`${value}-label`}

@@ -2,16 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AppShell } from "./app-shell";
 import styles from "./home-dashboard.module.css";
 import { ProjectCard } from "./home/project-card";
 import { TodayPlan } from "./home/today-plan";
 import { Icon } from "./home/icon-helper";
 import { EmptyState } from "./empty-state";
-import { projects, tasks, unavailable } from "./home/home-data";
+import { CreateProjectModal } from "./projects/create-project-modal";
+import { projects, tasks } from "./home/home-data";
 
 export function HomeDashboard() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
   const [completed, setCompleted] = useState(() => tasks.map(() => false));
   const hasProjects = projects.length > 0;
   const search = query.trim().toLocaleLowerCase("es");
@@ -36,12 +40,10 @@ export function HomeDashboard() {
             <h1>Buenos días, Alex</h1>
             <p>Esto es lo que tienes para hoy.</p>
           </div>
-          {hasProjects && (
-            <button className={styles.primary} title={unavailable} disabled>
-              <Icon name="plus" />
-              Nuevo proyecto
-            </button>
-          )}
+          <button className={styles.primary} onClick={() => setCreateOpen(true)}>
+            <Icon name="plus" />
+            Nuevo proyecto
+          </button>
         </div>
         {hasProjects ? (
           <>
@@ -94,6 +96,7 @@ export function HomeDashboard() {
             icon="folder-plus"
             title="Aún no tienes proyectos"
             description="Crea tu primer proyecto para organizar tareas, conversaciones y contexto en un solo lugar."
+            onCreate={() => setCreateOpen(true)}
           />
         )}
         <span className="sr-only" role="status">
@@ -104,6 +107,11 @@ export function HomeDashboard() {
             : ""}
         </span>
       </main>
+      <CreateProjectModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => router.push("/proyectos")}
+      />
     </AppShell>
   );
 }

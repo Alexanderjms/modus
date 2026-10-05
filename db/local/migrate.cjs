@@ -1,7 +1,7 @@
 "use strict";
 
 const fs = require("node:fs");
-const { getDatabase, SCHEMA_PATH } = require("./db.cjs");
+const { getDatabase, getSchemaPath, getDefaultDbPath } = require("./db.cjs");
 
 function getTableList(db) {
   const rows = db
@@ -24,20 +24,15 @@ function inspectCompatibility(db) {
     const hasContrasena = cols.includes("contrasena");
     if (!hasPinHash && (hasCorreo || hasContrasena)) {
       throw new Error(
-        "Esquema incompatible detectado en 'usuarios': la tabla existente parece pertenecer a la base remota Turso (contiene correo/contrasena en vez de pin_hash). Operación abortada para prevenir pérdida o inconsistencia de datos."
+        "Esquema incompatible detectado en 'usuarios': la tabla existente contiene correo/contrasena en vez de pin_hash."
       );
     }
   }
 }
 
-function migrate(customPath) {
-  const db = getDatabase(customPath);
-  const sqlContent = fs.readFileSync(SCHEMA_PATH, "utf8");
-
+function applySchema(db) {
+  const sqlContent = fs.readFileSync(getSchemaPath(), "utf8");
   inspectCompatibility(db);
-
-  const beforeTables = getTableList(db);
-
   db.exec("BEGIN TRANSACTION;");
   try {
     db.exec(sqlContent);
@@ -46,18 +41,28 @@ function migrate(customPath) {
     db.exec("ROLLBACK;");
     throw err;
   }
+}
 
-  const afterTables = getTableList(db);
-
-  return {
-    db,
-    beforeTables,
-    afterTables,
-  };
+function migrate(customPath) {
+  const db = getDatabase(customPath);
+  try {
+    const beforeTables = getTableList(db);
+    applySchema(db);
+    const afterTables = getTableList(db);
+    return {
+      db,
+      beforeTables,
+      afterTables,
+    };
+  } catch (err) {
+    db.close();
+    throw err;
+  }
 }
 
 module.exports = {
   migrate,
+  applySchema,
   getTableList,
   getTableColumns,
   inspectCompatibility,
@@ -65,7 +70,7 @@ module.exports = {
 
 if (require.main === module) {
   try {
-    const targetPath = process.env.MODUS_SQLITE_PATH || require("./db.cjs").DEFAULT_DB_PATH;
+    const targetPath = process.env.MODUS_SQLITE_PATH || getDefaultDbPath();
     console.log(`Iniciando migración local en: ${targetPath}`);
     const result = migrate();
     console.log(`Tablas antes: ${result.beforeTables.length ? result.beforeTables.join(", ") : "(ninguna)"}`);

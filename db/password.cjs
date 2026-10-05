@@ -6,13 +6,30 @@ const SCRYPT = { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 };
 const SALT_BYTES = 16;
 const KEY_BYTES = 64;
 
+function formatScryptHash(salt, hash) {
+  return `scrypt$${SCRYPT.N}$${SCRYPT.r}$${SCRYPT.p}$${salt.toString("hex")}$${hash.toString("hex")}`;
+}
+
 function hashPassword(password) {
   if (typeof password !== "string" || password.length === 0) {
     throw new TypeError("La contraseña debe ser una cadena no vacía.");
   }
   const salt = crypto.randomBytes(SALT_BYTES);
   const hash = crypto.scryptSync(password, salt, KEY_BYTES, SCRYPT);
-  return `scrypt$${SCRYPT.N}$${SCRYPT.r}$${SCRYPT.p}$${salt.toString("hex")}$${hash.toString("hex")}`;
+  return formatScryptHash(salt, hash);
+}
+
+function hashPasswordAsync(password) {
+  if (typeof password !== "string" || password.length === 0) {
+    return Promise.reject(new TypeError("La contraseña debe ser una cadena no vacía."));
+  }
+  return new Promise((resolve, reject) => {
+    const salt = crypto.randomBytes(SALT_BYTES);
+    crypto.scrypt(password, salt, KEY_BYTES, SCRYPT, (err, derivedKey) => {
+      if (err) return reject(err);
+      resolve(formatScryptHash(salt, derivedKey));
+    });
+  });
 }
 
 function verifyPassword(password, stored) {
@@ -34,4 +51,9 @@ function verifyPassword(password, stored) {
   return crypto.timingSafeEqual(actual, expected);
 }
 
-module.exports = { hashPassword, verifyPassword, HASH_PREFIX: "scrypt$" };
+module.exports = {
+  hashPassword,
+  hashPasswordAsync,
+  verifyPassword,
+  HASH_PREFIX: "scrypt$",
+};

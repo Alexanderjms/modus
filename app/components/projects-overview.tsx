@@ -8,17 +8,55 @@ import { initialProjects, type Project } from "./projects-data";
 import { ProjectsToolbar } from "./projects/projects-toolbar";
 import { ProjectCard } from "./projects/project-card";
 import { Icon } from "./projects/icon-helper";
+import { CreateProjectModal } from "./projects/create-project-modal";
 
 const statuses = [null, "active", "completed", "archived"] as const;
-const unavailable = "Esta función aún no está integrada.";
 
 export function ProjectsOverview() {
   const [projects, setProjects] = useState(initialProjects);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reload, setReload] = useState(0);
+  const [createOpen, setCreateOpen] = useState(false);
   const [globalQuery, setGlobalQuery] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState(0);
   const [sort, setSort] = useState("reference");
   const main = useRef<HTMLElement>(null);
+  const createdProjects = useRef<Project[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function loadProjects() {
+      setLoading(true);
+      setLoadError("");
+      try {
+        const response = await fetch("/api/projects", { signal: controller.signal });
+        const result = (await response.json().catch(() => ({}))) as {
+          projects?: Project[];
+          error?: string;
+        };
+        if (!response.ok) throw new Error(result.error || "No se pudieron cargar los proyectos.");
+        if (!Array.isArray(result.projects)) throw new Error("La respuesta no incluye los proyectos.");
+        setProjects([
+          ...createdProjects.current,
+          ...result.projects.filter(
+            (project) => !createdProjects.current.some((created) => created.id === project.id),
+          ),
+        ]);
+      } catch (reason) {
+        if (!controller.signal.aborted && !createdProjects.current.length) {
+          setLoadError(
+            reason instanceof Error ? reason.message : "No se pudieron cargar los proyectos.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+    void loadProjects();
+    return () => controller.abort();
+  }, [reload]);
 
   useEffect(() => {
     function dismiss(event: PointerEvent | KeyboardEvent) {
@@ -107,13 +145,20 @@ export function ProjectsOverview() {
             <h1>Proyectos</h1>
             <p>Organiza todo lo que estás construyendo.</p>
           </div>
-          {hasProjects && (
-            <button className={styles.primary} disabled title={unavailable}>
-              <Icon name="plus" className={styles.primaryIcon} />
-              Nuevo proyecto
-            </button>
-          )}
+          <button
+            className={styles.primary}
+            onClick={() => setCreateOpen(true)}
+          >
+            <Icon name="plus" className={styles.primaryIcon} />
+            Nuevo proyecto
+          </button>
         </header>
+        {loadError && (
+          <p className={styles.empty} role="alert">
+            {loadError}{" "}
+            <button onClick={() => setReload((value) => value + 1)}>Reintentar</button>
+          </p>
+        )}
         {hasProjects ? (
           <>
             <ProjectsToolbar
@@ -139,14 +184,37 @@ export function ProjectsOverview() {
               </p>
             )}
           </>
-        ) : (
+        ) : loading ? (
+          <p className={styles.empty} role="status">Cargando proyectos…</p>
+        ) : loadError ? null : (
           <EmptyState
             icon="folder-plus"
             title="Aún no tienes proyectos"
             description="Crea tu primer proyecto para organizar tareas, conversaciones y contexto en un solo lugar."
+            onCreate={() => setCreateOpen(true)}
           />
         )}
       </main>
+      <CreateProjectModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(project) => {
+          createdProjects.current = [
+            project,
+            ...createdProjects.current.filter((item) => item.id !== project.id),
+          ];
+          setProjects((current) => [
+            project,
+            ...current.filter((item) => item.id !== project.id),
+          ]);
+          setFilter(
+            project.status === "archived" ? 3 : project.status === "completed" ? 2 : 1,
+          );
+          setQuery("");
+          setGlobalQuery("");
+          setLoadError("");
+        }}
+      />
     </AppShell>
   );
 }

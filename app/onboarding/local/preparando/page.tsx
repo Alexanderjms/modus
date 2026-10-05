@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
-import { OnboardingFrame } from "../../../components/onboarding-frame";
-import { LocalStoragePreparation } from "../../../components/local-storage-preparation";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Preparando almacenamiento | Modus",
 };
 
 export default function LocalPreparingPage() {
-  return (
-    <OnboardingFrame>
-      <LocalStoragePreparation />
-    </OnboardingFrame>
-  );
+  redirect("/onboarding/local");
 }

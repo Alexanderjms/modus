@@ -14,8 +14,6 @@ CREATE TABLE IF NOT EXISTS proyectos (
   nombre TEXT NOT NULL,
   descripcion TEXT,
   icono TEXT NOT NULL,
-  fecha_inicio TEXT,
-  fecha_fin TEXT,
   estado TEXT
 );
 
