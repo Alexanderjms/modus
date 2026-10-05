@@ -3,26 +3,25 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import styles from "./project-selector.module.css";
+import headerStyles from "../shell/header.module.css";
 import shared from "../workspace.module.css";
-import { CreateProjectModal } from "../projects/create-project-modal";
-
-const projects = [
-  "Observatorio Regional",
-  "Portfolio permodusl",
-  "Lista de Compras",
-];
+import type { Project } from "../projects-data";
 
 export function ProjectSelector({
   project,
+  projects,
+  loading,
+  error,
   onSelect,
 }: {
   project: string;
+  projects: readonly Project[];
+  loading: boolean;
+  error: string;
   onSelect: (project: string) => void;
 }) {
   const details = useRef<HTMLDetailsElement>(null);
-  const search = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     function close(event: PointerEvent | KeyboardEvent) {
@@ -47,22 +46,25 @@ export function ProjectSelector({
         ref={details}
         className={styles.projectSelector}
         onToggle={(event) => {
-          if (event.currentTarget.open) {
-            setQuery("");
-            search.current?.focus();
-          }
+          if (event.currentTarget.open) setQuery("");
         }}
       >
         <summary aria-label="Seleccionar proyecto">
           <i aria-hidden="true" className="bi bi-folder" />
-          <span>{project}</span>
+          <span>
+            {project ||
+              (loading
+                ? "Cargando proyectos…"
+                : error
+                  ? "Error al cargar proyectos"
+                  : "Sin proyecto seleccionado")}
+          </span>
           <i aria-hidden="true" className="bi bi-chevron-down" />
         </summary>
         <div className={styles.projectMenu}>
-          <label className={styles.projectSearch}>
+          <label className={`${styles.projectSearch} ${headerStyles.search}`}>
             <i aria-hidden="true" className="bi bi-search" />
             <input
-              ref={search}
               type="search"
               aria-label="Buscar proyecto"
               placeholder="Buscar proyecto…"
@@ -72,14 +74,14 @@ export function ProjectSelector({
           </label>
           <h2>RECIENTES</h2>
           {projects
-            .filter((name) =>
+            .filter(({ name }) =>
               name
                 .toLocaleLowerCase("es")
                 .includes(query.trim().toLocaleLowerCase("es")),
             )
-            .map((name) => (
+            .map(({ id, name }) => (
               <button
-                key={name}
+                key={id}
                 className={styles.projectOption}
                 aria-pressed={project === name}
                 onClick={() => {
@@ -90,47 +92,42 @@ export function ProjectSelector({
                   }
                 }}
               >
-                <i
-                  aria-hidden="true"
-                  className="bi bi-folder"
-                  data-project={projects.indexOf(name)}
-                />
+                <i aria-hidden="true" className="bi bi-folder" />
                 <span>{name}</span>
                 {project === name && (
                   <i aria-hidden="true" className="bi bi-check2" />
                 )}
               </button>
             ))}
-          {!projects.some((name) =>
+          {!projects.some(({ name }) =>
             name
               .toLocaleLowerCase("es")
               .includes(query.trim().toLocaleLowerCase("es")),
-          ) && <p className={shared.notice}>Sin proyectos que coincidan.</p>}
-          <div className={styles.projectMenuActions}>
-            <Link href="/proyectos">
-              <i aria-hidden="true" className="bi bi-grid" />
-              Ver todos los proyectos
-            </Link>
-            <button
-              onClick={() => {
-                if (details.current) {
-                  details.current.open = false;
-                  details.current.querySelector("summary")?.focus();
-                }
-                setCreateOpen(true);
-              }}
+          ) && (
+            <p
+              className={shared.notice}
+              role={loading ? "status" : error ? "alert" : undefined}
             >
-              <i aria-hidden="true" className="bi bi-plus" />
-              Nuevo proyecto
-            </button>
+              {loading
+                ? "Cargando proyectos…"
+                : error ||
+                  (query
+                    ? "Sin proyectos que coincidan."
+                    : "Aún no hay proyectos.")}
+            </p>
+          )}
+          <div className={styles.projectMenuActions}>
+            <Link className={styles.allProjects} href="/proyectos">
+              <i aria-hidden="true" className="bi bi-grid" />
+              <span>Ver todos los proyectos</span>
+              <i
+                aria-hidden="true"
+                className={`bi bi-arrow-right ${styles.actionArrow}`}
+              />
+            </Link>
           </div>
         </div>
       </details>
-      <CreateProjectModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={(createdProject) => onSelect(createdProject.name)}
-      />
     </>
   );
 }

@@ -1,0 +1,83 @@
+.dialog.dialog {
+  width: min(380px, calc(100vw - 32px));
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.iconWrap {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 15px;
+  background: color-mix(in srgb, #d92d20 10%, var(--surface));
+  color: #d92d20;
+  font-size: 20px;
+}
+
+:global([data-theme="dark"]) .iconWrap {
+  background: color-mix(in srgb, #ff8a80 13%, var(--surface));
+  color: #ff8a80;
+}
+
+.description {
+  max-width: 31ch;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.description strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.dialog .destructiveButton {
+  background: #d92d20;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dialog .destructiveButton:hover:not(:disabled) {
+    background: #b42318;
+  }
+}
+
+:global([data-theme="dark"]) .dialog .destructiveButton {
+  background: #d92d20;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :global([data-theme="dark"]) .dialog .destructiveButton:hover:not(:disabled) {
+    background: #b42318;
+  }
+}
+
+.error {
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #d92d20 8%, var(--surface));
+  color: #c62828;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+:global([data-theme="dark"]) .error {
+  background: color-mix(in srgb, #ff8a80 10%, var(--surface));
+  color: #ff8a80;
+}
+
+@media (max-width: 480px) {
+  .content {
+    gap: 12px;
+  }
+}

@@ -12,16 +12,12 @@ export function Header({
   query,
   onSearch,
   headerLeft,
-  sidebarOpen,
-  onToggleSidebar,
   themeToggleClassName = styles.themeToggle,
 }: {
   active: "inicio" | "tareas" | "proyectos";
   query: string;
   onSearch: (value: string) => void;
   headerLeft?: ReactNode;
-  sidebarOpen: boolean;
-  onToggleSidebar: () => void;
   themeToggleClassName?: string;
 }) {
   const placeholder =
@@ -30,21 +26,7 @@ export function Header({
     <header
       className={`${styles.header} ${headerLeft ? styles.headerWithSelector : ""}`}
     >
-      <div className={styles.headerLeft}>
-        <button
-          className={styles.sidebarToggle}
-          aria-label={
-            sidebarOpen ? "Colapsar navegación" : "Expandir navegación"
-          }
-          title={sidebarOpen ? "Colapsar navegación" : "Expandir navegación"}
-          aria-expanded={sidebarOpen}
-          aria-controls="main-sidebar"
-          onClick={onToggleSidebar}
-        >
-          <i aria-hidden="true" className="bi bi-layout-sidebar" />
-        </button>
-        {headerLeft}
-      </div>
+      {headerLeft && <div className={styles.headerLeft}>{headerLeft}</div>}
       <Link href="/inicio" aria-label="Modus — Inicio" className={styles.brand}>
         <Image
           src={logo}

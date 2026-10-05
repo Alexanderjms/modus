@@ -203,11 +203,16 @@ export function CreateProjectModal({
   open,
   onClose,
   onCreated,
+  onUpdated,
+  project,
 }: {
   open: boolean;
   onClose: () => void;
-  onCreated: (project: Project) => void;
+  onCreated?: (project: Project) => void;
+  onUpdated?: (project: Project) => void;
+  project?: Project;
 }) {
+  const formId = useId();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [icon, setIcon] = useState("");
@@ -242,13 +247,13 @@ export function CreateProjectModal({
 
   useEffect(() => {
     if (!open) return;
-    setName("");
-    setDescription("");
-    setIcon("");
+    setName(project?.name ?? "");
+    setDescription(project?.description ?? "");
+    setIcon(project?.icon ?? "");
     setIconQuery("");
-    setStatus("");
+    setStatus(project?.status ?? "");
     setError("");
-  }, [open]);
+  }, [open, project]);
 
   useEffect(() => {
     if (error) errorRef.current?.focus();
@@ -272,8 +277,8 @@ export function CreateProjectModal({
     setPending(true);
     setError("");
     try {
-      const response = await fetch("/api/projects", {
-        method: "POST",
+      const response = await fetch(project ? `/api/projects/${project.id}` : "/api/projects", {
+        method: project ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nombre: name.trim(),
@@ -286,11 +291,15 @@ export function CreateProjectModal({
         project?: Project;
         error?: string;
       };
-      if (response.status !== 201) throw new Error(result.error || "No se pudo crear el proyecto.");
-      if (!result.project) throw new Error("La respuesta no incluye el proyecto creado.");
+      const expectedStatus = project ? 200 : 201;
+      if (response.status !== expectedStatus) {
+        throw new Error(result.error || `No se pudo ${project ? "guardar" : "crear"} el proyecto.`);
+      }
+      if (!result.project) throw new Error("La respuesta no incluye el proyecto guardado.");
       pendingRef.current = false;
       setPending(false);
-      onCreated(result.project);
+      if (project) onUpdated?.(result.project);
+      else onCreated?.(result.project);
       reset();
       onClose();
     } catch (reason) {
@@ -307,20 +316,20 @@ export function CreateProjectModal({
     <Modal
       open={open}
       onClose={close}
-      title="Nuevo proyecto"
-      submitLabel={pending ? "Creando…" : "Crear proyecto"}
+      title={project ? "Editar proyecto" : "Nuevo proyecto"}
+      submitLabel={pending ? (project ? "Guardando…" : "Creando…") : project ? "Guardar cambios" : "Crear proyecto"}
       onSubmit={submit}
       pending={pending}
       className={styles.dialog}
     >
       <div className={styles.form}>
         <div className={styles.field}>
-          <label htmlFor="new-project-name">
+          <label htmlFor={`${formId}-name`}>
             Nombre <span className={styles.requiredMark} aria-hidden="true">*</span>
           </label>
           <input
             ref={nameRef}
-            id="new-project-name"
+            id={`${formId}-name`}
             name="nombre"
             type="text"
             required
@@ -334,9 +343,9 @@ export function CreateProjectModal({
         </div>
 
         <div className={styles.field}>
-          <label htmlFor="new-project-description">Descripción</label>
+          <label htmlFor={`${formId}-description`}>Descripción</label>
           <textarea
-            id="new-project-description"
+            id={`${formId}-description`}
             name="descripcion"
             rows={3}
             maxLength={5000}
@@ -368,9 +377,14 @@ export function CreateProjectModal({
                   : `${matchingIcons.length} ${matchingIcons.length === 1 ? "resultado" : "resultados"}`}
           </p>
           {icon && !visibleIcons.includes(icon) && (
-            <p className={styles.selectedIcon}>
+            <p
+              className={styles.selectedIcon}
+              role="img"
+              title={iconLabel(icon)}
+              aria-label={`Icono seleccionado: ${iconLabel(icon)}`}
+            >
               <i aria-hidden="true" className={`bi bi-${icon}`} />
-              Seleccionado: {iconLabel(icon)}
+              <span>Seleccionado</span>
             </p>
           )}
           <div className={styles.icons}>
@@ -378,7 +392,7 @@ export function CreateProjectModal({
               <label key={value} className={styles.iconOption} title={iconLabel(value)}>
                 <input
                   type="radio"
-                  name="icono"
+                  name={`${formId}-icono`}
                   value={value}
                   required={!icon && index === 0}
                   checked={icon === value}

@@ -1,11 +1,8 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId } from "react";
 import styles from "./context.module.css";
 import shared from "../workspace.module.css";
-import { contextText } from "./workspace-data";
-import { ContextPlan } from "./context-plan";
-import { ContextSections } from "./context-sections";
 
 export function WorkspaceContext({
   plan,
@@ -19,10 +16,6 @@ export function WorkspaceContext({
   onClose: () => void;
 }) {
   const id = useId();
-  const [context, setContext] = useState(contextText);
-  const [editing, setEditing] = useState(false);
-  const [tab, setTab] = useState("Resumen");
-  const available = project === "Observatorio Regional";
   return (
     <aside
       id="workspace-context"
@@ -47,47 +40,15 @@ export function WorkspaceContext({
           <i aria-hidden="true" className="bi bi-layout-sidebar-reverse" />
         </button>
       </header>
-      {plan && (
-        <div
-          className={styles.tabs}
-          role="tablist"
-          aria-label="Plan del proyecto"
-        >
-          {["Resumen", "Estructura", "Cronograma", "Notas"].map((name) => (
-            <button
-              key={name}
-              role="tab"
-              aria-selected={tab === name}
-              aria-controls={`${id}-content`}
-              id={`${id}-tab-${name}`}
-              onClick={() => setTab(name)}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      )}
       <div
         className={styles.contextBody}
         id={`${id}-content`}
-        role={plan ? "tabpanel" : undefined}
-        aria-labelledby={plan ? `${id}-tab-${tab}` : undefined}
       >
-        {!available ? (
-          <p className={shared.notice}>
-            Este proyecto aún no tiene contexto en esta vista.
-          </p>
-        ) : plan ? (
-          <ContextPlan tab={tab} project={project} />
-        ) : (
-          <ContextSections
-            context={context}
-            editing={editing}
-            onChange={setContext}
-            onToggleEditing={() => setEditing(!editing)}
-            onEdit={() => setEditing(true)}
-          />
-        )}
+        <p className={shared.notice}>
+          {project
+            ? "Este proyecto aún no tiene contexto en esta vista."
+            : "Selecciona un proyecto para ver su contexto."}
+        </p>
       </div>
     </aside>
   );

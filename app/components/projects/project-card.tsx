@@ -1,35 +1,44 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import type { Project } from "../projects-data";
 import cardStyles from "./project-card.module.css";
 import menuStyles from "./menu.module.css";
 import { Icon } from "./icon-helper";
 
-const unavailable = "Esta función aún no está integrada.";
-
 export function ProjectCard({
   project,
   onAction,
+  onEdit,
+  pending,
 }: {
   project: Project;
-  onAction: (project: Project, action: string) => void;
+  onAction: (project: Project, action: "archive" | "restore" | "duplicate" | "delete") => void | Promise<void>;
+  onEdit: (project: Project) => void;
+  pending: boolean;
 }) {
+  const router = useRouter();
   const menu = useRef<HTMLDetailsElement>(null);
   const href = `/workspace?project=${encodeURIComponent(project.name)}`;
-  function act(action: string) {
+  function act(action: "archive" | "restore" | "duplicate" | "delete") {
     if (menu.current) {
       menu.current.open = false;
       menu.current.querySelector("summary")?.focus();
     }
-    onAction(project, action);
+    void onAction(project, action);
   }
   return (
     <article
       className={cardStyles.card}
       data-status={project.status}
       aria-label={project.name}
+      aria-busy={pending || undefined}
+      onClick={(event) => {
+        if (!(event.target as Element).closest("a, button, details"))
+          router.push(href);
+      }}
     >
       <div className={cardStyles.cardTop}>
         <span className={cardStyles.projectIcon}>
@@ -58,15 +67,25 @@ export function ProjectCard({
               <Icon name="folder" className={menuStyles.icon} />
               Abrir
             </Link>
-            <button disabled title={unavailable}>
+            <button
+              disabled={pending}
+              onClick={() => {
+                if (menu.current) {
+                  menu.current.open = false;
+                  menu.current.querySelector("summary")?.focus();
+                }
+                onEdit(project);
+              }}
+            >
               <Icon name="pencil" className={menuStyles.icon} />
               Editar
             </button>
-            <button onClick={() => act("duplicate")}>
+            <button disabled={pending} onClick={() => act("duplicate")}>
               <Icon name="copy" className={menuStyles.icon} />
               Duplicar
             </button>
             <button
+              disabled={pending}
               onClick={() =>
                 act(project.status === "archived" ? "restore" : "archive")
               }
@@ -83,6 +102,7 @@ export function ProjectCard({
             </button>
             <button
               className={menuStyles.danger}
+              disabled={pending}
               onClick={() => act("delete")}
             >
               <Icon name="trash" className={menuStyles.icon} />
@@ -125,9 +145,14 @@ export function ProjectCard({
           </span>
         )}
       </div>
+      {pending && (
+        <span className={cardStyles.meta} role="status">
+          Procesando…
+        </span>
+      )}
       {project.status === "archived" && (
         <div className={cardStyles.archivedActions}>
-          <button onClick={() => act("restore")}>
+          <button disabled={pending} onClick={() => act("restore")}>
             <Icon name="arrow-counterclockwise" className={menuStyles.icon} />
             Restaurar
           </button>

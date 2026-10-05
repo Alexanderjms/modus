@@ -1,5 +1,6 @@
 .card {
   cursor: pointer;
+  user-select: none;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -11,6 +12,7 @@
   border-radius: 10px;
   box-shadow: 0 1px 2px #0000000a;
   backdrop-filter: blur(22px) saturate(135%);
+  isolation: isolate;
 }
 .card:has(details[open]),
 .card:focus-within {

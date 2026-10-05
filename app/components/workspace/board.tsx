@@ -1,53 +1,38 @@
 "use client";
 
-import type { FormEvent, RefObject } from "react";
+import type { RefObject } from "react";
 import styles from "./board.module.css";
 import shared from "../workspace.module.css";
 import { BoardFilter } from "./board-filter";
 import { KanbanColumn } from "./kanban-column";
-import { NewTaskForm } from "./new-task-form";
-import { columns, type BoardTask } from "./workspace-data";
+import { columns } from "./workspace-data";
 
 export function Board({
-  available,
-  query,
-  visible,
   priority,
   onPriority,
-  newColumn,
-  onNewColumn,
-  title,
-  onTitle,
-  notice,
-  move,
-  addTask,
+  projectName,
+  projectsLoading,
+  projectsError,
+  onRetryProjects,
   chatOpen,
   onShowChat,
   contextOpen,
   onShowContext,
   chatTrigger,
   contextTrigger,
-  dragged,
 }: {
-  available: boolean;
-  query: string;
-  visible: BoardTask[];
   priority: string;
   onPriority: (value: string) => void;
-  newColumn: number | null;
-  onNewColumn: (column: number | null) => void;
-  title: string;
-  onTitle: (value: string) => void;
-  notice: string;
-  move: (title: string, column: number) => void;
-  addTask: (event: FormEvent<HTMLFormElement>) => void;
+  projectName: string;
+  projectsLoading: boolean;
+  projectsError: string;
+  onRetryProjects: () => void;
   chatOpen: boolean;
   onShowChat: () => void;
   contextOpen: boolean;
   onShowContext: () => void;
   chatTrigger: RefObject<HTMLButtonElement | null>;
   contextTrigger: RefObject<HTMLButtonElement | null>;
-  dragged: { current: string | null };
 }) {
   return (
     <section className={styles.board} aria-labelledby="board-title">
@@ -70,8 +55,7 @@ export function Board({
         </div>
         <button
           className={`${shared.primary} ${styles.primary}`}
-          onClick={() => onNewColumn(0)}
-          disabled={!available}
+          disabled
         >
           <i aria-hidden="true" className="bi bi-plus" />
           Nueva tarea
@@ -97,13 +81,17 @@ export function Board({
           </button>
         )}
       </header>
-      {newColumn !== null && (
-        <NewTaskForm
-          title={title}
-          onTitle={onTitle}
-          onSubmit={addTask}
-          onCancel={() => onNewColumn(null)}
-        />
+      {projectsLoading ? (
+        <p role="status" className={shared.notice}>Cargando proyectos…</p>
+      ) : projectsError ? (
+        <p role="alert" className={shared.notice}>
+          {projectsError}{" "}
+          <button type="button" onClick={onRetryProjects}>Reintentar</button>
+        </p>
+      ) : projectName ? (
+        <p role="status" className={shared.notice}>Este proyecto aún no tiene tareas.</p>
+      ) : (
+        <p role="status" className={shared.notice}>Crea un proyecto o selecciona uno para empezar.</p>
       )}
       <div className={styles.columns}>
         {columns.map((name, index) => (
@@ -111,20 +99,9 @@ export function Board({
             key={name}
             name={name}
             index={index}
-            tasks={visible.filter((task) => task.column === index)}
-            available={available}
-            dragged={dragged}
-            move={move}
-            onAddTask={onNewColumn}
           />
         ))}
       </div>
-      <p role="status" className={notice ? shared.notice : "sr-only"}>
-        {notice ||
-          (query && !visible.length
-            ? "Sin tareas que coincidan con la búsqueda."
-            : "")}
-      </p>
     </section>
   );
 }

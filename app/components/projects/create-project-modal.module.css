@@ -104,6 +104,10 @@
   border: 0;
 }
 
+.iconField > legend {
+  margin-bottom: 7px;
+}
+
 .icons {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

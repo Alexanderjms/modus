@@ -9,7 +9,7 @@
   padding: 4px 9px;
   border: 1px solid var(--divider);
   border-radius: 7px;
-  background: var(--toggle-track);
+  background: var(--surface);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -35,6 +35,9 @@
   outline: 2px solid #007aff;
   outline-offset: -2px;
 }
+.projectSelector::details-content {
+  transition: content-visibility 180ms allow-discrete;
+}
 .projectMenu {
   position: absolute;
   top: calc(100% + 6px);
@@ -46,6 +49,23 @@
   border: 1px solid var(--card-border);
   border-radius: 11px;
   box-shadow: 0 8px 28px #0000001a;
+  transform-origin: top left;
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity 180ms var(--ease-drawer),
+    transform 180ms var(--ease-drawer);
+}
+.projectSelector:not([open]) .projectMenu {
+  opacity: 0;
+  transform: scale(0.96);
+  pointer-events: none;
+}
+@starting-style {
+  .projectSelector[open] .projectMenu {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 @supports (backdrop-filter: blur(20px)) {
   .projectMenu {
@@ -59,28 +79,8 @@
     backdrop-filter: none;
   }
 }
-.projectSearch {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 9px;
-  background: var(--page);
-  border-radius: 7px;
-  color: var(--muted);
-}
-.projectSearch input {
-  min-width: 0;
+.projectMenu .projectSearch {
   width: 100%;
-  background: transparent;
-  font-size: 12px;
-  color: var(--foreground);
-}
-.projectSearch:focus-within {
-  outline: 2px solid #007aff;
-  outline-offset: -2px;
-}
-.projectSearch input:focus-visible {
-  outline: none;
 }
 .projectMenu h2 {
   padding: 12px 10px 5px;
@@ -101,6 +101,16 @@
   font-size: 12px;
   text-align: left;
 }
+.projectMenuActions .allProjects {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--toggle-track);
+  color: var(--foreground);
+  font-weight: 600;
+  transition: filter 140ms ease-out;
+}
 .projectOption > span {
   flex: 1;
 }
@@ -112,12 +122,6 @@
   border-radius: 5px;
   color: white;
   background: #007aff;
-}
-.projectOption > i[data-project="1"] {
-  background: #af52de;
-}
-.projectOption > i[data-project="2"] {
-  background: #ff9500;
 }
 .projectMenu .projectOption[aria-pressed="true"] {
   color: white;
@@ -132,14 +136,26 @@
 .projectMenuActions :is(button, a) > i {
   color: #007aff;
 }
+.projectMenuActions .allProjects .actionArrow {
+  margin-left: auto;
+  color: var(--muted);
+}
 .projectMenu :is(button, a):focus-visible {
   outline: 2px solid #007aff;
   outline-offset: -2px;
 }
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+@media (hover: hover) and (pointer: fine) {
+  .projectMenuActions .allProjects:hover {
+    filter: brightness(0.94);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .projectMenuActions .allProjects {
+    transition: none;
+  }
+  .projectSelector::details-content,
   .projectMenu {
-    background: var(--surface);
-    backdrop-filter: none;
+    transition: none;
   }
 }
 @media (max-width: 640px) {

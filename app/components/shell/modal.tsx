@@ -11,6 +11,8 @@ export function Modal({
   onSubmit,
   submitLabel = "Guardar",
   className = "",
+  submitClassName = "",
+  descriptionId,
   pending = false,
 }: {
   open: boolean;
@@ -20,6 +22,8 @@ export function Modal({
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   submitLabel?: string;
   className?: string;
+  submitClassName?: string;
+  descriptionId?: string;
   pending?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -41,6 +45,7 @@ export function Modal({
       ref={dialogRef}
       className={`${styles.dialog} ${className}`}
       aria-labelledby={titleId}
+      aria-describedby={descriptionId}
       onClose={onClose}
       onCancel={(event) => {
         event.preventDefault();
@@ -63,7 +68,7 @@ export function Modal({
         <div className={styles.footer}>
           <button
             type="submit"
-            className={styles.primaryButton}
+            className={`${styles.primaryButton} ${submitClassName}`}
             disabled={pending}
           >
             {submitLabel}

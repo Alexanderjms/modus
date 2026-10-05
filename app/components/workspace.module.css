@@ -63,6 +63,10 @@
   flex: 1;
   min-width: 0;
 }
+.panelHeader > h2 {
+  flex: 1;
+  min-width: 0;
+}
 .panelHeader h2 {
   font-size: 14px;
   font-weight: 600;

@@ -1,4 +1,8 @@
+"use client";
+
 import { type CSSProperties } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import styles from "./project-card.module.css";
 import { Icon } from "./icon-helper";
 import { unavailable, type Project } from "./home-data";
@@ -12,15 +16,24 @@ export function ProjectCard({
   index: number;
   search: string;
 }) {
+  const router = useRouter();
+  const href = `/workspace?project=${encodeURIComponent(project.name)}`;
   return (
     <article
       className={`${styles.card} ${index === 0 && !search ? styles.highlighted : ""}`}
+      onClick={(event) => {
+        if (!(event.target as Element).closest("a, button")) router.push(href);
+      }}
     >
       <div className={styles.cardTop}>
         <span className={styles.projectIcon}>
           <Icon name={project.icon} />
         </span>
-        <h3>{project.name}</h3>
+        <h3>
+          <Link href={href}>
+            {project.name}
+          </Link>
+        </h3>
         <button
           className={styles.more}
           aria-label={`Más opciones de ${project.name}`}

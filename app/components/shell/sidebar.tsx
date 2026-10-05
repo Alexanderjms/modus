@@ -2,45 +2,33 @@
 
 import Link from "next/link";
 import { useId, useState } from "react";
-import type { Project } from "../projects-data";
 import styles from "./sidebar.module.css";
 import { ProfileMenu } from "./profile-menu";
 import { ProfileModal, ProvidersModal } from "./profile-modals";
 
 export function Sidebar({
   active = "inicio",
-  sidebarOpen,
-  projects,
-  activeProject,
 }: {
   active?: "inicio" | "tareas" | "proyectos";
-  sidebarOpen: boolean;
-  projects: readonly Project[];
-  activeProject?: string;
 }) {
-  const [projectsOpen, setProjectsOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProvidersModal, setShowProvidersModal] = useState(false);
 
   const profileId = useId();
-  const projectsId = useId();
-  const visibleProjects = projects.filter(
-    (project) => project.status !== "archived",
-  );
 
   return (
     <>
       <div
         className={`${styles.navSlot} panel-slot`}
-        data-collapsed={!sidebarOpen}
+        data-collapsed="true"
       >
         <div className="panel-clip">
           <aside
             id="main-sidebar"
             className={styles.sidebar}
             aria-label="Navegación principal"
-            data-collapsed={!sidebarOpen}
+            data-collapsed="true"
           >
             <Link
               href="/inicio"
@@ -64,45 +52,6 @@ export function Sidebar({
                 <i aria-hidden="true" className="bi bi-folder" />
                 <span className={styles.navLabel}>Proyectos</span>
               </Link>
-              {visibleProjects.length > 0 && (
-                <button
-                  className={styles.projectsToggle}
-                  aria-label={
-                    projectsOpen ? "Colapsar proyectos" : "Expandir proyectos"
-                  }
-                  aria-expanded={projectsOpen}
-                  aria-controls={projectsId}
-                  onClick={() => setProjectsOpen((open) => !open)}
-                >
-                  <i aria-hidden="true" className="bi bi-chevron-down" />
-                </button>
-              )}
-            </div>
-            <div
-              id={projectsId}
-              className={styles.projectTreeSlot}
-              data-closed={!sidebarOpen || !projectsOpen}
-              aria-hidden={!sidebarOpen || !projectsOpen}
-              inert={!sidebarOpen || !projectsOpen}
-            >
-              <ul
-                className={styles.projectTree}
-                aria-label="Proyectos disponibles"
-              >
-                {visibleProjects.map((project) => (
-                  <li key={project.id}>
-                    <Link
-                      href={`/workspace?project=${encodeURIComponent(project.name)}`}
-                      title={project.name}
-                      aria-current={
-                        activeProject === project.name ? "page" : undefined
-                      }
-                    >
-                      <span>{project.name}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
             </div>
             <div className={styles.spacer} />
             <button

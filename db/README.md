@@ -102,6 +102,42 @@ La aplicación expone los endpoints server-only para interactuar con SQLite loca
   - `409 { "error": "Configura primero tu perfil local." }`: Perfil local no encontrado o inconsistente.
   - `500 { "error": string }`: Error interno del servidor.
 
+### `PATCH /api/projects/[id]`
+- **Seguridad:** Requiere Host/Origin loopback y no cross-site. Límite de payload de 8KB, `Content-Type: application/json`.
+- **Parámetros:** `id` entero estrictamente positivo (safe integer).
+- **Payload JSON:** Objeto parcial no vacío con campos permitidos (`nombre?`, `descripcion?`, `icono?`, `estado?`). Valida únicamente los campos presentes y rechaza payloads vacíos o con claves desconocidas. `estado: null` permitido.
+- **Respuesta 200:** `{ "project": Project }` con las métricas recalculadas en base de datos.
+- **Errores:**
+  - `400 { "error": string }`: ID inválido, cuerpo vacío, propiedades desconocidas o valores inválidos.
+  - `403 { "error": string }`: Origen no permitido.
+  - `404 { "error": "Proyecto no encontrado" }`: Proyecto inexistente o ajeno al perfil.
+  - `409 { "error": string }`: Perfil local no configurado o inconsistente.
+  - `500 { "error": string }`: Error interno del servidor.
+
+### `DELETE /api/projects/[id]`
+- **Seguridad:** Requiere Host/Origin loopback y no cross-site.
+- **Parámetros:** `id` entero estrictamente positivo (safe integer).
+- **Operación transaccional:** Elimina el proyecto y sus `listas_tareas`, `tareas`, `subtareas` y `tarea_etiquetas` vinculadas de forma segura sin eliminar catálogos (`estados`, `prioridades`, `etiquetas`), usuarios ni proyectos de otros registros.
+- **Respuesta 204:** Sin cuerpo.
+- **Errores:**
+  - `400 { "error": string }`: ID de proyecto inválido.
+  - `403 { "error": string }`: Origen no permitido.
+  - `404 { "error": "Proyecto no encontrado" }`: Proyecto inexistente o ajeno al perfil.
+  - `409 { "error": string }`: Perfil local no configurado o inconsistente.
+  - `500 { "error": string }`: Error interno del servidor.
+
+### `POST /api/projects/[id]/duplicate`
+- **Seguridad:** Requiere Host/Origin loopback y no cross-site.
+- **Parámetros:** `id` entero estrictamente positivo (safe integer).
+- **Operación transaccional:** Duplica el proyecto copiando exclusivamente `nombre`, `descripcion`, `icono` y `estado` (sin listas ni tareas). El nombre recibe el sufijo `' (copia)'`, truncando la base para respetar el límite de 100 caracteres.
+- **Respuesta 201:** `{ "project": Project }`.
+- **Errores:**
+  - `400 { "error": string }`: ID de proyecto inválido.
+  - `403 { "error": string }`: Origen no permitido.
+  - `404 { "error": "Proyecto no encontrado" }`: Proyecto inexistente o ajeno al perfil.
+  - `409 { "error": string }`: Perfil local no configurado o inconsistente.
+  - `500 { "error": string }`: Error interno del servidor.
+
 ## Archivos
 
 - `db/local/schema.sql` — Esquema SQLite local adaptado: tabla `usuarios` con `id, nombre, pin_hash, fecha_creacion, ultimo_acceso` (sin correo, contrasena ni rol). Resto de tablas, índices y catálogos idénticos a Turso.

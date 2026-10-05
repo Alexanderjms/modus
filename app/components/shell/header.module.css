@@ -15,13 +15,6 @@
   gap: 8px;
   z-index: 1;
 }
-.sidebarToggle {
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  color: var(--muted);
-  font-size: 16px;
-}
 .brand {
   position: absolute;
   left: 50%;

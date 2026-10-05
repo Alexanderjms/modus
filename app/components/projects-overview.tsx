@@ -9,8 +9,11 @@ import { ProjectsToolbar } from "./projects/projects-toolbar";
 import { ProjectCard } from "./projects/project-card";
 import { Icon } from "./projects/icon-helper";
 import { CreateProjectModal } from "./projects/create-project-modal";
+import { DeleteProjectModal } from "./projects/delete-project-modal";
 
 const statuses = [null, "active", "completed", "archived"] as const;
+type ProjectAction = "archive" | "restore" | "duplicate" | "delete";
+type MutationAction = Exclude<ProjectAction, "delete">;
 
 export function ProjectsOverview() {
   const [projects, setProjects] = useState(initialProjects);
@@ -18,15 +21,26 @@ export function ProjectsOverview() {
   const [loadError, setLoadError] = useState("");
   const [reload, setReload] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [pendingIds, setPendingIds] = useState<Set<number>>(() => new Set());
+  const [actionError, setActionError] = useState<{
+    project: Project;
+    action: MutationAction;
+    message: string;
+  } | null>(null);
   const [globalQuery, setGlobalQuery] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState(0);
   const [sort, setSort] = useState("reference");
   const main = useRef<HTMLElement>(null);
-  const createdProjects = useRef<Project[]>([]);
+  const mutationVersion = useRef(0);
+  const pendingIdsRef = useRef(new Set<number>());
 
   useEffect(() => {
     const controller = new AbortController();
+    const version = mutationVersion.current;
     async function loadProjects() {
       setLoading(true);
       setLoadError("");
@@ -38,14 +52,10 @@ export function ProjectsOverview() {
         };
         if (!response.ok) throw new Error(result.error || "No se pudieron cargar los proyectos.");
         if (!Array.isArray(result.projects)) throw new Error("La respuesta no incluye los proyectos.");
-        setProjects([
-          ...createdProjects.current,
-          ...result.projects.filter(
-            (project) => !createdProjects.current.some((created) => created.id === project.id),
-          ),
-        ]);
+        if (mutationVersion.current === version) setProjects(result.projects);
+        else setReload((value) => value + 1);
       } catch (reason) {
-        if (!controller.signal.aborted && !createdProjects.current.length) {
+        if (!controller.signal.aborted && mutationVersion.current === version) {
           setLoadError(
             reason instanceof Error ? reason.message : "No se pudieron cargar los proyectos.",
           );
@@ -78,41 +88,98 @@ export function ProjectsOverview() {
     };
   }, []);
 
-  function action(project: Project, action: string) {
-    if (
-      action === "delete" &&
-      !window.confirm(`¿Eliminar «${project.name}» de esta vista local?`)
-    )
+  function action(project: Project, action: ProjectAction) {
+    if (pendingIdsRef.current.has(project.id)) return;
+    if (action === "delete") {
+      setActionError(null);
+      setDeleteError("");
+      setDeletingProject(project);
       return;
-    setProjects((current) => {
-      if (action === "delete")
-        return current.filter((item) => item.id !== project.id);
-      if (action === "duplicate")
-        return [
-          ...current,
-          {
-            ...project,
-            id: Math.max(...current.map((item) => item.id), 0) + 1,
-            name: `${project.name} (copia)`,
-            activity: "ahora",
-            age: 0,
-          },
-        ];
-      return current.map((item) => {
-        if (item.id !== project.id) return item;
-        return {
-          ...item,
-          status:
-            action === "archive"
-              ? "archived"
-              : item.progress === 100
-                ? "completed"
-                : "active",
-          activity: "ahora",
-          age: 0,
-        };
+    }
+    void executeAction(project, action);
+  }
+
+  async function executeAction(project: Project, action: MutationAction) {
+    if (pendingIdsRef.current.has(project.id)) return;
+    pendingIdsRef.current.add(project.id);
+    setPendingIds(new Set(pendingIdsRef.current));
+    setActionError(null);
+    try {
+      const duplicate = action === "duplicate";
+      const response = await fetch(
+        duplicate
+          ? `/api/projects/${project.id}/duplicate`
+          : `/api/projects/${project.id}`,
+        duplicate
+          ? { method: "POST" }
+          : {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                estado: action === "archive"
+                  ? "archived"
+                  : project.progress === 100
+                    ? "completed"
+                    : "active",
+              }),
+            },
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        project?: Project;
+        error?: string;
+      };
+      if (response.status !== (duplicate ? 201 : 200)) {
+        throw new Error(result.error || "No se pudo actualizar el proyecto.");
+      }
+      if (!result.project) throw new Error("La respuesta no incluye el proyecto actualizado.");
+      mutationVersion.current++;
+      setProjects((current) =>
+        duplicate
+          ? [result.project!, ...current]
+          : current.map((item) => item.id === project.id ? result.project! : item),
+      );
+      setLoadError("");
+    } catch (reason) {
+      setActionError({
+        project,
+        action,
+        message: reason instanceof Error ? reason.message : "No se pudo actualizar el proyecto.",
       });
-    });
+    } finally {
+      pendingIdsRef.current.delete(project.id);
+      setPendingIds(new Set(pendingIdsRef.current));
+    }
+  }
+
+  async function executeDelete(project: Project) {
+    if (pendingIdsRef.current.has(project.id)) return;
+    pendingIdsRef.current.add(project.id);
+    setPendingIds(new Set(pendingIdsRef.current));
+    setDeleteError("");
+    try {
+      const response = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+      if (response.status !== 204) {
+        const result = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(result.error || "No se pudo eliminar el proyecto.");
+      }
+      mutationVersion.current++;
+      setProjects((current) => current.filter((item) => item.id !== project.id));
+      setLoadError("");
+      setDeletingProject(null);
+    } catch (reason) {
+      setDeleteError(
+        reason instanceof Error ? reason.message : "No se pudo eliminar el proyecto.",
+      );
+    } finally {
+      pendingIdsRef.current.delete(project.id);
+      setPendingIds(new Set(pendingIdsRef.current));
+    }
+  }
+
+  function closeDeleteModal() {
+    if (deletingProject && pendingIdsRef.current.has(deletingProject.id)) return;
+    setDeletingProject(null);
+    setDeleteError("");
   }
 
   const hasProjects = projects.length > 0;
@@ -135,7 +202,6 @@ export function ProjectsOverview() {
   return (
     <AppShell
       active="proyectos"
-      projects={projects}
       query={globalQuery}
       onSearch={setGlobalQuery}
     >
@@ -159,6 +225,14 @@ export function ProjectsOverview() {
             <button onClick={() => setReload((value) => value + 1)}>Reintentar</button>
           </p>
         )}
+        {actionError && (
+          <p className={styles.empty} role="alert">
+            {actionError.message}{" "}
+            <button onClick={() => executeAction(actionError.project, actionError.action)}>
+              Reintentar
+            </button>
+          </p>
+        )}
         {hasProjects ? (
           <>
             <ProjectsToolbar
@@ -175,6 +249,8 @@ export function ProjectsOverview() {
                   key={project.id}
                   project={project}
                   onAction={action}
+                  onEdit={(item) => setEditingProject(item)}
+                  pending={pendingIds.has(project.id)}
                 />
               ))}
             </div>
@@ -199,10 +275,8 @@ export function ProjectsOverview() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={(project) => {
-          createdProjects.current = [
-            project,
-            ...createdProjects.current.filter((item) => item.id !== project.id),
-          ];
+          mutationVersion.current++;
+          setActionError(null);
           setProjects((current) => [
             project,
             ...current.filter((item) => item.id !== project.id),
@@ -213,6 +287,29 @@ export function ProjectsOverview() {
           setQuery("");
           setGlobalQuery("");
           setLoadError("");
+        }}
+      />
+      <CreateProjectModal
+        open={editingProject !== null}
+        project={editingProject ?? undefined}
+        onClose={() => setEditingProject(null)}
+        onUpdated={(project) => {
+          mutationVersion.current++;
+          setActionError(null);
+          setProjects((current) => current.map((item) => item.id === project.id ? project : item));
+          setFilter(project.status === "archived" ? 3 : project.status === "completed" ? 2 : 1);
+          setQuery("");
+          setGlobalQuery("");
+          setLoadError("");
+        }}
+      />
+      <DeleteProjectModal
+        project={deletingProject}
+        error={deleteError}
+        pending={deletingProject !== null && pendingIds.has(deletingProject.id)}
+        onClose={closeDeleteModal}
+        onConfirm={() => {
+          if (deletingProject) void executeDelete(deletingProject);
         }}
       />
     </AppShell>
