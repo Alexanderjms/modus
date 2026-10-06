@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import styles from "./board.module.css";
-import shared from "../workspace.module.css";
 import { KanbanColumn } from "./kanban-column";
 import { columns, type BoardTask } from "./workspace-data";
 import { TaskDetailModal, type TaskEditPayload } from "./task-detail-modal";
 import { TaskContextMenu } from "./task-context-menu";
+import { BoardHeader } from "./board-header";
+import { BoardNotice } from "./board-notice";
 import type { TaskCatalogsDto } from "../../api/tasks/route";
 
 export function Board({
@@ -374,62 +375,21 @@ export function Board({
 
   return (
     <section className={styles.board} aria-labelledby="board-title">
-      <header className={styles.boardHeader}>
-        {!chatOpen && (
-          <button
-            ref={chatTrigger}
-            className={shared.iconButton}
-            aria-label="Mostrar chat"
-            aria-expanded={false}
-            aria-controls="workspace-chat"
-            onClick={onShowChat}
-          >
-            <i aria-hidden="true" className="bi bi-layout-sidebar" />
-          </button>
-        )}
-        <div>
-          <h1 id="board-title">Tablero Kanban</h1>
-          <p>Gestiona y visualiza el progreso de tus tareas.</p>
-        </div>
-        <button
-          className={shared.iconButton}
-          aria-label="Más opciones del tablero"
-          disabled
-        >
-          <i aria-hidden="true" className="bi bi-three-dots" />
-        </button>
-        {!contextOpen && (
-          <button
-            ref={contextTrigger}
-            className={shared.iconButton}
-            aria-label="Mostrar contexto"
-            aria-expanded={false}
-            aria-controls="workspace-context"
-            onClick={onShowContext}
-          >
-            <i aria-hidden="true" className="bi bi-layout-sidebar-reverse" />
-          </button>
-        )}
-      </header>
-      {!boardLoading && (
-        projectsError || tasksError ? (
-          <p role="alert" className={shared.notice}>
-            {projectsError || tasksError}{" "}
-            <button
-              type="button"
-              onClick={() => projectsError ? onRetryProjects() : setTasksReload((value) => value + 1)}
-            >
-              Reintentar
-            </button>
-          </p>
-        ) : projectName ? (
-          tasks.length === 0 ? (
-            <p role="status" className={shared.notice}>Este proyecto aún no tiene tareas.</p>
-          ) : null
-        ) : (
-          <p role="status" className={shared.notice}>Crea un proyecto o selecciona uno para empezar.</p>
-        )
-      )}
+      <BoardHeader
+        chatOpen={chatOpen}
+        onShowChat={onShowChat}
+        contextOpen={contextOpen}
+        onShowContext={onShowContext}
+        chatTrigger={chatTrigger}
+        contextTrigger={contextTrigger}
+      />
+      <BoardNotice
+        loading={boardLoading}
+        projectsError={projectsError}
+        tasksError={tasksError}
+        hasProject={Boolean(projectName)}
+        onRetry={() => projectsError ? onRetryProjects() : setTasksReload((value) => value + 1)}
+      />
       <div className={styles.columns}>
         {columns.map((name, index) => {
           const colTasks = currentTasks.filter((t) => t.column === index);

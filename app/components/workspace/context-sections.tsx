@@ -10,66 +10,21 @@ import {
 import { createPortal } from "react-dom";
 import styles from "./context.module.css";
 import shared from "../workspace.module.css";
-import { Skeleton } from "../skeleton";
 import { isProjectContextFileUrl } from "./context-file-resource.mjs";
+import {
+  isContextFile,
+  isValidContextDocument,
+  type ContextDocument,
+  type ContextResource,
+} from "./context-document.mjs";
+import { ContextLoadMessage, ContextSkeleton } from "./context-load-states";
 
-export type ContextResource = { title: string; url: string };
-export type ContextDocument = {
-  context: string;
-  rules: string[];
-  resources: ContextResource[];
-};
-
-function isContextFile(resource: ContextResource) {
-  return isProjectContextFileUrl(resource.url);
-}
-
-export function isValidContextDocument(document: ContextDocument) {
-  if (
-    document.context.length > 5000 ||
-    document.rules.length > 50 ||
-    !document.rules.every(
-      (rule) => rule.trim().length > 0 && rule.length <= 500,
-    ) ||
-    document.resources.length > 50 ||
-    !document.resources.every((resource) => {
-      if (
-        !resource.title.trim() ||
-        resource.title.length > 200 ||
-        resource.url.length > 2048
-      )
-        return false;
-      if (isContextFile(resource)) return true;
-      try {
-        const url = new URL(resource.url.trim());
-        return url.protocol === "http:" || url.protocol === "https:";
-      } catch {
-        return false;
-      }
-    })
-  )
-    return false;
-
-  return new TextEncoder().encode(JSON.stringify(document)).byteLength <= 32768;
-}
-
-export function isContextDocument(value: unknown): value is ContextDocument {
-  if (!value || typeof value !== "object") return false;
-  const document = value as Partial<ContextDocument>;
-  return (
-    typeof document.context === "string" &&
-    Array.isArray(document.rules) &&
-    document.rules.every((rule) => typeof rule === "string") &&
-    Array.isArray(document.resources) &&
-    document.resources.every(
-      (resource) =>
-        resource !== null &&
-        typeof resource === "object" &&
-        typeof resource.title === "string" &&
-        typeof resource.url === "string",
-    )
-  );
-}
+export {
+  isContextDocument,
+  isValidContextDocument,
+  type ContextDocument,
+  type ContextResource,
+} from "./context-document.mjs";
 
 export function ContextSections({
   document,
@@ -468,64 +423,12 @@ export function ContextSections({
 
   return (
     <>
-      {loadState === "loading" && (
-        <>
-          <p className={styles.srOnly} role="status">
-            Cargando contexto del proyecto…
-          </p>
-          <section className={styles.contextSection}>
-            <header className={styles.skeletonHeader}>
-              <Skeleton variant="text" width={116} height={8} />
-              <Skeleton variant="rounded" width={24} height={24} />
-            </header>
-            <Skeleton variant="rounded" width="100%" height={84} />
-            <div className={`${styles.skeletonField} ${styles.skeletonHint}`}>
-              <Skeleton variant="text" width={72} height={8} />
-            </div>
-          </section>
-          <section className={styles.contextSection}>
-            <header className={styles.skeletonHeader}>
-              <Skeleton variant="text" width={92} height={8} />
-              <Skeleton variant="rounded" width={24} height={24} />
-            </header>
-            <ul className={styles.editableList}>
-              {[0, 1, 2].map((key) => (
-                <li key={key}>
-                  <Skeleton variant="rounded" width="100%" height={32} />
-                  <Skeleton variant="rounded" width={28} height={28} />
-                </li>
-              ))}
-            </ul>
-          </section>
-          <section className={styles.contextSection}>
-            <header className={styles.skeletonHeader}>
-              <Skeleton variant="text" width={68} height={8} />
-              <Skeleton variant="rounded" width={24} height={24} />
-            </header>
-            <ul className={styles.editableList}>
-              {[0, 1].map((key) => (
-                <li className={styles.skeletonResourceRow} key={key}>
-                  <Skeleton variant="rounded" width="100%" height={32} />
-                  <Skeleton variant="rounded" width="100%" height={32} />
-                  <Skeleton variant="rounded" width={28} height={28} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        </>
-      )}
+      {loadState === "loading" && <ContextSkeleton />}
       {loadState === "error" && (
-        <div className={styles.panelMessage} role="alert">
-          <p>{loadError || "No se pudo cargar el contexto."}</p>
-          <button type="button" className={shared.textButton} onClick={onRetry}>
-            Reintentar
-          </button>
-        </div>
+        <ContextLoadMessage kind="error" message={loadError} onRetry={onRetry} />
       )}
       {loadState === "no-project" && (
-        <p className={styles.panelMessage} role="status">
-          Selecciona un proyecto para editar su contexto.
-        </p>
+        <ContextLoadMessage kind="no-project" message="" onRetry={onRetry} />
       )}
 
       {loadState === "ready" && (

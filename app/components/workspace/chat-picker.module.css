@@ -196,6 +196,105 @@
   color: white;
   font-weight: 600;
 }
+.optionRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding-right: 6px;
+  border-radius: 6px;
+}
+.optionRow .option {
+  flex: 1;
+  min-width: 0;
+}
+.menu .optionRow.selectedOptionRow {
+  background: #007aff;
+}
+.menu .optionRow.selectedOptionRow .option {
+  background: transparent;
+  color: white;
+  font-weight: 600;
+}
+.menu .optionRow.selectedOptionRow .selectedRowOption:hover:not(:disabled) {
+  background: transparent;
+  color: white;
+}
+.menu .optionRow.selectedOptionRow .option > i {
+  color: white;
+}
+.menu .optionRow.selectedOptionRow .optionText > small {
+  color: #ffffffd1;
+}
+.menu .optionRow.selectedOptionRow .optionActionsTrigger {
+  color: white;
+}
+.menu .optionRow.selectedOptionRow :is(.option, .optionActionsTrigger):focus-visible {
+  outline-color: white;
+}
+.menu .optionRow > .optionActionsTrigger {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+.menu .optionActionsTrigger:focus-visible,
+.menu .optionMenu > button:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: -2px;
+}
+.menu .optionActionsTrigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.menu .optionMenu[popover] {
+  position: fixed;
+  inset: auto;
+  z-index: 1;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 8px 24px #00000029;
+}
+.menu .optionMenu > button {
+  display: flex;
+  width: 100%;
+  min-height: 30px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: left;
+}
+.menu .optionMenu > button > i {
+  width: 14px;
+  flex: 0 0 14px;
+  color: var(--muted);
+  text-align: center;
+}
+.menu .optionMenu > .deleteOption,
+.menu .optionMenu > .deleteOption > i {
+  color: var(--danger, #b42318);
+}
 .menu .option > i {
   flex-shrink: 0;
   color: #007aff;
@@ -284,6 +383,23 @@
   }
   .menu .option:hover:not(:disabled):not([aria-selected="true"]) {
     background: var(--page);
+  }
+  .menu .optionRow:not(.selectedOptionRow):hover {
+    background: var(--page);
+  }
+  .menu .optionRow .option:hover:not(:disabled) {
+    background: transparent;
+  }
+  .menu .optionActionsTrigger:hover:not(:disabled) {
+    background: var(--page);
+    color: var(--foreground);
+  }
+  .menu .optionMenu > button:hover {
+    background: var(--page);
+  }
+  .menu .optionRow.selectedOptionRow .optionActionsTrigger:hover:not(:disabled) {
+    background: #ffffff29;
+    color: white;
   }
   .menu .action:hover:not(:disabled) {
     background: color-mix(in srgb, var(--foreground) 8%, var(--toggle-track));

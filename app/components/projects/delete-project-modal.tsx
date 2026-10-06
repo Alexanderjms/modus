@@ -2,7 +2,7 @@
 
 import { useId, type FormEvent } from "react";
 import type { Project } from "../projects-data";
-import { Icon } from "./icon-helper";
+import { Icon } from "../icon";
 import { Modal } from "../shell/modal";
 import styles from "./delete-project-modal.module.css";
 

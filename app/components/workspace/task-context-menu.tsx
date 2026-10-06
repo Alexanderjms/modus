@@ -111,7 +111,6 @@ export function TaskContextMenu({
     const margin = 8;
     const width = menu.offsetWidth;
     const height = menu.offsetHeight;
-    // Reposiciona al cambiar de vista; al abrir (sin `confirming`) mantiene el punto del clic
     const preferredX = point.x > 0 || point.y > 0 ? point.x : anchor.left;
     const preferredY = point.x > 0 || point.y > 0 ? point.y : anchor.bottom;
     const left = Math.max(margin, Math.min(preferredX, window.innerWidth - width - margin));

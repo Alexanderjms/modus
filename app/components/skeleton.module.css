@@ -3,8 +3,6 @@
   display: inline-block;
   vertical-align: middle;
   background: var(--skeleton-bg);
-  /* Si la carga termina antes de ~180ms el placeholder no llega a verse,
-     así no hay parpadeo de bloques en cargas rápidas. */
   opacity: 0;
   animation:
     skeleton-in 200ms ease-out 180ms forwards,

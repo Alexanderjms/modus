@@ -53,7 +53,23 @@ function ensureChatsTable(db) {
     .get();
   if (!row) {
     applySchema(db);
+    return;
   }
+  const cols = db.prepare("PRAGMA table_info(chats)").all();
+  if (!cols.some((c) => c.name === "titulo_manual")) {
+    db.exec("ALTER TABLE chats ADD COLUMN titulo_manual INTEGER NOT NULL DEFAULT 0;");
+  }
+}
+
+function parseNonNegativeSafeInt(val) {
+  if (typeof val === "number") {
+    if (Number.isSafeInteger(val) && val >= 0) return val;
+    return null;
+  }
+  if (typeof val !== "string" || !/^\d+$/.test(val)) return null;
+  const num = Number(val);
+  if (!Number.isSafeInteger(num) || num < 0) return null;
+  return num;
 }
 
 function parsePositiveSafeInt(val) {
@@ -262,6 +278,7 @@ module.exports = {
   withNoStore,
   ensureChatsTable,
   parsePositiveSafeInt,
+  parseNonNegativeSafeInt,
   computeChatTitle,
   validateMessages,
   validateSaveChatPayload,

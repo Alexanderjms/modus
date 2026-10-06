@@ -93,11 +93,6 @@ function sanitizeMimeType(mimeType) {
   return "application/octet-stream";
 }
 
-/**
- * @param {unknown} data
- * @param {any} [db]
- * @param {number|null} [projectId]
- */
 function validateContextDocument(data, db = null, projectId = null) {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     return { error: "El cuerpo debe ser un objeto JSON" };
@@ -110,7 +105,6 @@ function validateContextDocument(data, db = null, projectId = null) {
     }
   }
 
-  // context: string (max 5000 chars)
   const contextVal = data.context ?? "";
   if (typeof contextVal !== "string") {
     return { error: "'context' debe ser una cadena de texto" };
@@ -119,7 +113,6 @@ function validateContextDocument(data, db = null, projectId = null) {
     return { error: `'context' excede el límite máximo de ${MAX_CONTEXT_LENGTH} caracteres` };
   }
 
-  // rules: string[] (max 50 rules, each max 500 chars)
   const rulesVal = data.rules ?? [];
   if (!Array.isArray(rulesVal)) {
     return { error: "'rules' debe ser un array de cadenas de texto" };
@@ -143,7 +136,6 @@ function validateContextDocument(data, db = null, projectId = null) {
     sanitizedRules.push(trimmed);
   }
 
-  // resources: { title: string, url: string }[] (max 50 resources)
   const resourcesVal = data.resources ?? [];
   if (!Array.isArray(resourcesVal)) {
     return { error: "'resources' debe ser un array de objetos { title, url }" };

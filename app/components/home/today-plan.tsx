@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import styles from "./today-plan.module.css";
-import { Icon } from "./icon-helper";
+import { Icon } from "../icon";
 import type { Task } from "./home-data";
 
 export function TodayPlan({

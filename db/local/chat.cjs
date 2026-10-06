@@ -782,19 +782,6 @@ function parseGoogleGenerateContent(parsed) {
   return null;
 }
 
-/**
- * @param {string} provider
- * @param {string} apiKey
- * @param {string} model
- * @param {string} protocol
- * @param {string|null} region
- * @param {Array<{role: string, content: string}>} messages
- * @param {string} projectName
- * @param {number} projectId
- * @param {AbortSignal|undefined} clientSignal
- * @param {number} [timeoutMs]
- * @param {any} [projectContext]
- */
 async function executeInference(provider, apiKey, model, protocol, region, messages, projectName, projectId, clientSignal, timeoutMs = CHAT_TIMEOUT_MS, projectContext = null) {
   const baseUrl = getProviderEndpoint(provider, region);
   const systemPrompt = buildSystemPrompt(projectName, projectContext);

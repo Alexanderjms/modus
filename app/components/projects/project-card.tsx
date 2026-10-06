@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Project } from "../projects-data";
 import cardStyles from "./project-card.module.css";
 import menuStyles from "./menu.module.css";
-import { Icon } from "./icon-helper";
+import { Icon } from "../icon";
 import { ProjectActionsMenu, type ProjectAction } from "./project-actions-menu";
 
 export function ProjectCard({

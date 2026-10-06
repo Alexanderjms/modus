@@ -3,13 +3,13 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { addCalendarDays, calendarGrid, formatCalendarDate, parseCalendarDate } from "./date-picker-date.mjs";
 import styles from "./date-picker.module.css";
+import { DateCalendarHeader, type SelectorMenu } from "./date-calendar-header";
+import { DateCalendarGrid } from "./date-calendar-grid";
 
 const monthNames = Array.from({ length: 12 }, (_, month) =>
   new Intl.DateTimeFormat("es", { month: "long", timeZone: "UTC" })
     .format(parseCalendarDate(`2024-${String(month + 1).padStart(2, "0")}-01`)!),
 );
-const weekdayNames = ["L", "M", "X", "J", "V", "S", "D"];
-type SelectorMenu = "month" | "year";
 
 export function DatePicker({
   label,
@@ -288,117 +288,37 @@ export function DatePicker({
           }
         }}
       >
-        <div className={styles.calendarHeader}>
-          <div className={styles.selectorWrap} onBlurCapture={(event) => {
-            if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setSelectorMenu(null);
-          }}>
-            <button
-              ref={monthTriggerRef}
-              type="button"
-              className={styles.selectorTrigger}
-              aria-label={`Mes: ${monthNames[view.month]}`}
-              aria-haspopup="listbox"
-              aria-expanded={selectorMenu === "month"}
-              aria-controls={`${id}-months`}
-              onClick={(event) => toggleSelector("month", event.detail === 0)}
-              onKeyDown={(event) => {
-                if (["ArrowDown", "ArrowUp"].includes(event.key) && selectorMenu !== "month") {
-                  event.preventDefault();
-                  toggleSelector("month", true);
-                }
-              }}
-            ><span>{monthNames[view.month]}</span><i aria-hidden="true" className="bi bi-chevron-down" /></button>
-            {selectorMenu === "month" && <div
-              id={`${id}-months`}
-              className={styles.selectorMenu}
-              role="listbox"
-              aria-label="Mes"
-              onKeyDown={navigateSelector}
-            >{monthNames.map((month, index) => <button
-              key={month}
-              type="button"
-              role="option"
-              aria-selected={view.month === index}
-              aria-disabled={!monthAvailable(view.year, index) || undefined}
-              disabled={!monthAvailable(view.year, index)}
-              tabIndex={selectorIndex === index ? 0 : -1}
-              data-menu-option={`month-${index}`}
-              className={styles.selectorOption}
-              onFocus={() => setSelectorIndex(index)}
-              onClick={() => chooseMonth(index)}
-            >{month}{view.month === index && <i aria-hidden="true" className="bi bi-check2" />}</button>)}</div>}
-          </div>
-          <div className={styles.selectorWrap} onBlurCapture={(event) => {
-            if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) setSelectorMenu(null);
-          }}>
-            <button
-              ref={yearTriggerRef}
-              type="button"
-              className={styles.selectorTrigger}
-              aria-label={`Año: ${view.year}`}
-              aria-haspopup="listbox"
-              aria-expanded={selectorMenu === "year"}
-              aria-controls={`${id}-years`}
-              onClick={(event) => toggleSelector("year", event.detail === 0)}
-              onKeyDown={(event) => {
-                if (["ArrowDown", "ArrowUp"].includes(event.key) && selectorMenu !== "year") {
-                  event.preventDefault();
-                  toggleSelector("year", true);
-                }
-              }}
-            ><span>{view.year}</span><i aria-hidden="true" className="bi bi-chevron-down" /></button>
-            {selectorMenu === "year" && <div
-              id={`${id}-years`}
-              className={`${styles.selectorMenu} ${styles.yearMenu}`}
-              role="listbox"
-              aria-label="Año"
-              onKeyDown={navigateSelector}
-            >{yearOptions.map((year, index) => <button
-              key={year}
-              type="button"
-              role="option"
-              aria-selected={view.year === year}
-              aria-disabled={!yearAvailable(year) || undefined}
-              disabled={!yearAvailable(year)}
-              tabIndex={selectorIndex === index ? 0 : -1}
-              data-menu-option={`year-${index}`}
-              className={styles.selectorOption}
-              onFocus={() => setSelectorIndex(index)}
-              onClick={() => chooseYear(year)}
-            >{year}{view.year === year && <i aria-hidden="true" className="bi bi-check2" />}</button>)}</div>}
-          </div>
-          <div className={styles.monthNavigation}>
-            <button type="button" aria-label="Mes anterior" disabled={!monthAvailable(view.year, view.month - 1)} onClick={() => { setSelectorMenu(null); changeMonth(view.year, view.month - 1); }}><i aria-hidden="true" className="bi bi-chevron-left" /></button>
-            <button type="button" aria-label="Mes siguiente" disabled={!monthAvailable(view.year, view.month + 1)} onClick={() => { setSelectorMenu(null); changeMonth(view.year, view.month + 1); }}><i aria-hidden="true" className="bi bi-chevron-right" /></button>
-          </div>
-        </div>
-        <div className={styles.calendarWeekdays} aria-hidden="true">{weekdayNames.map((day, index) => <span key={index}>{day}</span>)}</div>
-        <div className={styles.calendarGrid} role="grid" aria-label={formatMonth(view.year, view.month)}>
-          {Array.from({ length: 6 }, (_, week) => <div role="row" className={styles.calendarWeek} key={week}>
-            {dates.slice(week * 7, week * 7 + 7).map((date, day) => {
-              if (!parseCalendarDate(date)) return <div role="gridcell" key={`${date}:${day}`} />;
-              const inMonth = date.slice(0, 7) === `${String(view.year).padStart(4, "0")}-${String(view.month + 1).padStart(2, "0")}`;
-              return <div role="gridcell" aria-selected={date === selectedDate || undefined} key={`${date}:${day}`}>
-                <button
-                  type="button"
-                  data-date={date}
-                  disabled={!isAvailable(date)}
-                  tabIndex={date === focusDate ? 0 : -1}
-                  aria-label={formatLongLabel(date)}
-                  aria-current={date === today ? "date" : undefined}
-                  aria-pressed={date === selectedDate}
-                  className={`${styles.day} ${!inMonth ? styles.outsideMonth : ""} ${date === today ? styles.today : ""} ${date === selectedDate ? styles.selected : ""}`}
-                  onClick={() => selectDate(date)}
-                  onKeyDown={(event) => handleDayKeyDown(event, date)}
-                >{Number(date.slice(-2))}</button>
-              </div>;
-            })}
-          </div>)}
-        </div>
-        <div className={styles.calendarFooter}>
-          <button type="button" onClick={() => selectDate(today)} disabled={!isAvailable(today)}>Hoy</button>
-          <button type="button" onClick={() => selectDate("")} disabled={!selectedDate}>Borrar</button>
-        </div>
+        <DateCalendarHeader
+          id={id}
+          view={view}
+          monthNames={monthNames}
+          selectorMenu={selectorMenu}
+          selectorIndex={selectorIndex}
+          yearOptions={yearOptions}
+          monthTriggerRef={monthTriggerRef}
+          yearTriggerRef={yearTriggerRef}
+          monthAvailable={monthAvailable}
+          yearAvailable={yearAvailable}
+          onToggleSelector={toggleSelector}
+          onNavigateSelector={navigateSelector}
+          onChooseMonth={chooseMonth}
+          onChooseYear={chooseYear}
+          onSelectorFocus={setSelectorIndex}
+          onCloseSelectorMenu={() => setSelectorMenu(null)}
+          onNavigateMonth={(delta) => { setSelectorMenu(null); changeMonth(view.year, view.month + delta); }}
+        />
+        <DateCalendarGrid
+          dates={dates}
+          view={view}
+          selectedDate={selectedDate}
+          focusDate={focusDate}
+          today={today}
+          isAvailable={isAvailable}
+          onSelectDate={selectDate}
+          onDayKeyDown={handleDayKeyDown}
+          formatLongLabel={formatLongLabel}
+          formatMonth={formatMonth}
+        />
       </div>
     </div>
   );

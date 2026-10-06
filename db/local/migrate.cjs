@@ -41,14 +41,12 @@ function migrateSubtasksSchema(db) {
   const hasEstadoId = cols.includes("estado_id");
   const hasCompletada = cols.includes("completada");
 
-  // Si ya no tiene columnas obsoletas y tiene completada, no hacer nada
   if (!hasDescripcion && !hasEstadoId && hasCompletada) {
     return false;
   }
 
   db.exec("BEGIN TRANSACTION;");
   try {
-    // 1. Crear tabla temporal con el nuevo esquema
     db.exec(`
       CREATE TABLE subtareas_nueva (
         id INTEGER PRIMARY KEY,
@@ -58,10 +56,6 @@ function migrateSubtasksSchema(db) {
       );
     `);
 
-    // 2. Determinar expresión para completada:
-    // Si ya existe la columna 'completada', preservarla.
-    // Si no existe pero hay 'estado_id', intentar mapear si el estado asociado es 'completada'.
-    // En caso contrario, default 0.
     let completadaExpr = "0";
     if (hasCompletada) {
       completadaExpr = "COALESCE(st.completada, 0)";
@@ -95,11 +89,9 @@ function migrateSubtasksSchema(db) {
       `);
     }
 
-    // 3. Sustituir tabla antigua
     db.exec("DROP TABLE subtareas;");
     db.exec("ALTER TABLE subtareas_nueva RENAME TO subtareas;");
 
-    // 4. Recrear índices y verificar FKs
     db.exec("CREATE INDEX IF NOT EXISTS idx_subtareas_tarea ON subtareas(tarea_id);");
 
     db.exec("COMMIT;");
@@ -115,9 +107,6 @@ function applySchema(db, options = {}) {
   inspectCompatibility(db);
   db.exec("BEGIN TRANSACTION;");
   try {
-    // Si la tabla tareas ya existe de una versión anterior sin 'posicion',
-    // agregar la columna antes de ejecutar el schema.sql para que índices
-    // dependientes de 'posicion' no fallen con 'no such column'.
     const existingTables = getTableList(db);
     if (existingTables.includes("tareas")) {
       const tareasCols = getTableColumns(db, "tareas").map((c) => c.name);
@@ -126,14 +115,11 @@ function applySchema(db, options = {}) {
       }
     }
 
-    // Si la tabla subtareas ya existe de una versión anterior sin 'completada',
-    // agregar la columna aditivamente para garantizar compatibilidad sin destruir datos.
     if (existingTables.includes("subtareas")) {
       const subtareasCols = getTableColumns(db, "subtareas").map((c) => c.name);
       if (!subtareasCols.includes("completada")) {
         db.exec("ALTER TABLE subtareas ADD COLUMN completada INTEGER NOT NULL DEFAULT 0 CHECK(completada IN (0, 1));");
 
-        // Inicializar completada a 1 si existía estado_id y el estado asociado normalizado es 'completada'
         if (subtareasCols.includes("estado_id") && existingTables.includes("estados")) {
           db.exec(`
             UPDATE subtareas
@@ -146,8 +132,6 @@ function applySchema(db, options = {}) {
       }
     }
 
-    // Si la tabla etiquetas ya existe de una versión anterior sin 'color',
-    // agregar la columna aditivamente para garantizar compatibilidad sin destruir datos.
     if (existingTables.includes("etiquetas")) {
       const etiquetasCols = getTableColumns(db, "etiquetas").map((c) => c.name);
       if (!etiquetasCols.includes("color")) {
@@ -155,9 +139,15 @@ function applySchema(db, options = {}) {
       }
     }
 
+    if (existingTables.includes("chats")) {
+      const chatsCols = getTableColumns(db, "chats").map((c) => c.name);
+      if (!chatsCols.includes("titulo_manual")) {
+        db.exec("ALTER TABLE chats ADD COLUMN titulo_manual INTEGER NOT NULL DEFAULT 0;");
+      }
+    }
+
     db.exec(sqlContent);
 
-    // Asegurar índice por si schema.sql no lo tuviera
     db.exec("CREATE INDEX IF NOT EXISTS idx_tareas_lista_posicion ON tareas(lista_id, posicion);");
 
     db.exec("COMMIT;");
@@ -166,7 +156,6 @@ function applySchema(db, options = {}) {
     throw err;
   }
 
-  // Migración opt-in explícita de subtareas (sin pérdida accidental en apertura automática)
   if (options && options.migrateSubtasks) {
     migrateSubtasksSchema(db);
   }

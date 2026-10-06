@@ -261,6 +261,11 @@
   color: var(--foreground);
   font-size: 11.5px;
 }
+.context .editableList input:focus-visible {
+  border-color: transparent;
+  outline: none;
+  box-shadow: inset 0 0 0 1px #007aff;
+}
 @supports ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
   .editableList input {
     background: var(--column-glass);

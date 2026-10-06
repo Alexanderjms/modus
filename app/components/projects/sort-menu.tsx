@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import menuStyles from "./menu.module.css";
 import toolbarStyles from "./toolbar.module.css";
-import { Icon } from "./icon-helper";
+import { Icon } from "../icon";
 
 const sortOptions = [
   { value: "activity", label: "Última actividad" },

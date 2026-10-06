@@ -503,10 +503,8 @@ function moveProjectTask(db, { projectId, taskId, column, beforeTaskId }) {
   db.exec("BEGIN");
   try {
     const isSameList = Number(taskRow.lista_id) === Number(targetColDef.listId);
-    // Preservar estado actual si es same-list; sincronizar con la columna sólo si cross-list
     const targetStatusId = isSameList ? taskRow.estado_id : defaultStatusId;
 
-    // Obtener tareas actuales de la columna destino (excluyendo la tarea que se mueve)
     const destTasks = db
       .prepare(
         `SELECT id, COALESCE(posicion, 0) AS posicion 
@@ -516,7 +514,6 @@ function moveProjectTask(db, { projectId, taskId, column, beforeTaskId }) {
       )
       .all(targetColDef.listId, taskId);
 
-    // Si self-target en la misma columna, es un no-op
     if (beforeTask && Number(beforeTask.id) === taskId && isSameList) {
       db.exec("COMMIT");
       return getProjectTaskById(db, taskId, projectId);
@@ -548,7 +545,6 @@ function moveProjectTask(db, { projectId, taskId, column, beforeTaskId }) {
       }
     }
 
-    // Si cambió de lista, normalizar posiciones de la lista origen
     if (!isSameList) {
       const sourceTasks = db
         .prepare(
@@ -641,7 +637,6 @@ function updateProjectTask(db, {
     return null;
   }
 
-  // Validar límites y formatos escalares
   if (title !== undefined) {
     if (typeof title !== "string" || !title.trim()) {
       const err = new Error("title no puede estar vacío");
@@ -681,7 +676,6 @@ function updateProjectTask(db, {
     }
   }
 
-  // Validación de fechas reales y orden start <= end
   const effectiveStart = startDate !== undefined ? startDate : taskRow.fecha_inicio;
   const effectiveEnd = endDate !== undefined ? endDate : taskRow.fecha_fin;
 
@@ -705,7 +699,6 @@ function updateProjectTask(db, {
     throw err;
   }
 
-  // Validaciones de catálogos si se proporcionan
   if (priorityId !== undefined && priorityId !== null) {
     const pRow = db.prepare("SELECT id FROM prioridades WHERE id = ?").get(priorityId);
     if (!pRow) {
@@ -724,7 +717,6 @@ function updateProjectTask(db, {
     }
   }
 
-  // Validar tags antes de cualquier mutación
   const validatedTagIds = [];
   const validatedNewTags = [];
   if (tags !== undefined) {
@@ -828,7 +820,6 @@ function updateProjectTask(db, {
     }
   }
 
-  // Validar subtareas antes de cualquier mutación
   let validatedSubtasks = [];
   if (subtasks !== undefined) {
     if (!Array.isArray(subtasks)) {
@@ -881,7 +872,6 @@ function updateProjectTask(db, {
         throw err;
       }
 
-      // Rechazar campos retirados para no fingir guardado silencioso
       if (st.description !== undefined) {
         const err = new Error("El campo 'description' en subtareas ya no está soportado");
         err.code = "INVALID_SUBTASK_FIELD";
@@ -911,7 +901,6 @@ function updateProjectTask(db, {
 
   db.exec("BEGIN");
   try {
-    // 1. Actualizar campos escalares presentes
     const scalarUpdates = [];
     const scalarArgs = [];
 
@@ -949,7 +938,6 @@ function updateProjectTask(db, {
       db.prepare(`UPDATE tareas SET ${scalarUpdates.join(", ")} WHERE id = ?`).run(...scalarArgs);
     }
 
-    // 2. Actualizar etiquetas si se proporcionan
     if (tags !== undefined) {
       db.prepare("DELETE FROM tarea_etiquetas WHERE tarea_id = ?").run(taskId);
 
@@ -984,7 +972,6 @@ function updateProjectTask(db, {
       }
     }
 
-    // 3. Actualizar subtareas si se proporcionan
     if (subtasks !== undefined) {
       const existingSubtasks = db
         .prepare("SELECT * FROM subtareas WHERE tarea_id = ?")
@@ -1018,7 +1005,6 @@ function updateProjectTask(db, {
           const existingRecord = existingMap.get(st.id);
 
           if (hasCompletadaCol) {
-            // Si viene completed explícito se usa; si omitido, se preserva el actual
             const nextCompletedInt =
               st.completed !== undefined
                 ? (st.completed ? 1 : 0)
@@ -1039,7 +1025,6 @@ function updateProjectTask(db, {
         }
       }
 
-      // Eliminar subtareas que ya no estén en la lista
       for (const oldId of existingMap.keys()) {
         if (!incomingIds.has(oldId)) {
           db.prepare("DELETE FROM subtareas WHERE id = ? AND tarea_id = ?").run(oldId, taskId);
@@ -1191,8 +1176,6 @@ function getWeeklyActivity(db, userId, clientNow) {
     dayDateStrings.push(dateStr);
   }
 
-  // Buscar completaciones del usuario para las tareas en proyectos propios
-  // Contando DISTINCT tarea_id por fecha local
   const rows = db
     .prepare(
       `

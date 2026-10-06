@@ -286,7 +286,6 @@ export async function PATCH(request: Request) {
     return jsonResponse({ error: "taskId inválido" }, 400);
   }
 
-  // Comprobar si es operación de reordenamiento/movimiento
   const hasColumn = b.column !== undefined;
   const hasBeforeTaskId = b.beforeTaskId !== undefined;
   const isReorderOperation = hasColumn || hasBeforeTaskId;
@@ -317,7 +316,6 @@ export async function PATCH(request: Request) {
     }
 
     if (isReorderOperation) {
-      // Reordenar / Mover
       if (typeof b.column !== "number" || !isValidColumn(b.column)) {
         return jsonResponse({ error: "column inválida (debe ser 0, 1 o 2)" }, 400);
       }
@@ -353,7 +351,6 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // Edición de campos y relaciones
     const editPayload: Record<string, unknown> = { projectId, taskId };
 
     if (b.title !== undefined) {

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Project } from "../projects-data";
-import { Icon } from "./icon-helper";
+import { Icon } from "../icon";
 import styles from "./menu.module.css";
 
 export type ProjectAction = "archive" | "restore" | "duplicate" | "delete";

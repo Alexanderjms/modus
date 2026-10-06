@@ -1,4 +1,4 @@
-import type { ContextDocument } from "./context-sections";
+import type { ContextDocument } from "./context-document.mjs";
 
 export function mergeContextSave(
   current: ContextDocument,

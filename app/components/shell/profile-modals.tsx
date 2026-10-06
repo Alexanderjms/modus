@@ -3,99 +3,15 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Modal } from "./modal";
 import styles from "./profile-modals.module.css";
-import { Skeleton } from "../skeleton";
-
-const providers = [
-  {
-    id: "bedrock",
-    name: "AWS Amazon Bedrock (API key)",
-    placeholder: "API key",
-    logo: "aws-amazon-bedrock.svg",
-  },
-  {
-    id: "cerebras",
-    name: "Cerebras",
-    placeholder: "API key",
-    logo: "cerebras.svg",
-  },
-  {
-    id: "deepinfra",
-    name: "DeepInfra",
-    placeholder: "API key",
-    logo: "deepinfra.svg",
-  },
-  { id: "google", name: "Google AI Studio", placeholder: "API key", logo: "google.svg" },
-  { id: "groq", name: "Groq", placeholder: "API key", logo: "groq.svg" },
-  { id: "nvidia", name: "NVIDIA", placeholder: "API key", logo: "nvidia.svg" },
-  { id: "opencode", name: "OpenCode Go", placeholder: "API key", logo: "opencode.svg" },
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    placeholder: "API key",
-    logo: "openrouter-mono.svg",
-  },
-] as const;
-
-type ProviderId = (typeof providers)[number]["id"];
-type ProviderStatus = Partial<Record<ProviderId, boolean>>;
-
-function errorForStatus(status: number) {
-  if (status === 400) return "Una o más claves no son válidas. Revísalas e inténtalo de nuevo.";
-  if (status === 403) return "No se pudo autorizar esta solicitud local. Vuelve a intentarlo.";
-  if (status === 409) return "No se encontró el perfil local de Modus.";
-  if (status === 501) return "El almacenamiento cifrado solo está disponible en Windows.";
-  return "No se pudieron cargar o guardar las claves. Inténtalo de nuevo.";
-}
-
-function requestError(reason: unknown, fallback: string) {
-  const knownErrors: string[] = [400, 403, 409, 501].map(errorForStatus);
-  const invalidResponse = "La respuesta del almacenamiento seguro no es válida.";
-  return reason instanceof Error &&
-    (knownErrors.includes(reason.message) || reason.message === invalidResponse)
-    ? reason.message
-    : fallback;
-}
-
-async function readProviderStatus(response: Response) {
-  if (!response.ok) throw new Error(errorForStatus(response.status));
-
-  const data: unknown = await response.json();
-  if (
-    typeof data !== "object" ||
-    data === null ||
-    !("providers" in data) ||
-    !Array.isArray(data.providers) ||
-    !("storage" in data) ||
-    typeof data.storage !== "object" ||
-    data.storage === null ||
-    !("kind" in data.storage) ||
-    data.storage.kind !== "windows-dpapi" ||
-    !("available" in data.storage) ||
-    typeof data.storage.available !== "boolean"
-  ) {
-    throw new Error("La respuesta del almacenamiento seguro no es válida.");
-  }
-
-  const status: ProviderStatus = {};
-  for (const item of data.providers) {
-    if (
-      typeof item === "object" &&
-      item !== null &&
-      "id" in item &&
-      "configured" in item &&
-      typeof item.id === "string" &&
-      typeof item.configured === "boolean" &&
-      providers.some((provider) => provider.id === item.id)
-    ) {
-      status[item.id as ProviderId] = item.configured;
-    }
-  }
-  if (Object.keys(status).length !== providers.length) {
-    throw new Error("La respuesta del almacenamiento seguro no es válida.");
-  }
-
-  return { status, available: data.storage.available };
-}
+import { ProviderCard } from "./provider-card";
+import {
+  providers,
+  providerErrorForStatus,
+  providerRequestError,
+  readProviderStatus,
+  type ProviderId,
+  type ProviderStatus,
+} from "./provider-data.mjs";
 
 export function ProfileModal({
   open,
@@ -258,7 +174,7 @@ export function ProvidersModal({
       })
       .catch((reason: unknown) => {
         if (controller.signal.aborted) return;
-        setError(requestError(reason, "No se pudieron cargar las claves. Inténtalo de nuevo."));
+        setError(providerRequestError(reason, "No se pudieron cargar las claves. Inténtalo de nuevo."));
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -317,10 +233,10 @@ export function ProvidersModal({
       setStorageAvailable(result.available);
       close();
     } catch (reason: unknown) {
-      if (reason instanceof Error && reason.message === errorForStatus(501)) {
+      if (reason instanceof Error && reason.message === providerErrorForStatus(501)) {
         setStorageAvailable(false);
       }
-      setError(requestError(reason, "No se pudieron guardar las claves. Inténtalo de nuevo."));
+      setError(providerRequestError(reason, "No se pudieron guardar las claves. Inténtalo de nuevo."));
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -382,66 +298,22 @@ export function ProvidersModal({
         role={loading ? "status" : undefined}
         aria-label={loading ? "Cargando el estado de las claves guardadas" : undefined}
       >
-        {providers.map(({ id, name, placeholder, logo }) => {
-          const configured = status[id] === true;
-          const isRemoved = removed.has(id);
-          return (
-            <div className={styles.providerCard} key={id}>
-              <div className={styles.providerHeader}>
-                <img
-                  alt=""
-                  aria-hidden="true"
-                  className={`${styles.providerLogo} ${
-                    id === "opencode" || id === "openrouter" ? styles.invertInDark : ""
-                  }`}
-                  src={`/providers/${logo}`}
-                />
-                <span className={styles.providerName}>{name}</span>
-                <span
-                  className={`${styles.providerBadge} ${configured ? styles.active : ""}`}
-                >
-                  {loading ? (
-                    <Skeleton variant="text" width={56} height={9} />
-                  ) : configured ? (
-                    "Clave guardada"
-                  ) : (
-                    "Sin configurar"
-                  )}
-                </span>
-              </div>
-              <label htmlFor={`provider-key-${id}`} className={styles.keyLabel}>
-                API key
-              </label>
-              <input
-                id={`provider-key-${id}`}
-                aria-label={`${name} API key`}
-                type="password"
-                autoComplete="off"
-                maxLength={4096}
-                placeholder={
-                  configured ? "Clave guardada · introduce una nueva para reemplazar" : placeholder
-                }
-                value={keys[id] ?? ""}
-                disabled={!canEdit || isRemoved}
-                onChange={(event) =>
-                  setKeys((current) => ({ ...current, [id]: event.target.value }))
-                }
-                className={styles.input}
-              />
-              {configured && (
-                <button
-                  type="button"
-                  className={styles.removeButton}
-                  onClick={() => toggleRemoval(id)}
-                  disabled={!canEdit}
-                  aria-pressed={isRemoved}
-                >
-                  {isRemoved ? "Cancelar eliminación" : "Eliminar clave guardada"}
-                </button>
-              )}
-            </div>
-          );
-        })}
+        {providers.map(({ id, name, placeholder, logo }) => (
+          <ProviderCard
+            key={id}
+            id={id}
+            name={name}
+            placeholder={placeholder}
+            logo={logo}
+            configured={status[id] === true}
+            isRemoved={removed.has(id)}
+            loading={loading}
+            canEdit={canEdit}
+            value={keys[id] ?? ""}
+            onKeyChange={(value) => setKeys((current) => ({ ...current, [id]: value }))}
+            onToggleRemoval={() => toggleRemoval(id)}
+          />
+        ))}
       </div>
     </Modal>
   );

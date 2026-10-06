@@ -4,7 +4,7 @@ import { type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./project-card.module.css";
-import { Icon } from "./icon-helper";
+import { Icon } from "../icon";
 import type { Project } from "../projects-data";
 import { ProjectActionsMenu, type ProjectAction } from "../projects/project-actions-menu";
 

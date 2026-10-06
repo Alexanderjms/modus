@@ -17,7 +17,6 @@ const NO_STORE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
 };
 
-// Permitir hasta 10 MiB de archivo más hasta 64 KiB de encabezados/overhead multipart
 const MAX_MULTIPART_REQUEST_BYTES = MAX_FILE_SIZE_BYTES + 64 * 1024;
 
 function jsonNoStore(body: unknown, status = 200) {
@@ -51,7 +50,6 @@ export async function POST(
     return jsonNoStore({ error: "Content-Type debe ser multipart/form-data" }, 400);
   }
 
-  // Pre-filtro: Comprobar Content-Length si viene presente
   const contentLengthHeader = request.headers.get("content-length");
   if (contentLengthHeader) {
     const parsedLength = Number.parseInt(contentLengthHeader, 10);
@@ -60,7 +58,6 @@ export async function POST(
     }
   }
 
-  // Verificar ownership del proyecto antes de procesar o guardar el archivo
   let db: DatabaseSync | null = null;
   try {
     const dbResult = openProjectDatabase();
@@ -82,7 +79,6 @@ export async function POST(
       return jsonNoStore({ error: "Proyecto no encontrado o no pertenece a tu perfil" }, 404);
     }
 
-    // Leer el body con streaming protegiendo contra payloads excesivos
     const reader = request.body?.getReader();
     if (!reader) {
       return jsonNoStore({ error: "Cuerpo de solicitud requerido" }, 400);
@@ -142,7 +138,6 @@ export async function POST(
     db.exec("BEGIN IMMEDIATE;");
     let inTransaction = true;
     try {
-      // Re-verificar ownership dentro de la transacción inmediata
       const projectStillExists = db
         .prepare("SELECT id FROM proyectos WHERE id = ? AND usuario_id = ?")
         .get(projectId, userRes.id);

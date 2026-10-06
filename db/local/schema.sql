@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS chats (
   id INTEGER PRIMARY KEY,
   proyecto_id INTEGER NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
   titulo TEXT NOT NULL,
+  titulo_manual INTEGER NOT NULL DEFAULT 0,
   revision INTEGER NOT NULL DEFAULT 0,
   mensajes TEXT NOT NULL DEFAULT '[]',
   proveedor TEXT,

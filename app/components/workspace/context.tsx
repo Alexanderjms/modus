@@ -6,12 +6,12 @@ import shared from "../workspace.module.css";
 import { ContextPlan } from "./context-plan";
 import { mergeContextSave } from "./context-autosave.mjs";
 import { getContextPanelLoadState } from "./context-load-state.mjs";
+import { ContextSections } from "./context-sections";
 import {
-  ContextSections,
   isContextDocument,
   isValidContextDocument,
   type ContextDocument,
-} from "./context-sections";
+} from "./context-document.mjs";
 
 const planTabs = ["Resumen", "Estructura", "Cronograma", "Notas"] as const;
 

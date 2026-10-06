@@ -2,7 +2,7 @@
 
 import toolbarStyles from "./toolbar.module.css";
 import { SortMenu } from "./sort-menu";
-import { Icon } from "./icon-helper";
+import { Icon } from "../icon";
 
 const filters = ["Todos", "Activos", "Completados", "Archivados"] as const;
 

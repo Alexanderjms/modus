@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import styles from "./chat-picker.module.css";
 import { Skeleton } from "../skeleton";
 
@@ -47,6 +47,7 @@ export function ChatPicker({
   onChange,
   disabled = false,
   action,
+  optionActions,
   loading = false,
   size = "compact",
   multipleValues,
@@ -61,6 +62,10 @@ export function ChatPicker({
   onChange: (value: string) => void;
   disabled?: boolean;
   action?: { label: string; onSelect: () => void; disabled?: boolean };
+  optionActions?: {
+    disabled?: boolean;
+    onSelect: (option: ChatPickerOption, action: "rename" | "delete") => void;
+  };
   loading?: boolean;
   size?: "compact" | "form";
   multipleValues?: string[];
@@ -73,6 +78,9 @@ export function ChatPicker({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const actionTriggerRefs = useRef(new Map<string, HTMLButtonElement>());
+  const optionMenuRef = useRef<HTMLDivElement>(null);
+  const [actionOption, setActionOption] = useState<ChatPickerOption | null>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const filtered = options.filter(({ label: optionLabel, detail, badge }) =>
@@ -103,6 +111,8 @@ export function ChatPicker({
   }
 
   function close(restoreFocus = false) {
+    if (optionMenuRef.current?.matches(":popover-open")) optionMenuRef.current.hidePopover();
+    setActionOption(null);
     if (popoverRef.current?.matches(":popover-open")) popoverRef.current.hidePopover();
     setOpen(false);
     if (restoreFocus) triggerRef.current?.focus();
@@ -145,6 +155,7 @@ export function ChatPicker({
   }
 
   function navigate(event: KeyboardEvent<HTMLElement>) {
+    if ((event.target as Element).closest('[role="menu"]')) return;
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
     const enabled = filtered.flatMap((option, index) => option.disabled ? [] : [index]);
     if (!enabled.length) return;
@@ -156,6 +167,26 @@ export function ChatPicker({
         : currentPosition < 0 ? event.key === "ArrowDown" ? enabled[0] : enabled.at(-1)!
           : enabled[(currentPosition + (event.key === "ArrowDown" ? 1 : -1) + enabled.length) % enabled.length];
     optionRefs.current[next]?.focus();
+  }
+
+  function showOptionMenu(option: ChatPickerOption, event: MouseEvent<HTMLButtonElement>) {
+    const menu = optionMenuRef.current;
+    if (!menu) return;
+    actionTriggerRefs.current.set(option.value, event.currentTarget);
+    setActionOption(option);
+    if (!menu.matches(":popover-open")) menu.showPopover();
+    requestAnimationFrame(() => {
+      const trigger = actionTriggerRefs.current.get(option.value);
+      if (!trigger || !optionMenuRef.current) return;
+      const rect = trigger.getBoundingClientRect();
+      const width = Math.min(168, window.innerWidth - 24);
+      const height = optionMenuRef.current.offsetHeight;
+      const below = window.innerHeight - rect.bottom - 8;
+      optionMenuRef.current.style.width = `${width}px`;
+      optionMenuRef.current.style.left = `${Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12))}px`;
+      optionMenuRef.current.style.top = `${Math.max(12, Math.min(below >= height ? rect.bottom + 4 : rect.top - height - 4, window.innerHeight - height - 12))}px`;
+      optionMenuRef.current.querySelector<HTMLButtonElement>("button")?.focus();
+    });
   }
 
   return (
@@ -257,22 +288,24 @@ export function ChatPicker({
             }}
           />
         </label>
-        <div className={styles.options} role="listbox" aria-label={label} aria-multiselectable={multipleValues !== undefined || undefined}>
+        <div className={styles.options} role={optionActions ? "list" : "listbox"} aria-label={label} aria-multiselectable={multipleValues !== undefined || undefined}>
           {filtered.map((option, index) => {
             const isSelected = multipleValues === undefined
               ? option.value === value
               : multipleValues.includes(option.value);
-            return (
+            const select = (
               <button
                 key={option.value}
                 ref={(button) => { optionRefs.current[index] = button; }}
                 type="button"
-                role="option"
-                aria-selected={isSelected}
+                role={optionActions ? undefined : "option"}
+                aria-selected={optionActions ? undefined : isSelected}
+                aria-current={optionActions && isSelected ? "true" : undefined}
+                aria-pressed={optionActions ? isSelected : undefined}
                 aria-disabled={option.disabled || undefined}
                 disabled={option.disabled}
                 tabIndex={index === selectedIndex ? 0 : -1}
-                className={styles.option}
+                className={`${styles.option} ${optionActions && isSelected ? styles.selectedRowOption : ""}`}
                 onClick={() => selectOption(option)}
               >
                 {option.icon && (
@@ -289,12 +322,76 @@ export function ChatPicker({
                   {option.detail && <small>{option.detail}</small>}
                 </span>
                 {option.badge && <FreeBadge />}
-                {isSelected && <i aria-hidden="true" className="bi bi-check2" />}
+                {!optionActions && isSelected && <i aria-hidden="true" className="bi bi-check2" />}
               </button>
             );
+            return optionActions ? (
+              <div
+                key={option.value}
+                className={`${styles.optionRow} ${isSelected ? styles.selectedOptionRow : ""}`}
+                role="listitem"
+              >
+                {select}
+                <button
+                  ref={(button) => {
+                    if (button) actionTriggerRefs.current.set(option.value, button);
+                    else actionTriggerRefs.current.delete(option.value);
+                  }}
+                  type="button"
+                  className={styles.optionActionsTrigger}
+                  aria-label={`Opciones de ${option.label}`}
+                  aria-haspopup="menu"
+                  aria-expanded={actionOption?.value === option.value}
+                  disabled={optionActions.disabled}
+                  onClick={(event) => showOptionMenu(option, event)}
+                >
+                  <i aria-hidden="true" className="bi bi-three-dots" />
+                </button>
+              </div>
+            ) : select;
           })}
           {!filtered.length && <p className={styles.empty}>{options.length ? "Sin coincidencias." : emptyLabel ?? "Sin coincidencias."}</p>}
         </div>
+        {optionActions && (
+          <div
+            ref={optionMenuRef}
+            className={styles.optionMenu}
+            popover="auto"
+            role="menu"
+            aria-label={actionOption ? `Opciones de ${actionOption.label}` : undefined}
+            onToggle={(event) => {
+              if (!event.currentTarget.matches(":popover-open")) {
+                if (optionMenuRef.current?.contains(document.activeElement)) {
+                  actionTriggerRefs.current.get(actionOption?.value ?? "")?.focus();
+                }
+                setActionOption(null);
+              }
+            }}
+            onKeyDown={(event) => {
+              const buttons = [...(event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"))];
+              if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) || !buttons.length) return;
+              event.preventDefault();
+              event.stopPropagation();
+              const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+              const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1
+                : (current + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+              buttons[next].focus();
+            }}
+          >
+            <button type="button" role="menuitem" onClick={() => {
+              if (actionOption) optionActions.onSelect(actionOption, "rename");
+              close(true);
+            }}>
+              <i aria-hidden="true" className="bi bi-pencil" /> Renombrar
+            </button>
+            <button type="button" role="menuitem" className={styles.deleteOption} onClick={() => {
+              if (actionOption) optionActions.onSelect(actionOption, "delete");
+              close(true);
+            }}>
+              <i aria-hidden="true" className="bi bi-trash3" /> Eliminar
+            </button>
+          </div>
+        )}
         {action && (
           <div className={styles.actionWrap}>
             <button

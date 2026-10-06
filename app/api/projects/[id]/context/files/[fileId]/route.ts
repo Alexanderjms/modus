@@ -73,14 +73,12 @@ export async function GET(
       return jsonNoStore({ error: "Archivo no encontrado" }, 404);
     }
 
-    // Encabezados seguros para descarga
     const headers = new Headers();
     headers.set("Content-Type", file.mimeType || "application/octet-stream");
     headers.set("Content-Length", String(file.size));
     headers.set("X-Content-Type-Options", "nosniff");
     headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
 
-    // Formatear Content-Disposition saneado
     const safeAsciiName = file.filename.replace(/["\r\n\\]/g, "_").replace(/[^\x20-\x7E]/g, "_");
     const encodedUtf8Name = encodeURIComponent(file.filename);
     headers.set(

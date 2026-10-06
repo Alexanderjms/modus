@@ -7,7 +7,7 @@ import { EmptyState } from "./empty-state";
 import { initialProjects, type Project } from "./projects-data";
 import { ProjectsToolbar } from "./projects/projects-toolbar";
 import { ProjectCard } from "./projects/project-card";
-import { Icon } from "./projects/icon-helper";
+import { Icon } from "./icon";
 import { CreateProjectModal } from "./projects/create-project-modal";
 import { DeleteProjectModal } from "./projects/delete-project-modal";
 import { Skeleton } from "./skeleton";

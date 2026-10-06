@@ -289,6 +289,149 @@
   white-space: nowrap;
   border: 0;
 }
+.chatActionDialog {
+  box-sizing: border-box;
+  width: min(400px, calc(100vw - 32px));
+  max-width: 100%;
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 24px 48px #00000036;
+}
+.chatActionDialog::backdrop {
+  background: #0000004d;
+  backdrop-filter: blur(6px);
+}
+.chatActionDialog form {
+  display: flex;
+  flex-direction: column;
+}
+.chatActionDialog header,
+.chatActionDialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.chatActionDialog header {
+  border-bottom: 1px solid var(--divider);
+}
+.chatActionDialog header h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.chatActionDialog header p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.chatActionDialog header button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border-radius: 7px;
+  color: var(--muted);
+}
+.chatActionBody {
+  display: grid;
+  gap: 10px;
+  padding: 18px 16px;
+}
+.chatActionField {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.chatActionField > input {
+  grid-column: 1 / -1;
+  box-sizing: border-box;
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--page);
+  color: var(--foreground);
+  font-size: 13px;
+}
+.chatActionField > input:focus-visible {
+  border-color: #007aff;
+  outline: 2px solid color-mix(in srgb, #007aff 24%, transparent);
+  outline-offset: 1px;
+}
+.chatActionField > small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+  text-align: right;
+}
+.deleteWarning,
+.chatActionError {
+  font-size: 12px;
+  line-height: 18px;
+}
+.deleteWarning {
+  color: var(--secondary);
+}
+.chatActionError {
+  color: var(--danger, #b42318);
+}
+.chatActionDialog footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--divider);
+  background: var(--page);
+}
+.chatActionDialog footer button {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.chatActionDialog footer button[type="submit"] {
+  background: #007aff;
+  color: #fff;
+  font-weight: 600;
+}
+.chatActionDialog footer .dangerButton {
+  background: var(--danger, #b42318);
+}
+.chatActionDialog button:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.chatActionDialog button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+@media (hover: hover) and (pointer: fine) {
+  .chatActionDialog header button:hover:not(:disabled),
+  .chatActionDialog footer button[type="button"]:hover:not(:disabled) {
+    background: var(--toggle-track);
+  }
+  .chatActionDialog footer button[type="submit"]:hover:not(:disabled) {
+    background: #006ee6;
+  }
+  .chatActionDialog footer .dangerButton:hover:not(:disabled) {
+    background: #9f1f17;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chatActionDialog::backdrop {
+    backdrop-filter: none;
+  }
+}
 .composer {
   flex-shrink: 0;
   border-top: 1px solid var(--divider-soft);

@@ -7,7 +7,7 @@ import { AppShell } from "./app-shell";
 import styles from "./home-dashboard.module.css";
 import { Skeleton } from "./skeleton";
 import { ProjectCard } from "./home/project-card";
-import { Icon } from "./home/icon-helper";
+import { Icon } from "./icon";
 import { EmptyState } from "./empty-state";
 import { CreateProjectModal } from "./projects/create-project-modal";
 import { DeleteProjectModal } from "./projects/delete-project-modal";
