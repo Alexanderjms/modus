@@ -1,155 +1,552 @@
 .context {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  width: 310px;
+  width: 280px;
   flex-shrink: 0;
-  background: transparent;
+  background: var(--column);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+@supports ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
+  .context {
+    background: var(--column-glass);
+    -webkit-backdrop-filter: blur(var(--column-blur)) saturate(150%);
+    backdrop-filter: blur(var(--column-blur)) saturate(150%);
+  }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .context {
+    background: var(--column);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 .contextBody {
-  padding: 16px 14px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  overflow-y: auto;
   min-height: 0;
+  overflow-y: auto;
+}
+.contextSection {
+  min-width: 0;
+  padding: 14px;
+}
+.contextSection + .contextSection {
+  border-top: 1px solid var(--divider-soft);
 }
 .contextSection > header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .contextSection h3 {
   flex: 1;
+  min-width: 0;
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.4px;
   color: var(--muted);
 }
 .contextSection > header > button {
-  border: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
   padding: 0;
-  background: transparent;
-  width: 20px;
-  height: 20px;
+  border: 0;
+  border-radius: 5px;
   color: var(--muted);
+  background: transparent;
+}
+.contextSection > header > button:disabled {
+  opacity: 0.5;
 }
 .contextSection p {
+  color: var(--muted);
   font-size: 12px;
   line-height: 18px;
-  color: var(--muted);
+  overflow-wrap: anywhere;
 }
-.contextSection + .contextSection {
-  padding-top: 14px;
+.contextText {
+  white-space: pre-wrap;
 }
-.rule {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  font-size: 12px;
-  line-height: 17px;
-  color: var(--muted);
-  margin-top: 7px;
-}
-.rule > i {
-  color: #34c759;
-}
-.resource {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  background: var(--surface);
-  margin-top: 7px;
-}
-.resource > i {
-  color: #007aff;
-  font-size: 15px;
-}
-.resource h4 {
-  font-size: 12px;
+.fieldLabel {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 11.5px;
   font-weight: 500;
 }
-.resource p {
-  font-size: 10.5px;
+.contextSection textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 84px;
+  padding: 8px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  resize: vertical;
+  background: var(--column);
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 18px;
+}
+@supports ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
+  .contextSection textarea {
+    background: var(--column-glass);
+    -webkit-backdrop-filter: blur(var(--column-blur)) saturate(150%);
+    backdrop-filter: blur(var(--column-blur)) saturate(150%);
+  }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .contextSection textarea {
+    background: var(--column);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+.contextSection textarea::placeholder {
   color: var(--muted);
+  opacity: 1;
+}
+.localNotice {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 15px;
+}
+.fieldHint,
+.panelMessage {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 15px;
+}
+.editableList {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.editableList > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.editableList > .ruleRow {
+  grid-template-columns: minmax(0, 1fr) 28px;
+}
+.editableList > .ruleEditRow {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.ruleChip {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  padding: 7px 0;
+  color: var(--foreground);
+  font-size: 11.5px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+.ruleChip::before {
+  flex-shrink: 0;
+  color: var(--muted);
+  content: "•";
+}
+.contextSection .ruleActionsButton,
+.contextSection .ruleEditActions button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+}
+.ruleInput {
+  grid-column: 1;
+}
+.ruleEditActions {
+  grid-column: 2;
+  display: flex;
+  gap: 2px;
+}
+.deleteConfirm {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--divider);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 5px 18px #00000012;
+  font-size: 11px;
+}
+.deleteConfirm span {
+  flex: 1 0 100%;
+  color: var(--foreground);
+}
+.inlineRuleError {
+  grid-column: 1 / -1;
+  color: var(--danger, #b42318);
+  font-size: 10.5px;
+  line-height: 14px;
+}
+.contextSection .deleteConfirm button {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: var(--column);
+  color: var(--foreground);
+  font-size: 11px;
+}
+.deleteConfirm .deleteConfirmAction,
+.ruleMenu .ruleMenuDelete {
+  color: var(--danger, #b42318);
+}
+.ruleMenu {
+  position: fixed;
+  z-index: 1000;
+  display: grid;
+  width: 148px;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px #00000024;
+}
+.ruleMenu button {
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  font-size: 12px;
+}
+.ruleMenu button:focus-visible,
+.ruleActionsButton:focus-visible,
+.ruleEditActions button:focus-visible,
+.deleteConfirm button:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.editableList input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--column);
+  color: var(--foreground);
+  font-size: 11.5px;
+}
+@supports ((backdrop-filter: blur(20px)) or (-webkit-backdrop-filter: blur(20px))) {
+  .editableList input {
+    background: var(--column-glass);
+    -webkit-backdrop-filter: blur(var(--column-blur)) saturate(150%);
+    backdrop-filter: blur(var(--column-blur)) saturate(150%);
+  }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .editableList input {
+    background: var(--column);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+.resourceFields {
+  grid-template-columns: minmax(0, 1fr) 28px;
+}
+.resourceFields input:first-of-type,
+.resourceFields input:nth-of-type(2) {
+  grid-column: 1;
+}
+.resourceLink {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: #007aff;
+  font-size: 11.5px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+.fileResourceLink {
+  grid-column: 1;
+  grid-row: 1;
+  gap: 8px;
+  min-height: 32px;
+  padding: 5px 0;
+  color: var(--foreground);
+  text-decoration: none;
+}
+.fileResourceLink > i {
+  flex: 0 0 auto;
+  color: #007aff;
+}
+.fileResourceLink > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.resourceMenu {
+  position: fixed;
+  z-index: 1000;
+  display: grid;
+  width: min(190px, calc(100vw - 16px));
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px #00000024;
+}
+.resourceMenu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  font-size: 12px;
+}
+.resourceMenu button > i:first-child {
+  width: 16px;
+  color: var(--muted);
+  text-align: center;
+}
+.resourceMenu button > span {
+  flex: 1;
+}
+.resourceMenu button > i:last-child:not(:first-child) {
+  color: var(--muted);
+  font-size: 11px;
+}
+.resourceMenu button:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 1px;
+}
+.uploadStatus {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 15px;
+  overflow-wrap: anywhere;
+}
+.uploadError {
+  margin-top: 8px;
+}
+.resourceFields .removeButton {
+  grid-column: 2;
+  grid-row: 2 / span 2;
+}
+.fileResourceFields .removeButton {
+  grid-row: 1;
+}
+.removeButton,
+.contextSection > header > button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+}
+.removeButton:disabled,
+.contextSection > header > button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.saveActions {
+  padding: 0 14px 14px;
+}
+.saveStatus {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 15px;
+}
+.saveError {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.skeletonHeader {
+  justify-content: space-between;
+}
+.skeletonHint {
+  margin-top: 8px;
+}
+.skeletonResourceRow {
+  grid-template-rows: auto auto;
+}
+.skeletonResourceRow > span:first-child,
+.skeletonResourceRow > span:nth-child(2) {
+  grid-column: 1;
+}
+.skeletonResourceRow > span:last-child {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.saveActions > button {
+  min-height: 32px;
+  padding: 6px 11px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--surface);
+  color: #007aff;
+  font-weight: 600;
+}
+.saveActions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.validationMessage,
+.errorMessage {
+  margin-top: 7px;
+  color: var(--danger, #b42318);
+  font-size: 10.5px;
+  line-height: 15px;
+  overflow-wrap: anywhere;
+}
+.savedMessage {
+  margin-top: 7px;
+  color: var(--success, #248a3d);
+  font-size: 10.5px;
+  line-height: 15px;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .tabs {
   display: flex;
-  gap: 3px;
-  padding: 9px 10px;
+  gap: 2px;
+  margin: 0 14px 10px;
+  padding: 2px;
+  border-radius: 7px;
+  background: var(--toggle-track);
 }
 .tabs button {
   flex: 1;
+  min-width: 0;
   padding: 5px 3px;
-  font-size: 10.5px;
   border: 0;
+  border-radius: 5px;
   background: transparent;
   color: var(--muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+  transition:
+    color 140ms var(--ease-drawer),
+    background-color 140ms var(--ease-drawer);
 }
-.tabs [aria-selected="true"] {
-  color: #007aff;
+.tabs button[aria-selected="true"] {
+  color: var(--foreground);
   background: var(--surface);
   box-shadow: 0 1px 3px #00000014;
+  font-weight: 600;
+}
+.planBody {
+  gap: 12px;
+  padding: 2px 14px 14px;
+}
+.planBody:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: -2px;
 }
 .summaryCard {
-  border: 1px solid var(--card-border);
-  background: var(--surface);
-  border-radius: 9px;
+  min-width: 0;
   padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: var(--surface);
 }
 .summaryCard h3 {
+  margin-bottom: 8px;
   font-size: 12.5px;
   font-weight: 600;
-  margin-bottom: 10px;
-}
-.summaryCard h4 {
-  color: var(--muted);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  margin: 10px 0 4px;
 }
 .summaryCard p {
+  color: var(--muted);
   font-size: 11.5px;
   line-height: 16px;
 }
-.bigProgress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+@media (hover: hover) and (pointer: fine) {
+  .contextSection > header > button:enabled:hover {
+    color: var(--foreground);
+    background: var(--toggle-track);
+  }
+  .removeButton:enabled:hover {
+    color: var(--foreground);
+    background: var(--toggle-track);
+  }
+  .saveActions .textButton:enabled:hover {
+    border-color: #007aff;
+    background: color-mix(in srgb, #007aff 7%, var(--surface));
+  }
+  .tabs button:hover:not([aria-selected="true"]) {
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+  }
+  .contextSection textarea:hover:not(:focus-visible) {
+    border-color: var(--muted);
+  }
+  .editableList input:enabled:hover:not(:focus-visible) {
+    border-color: var(--muted);
+  }
+  .ruleActionsButton:hover,
+  .ruleEditActions button:hover {
+    color: var(--foreground);
+    background: var(--toggle-track);
+  }
+  .ruleMenu button:hover,
+  .deleteConfirm button:hover,
+  .resourceMenu button:hover {
+    background: var(--toggle-track);
+  }
 }
-.bigProgress strong {
-  font-size: 23px;
-  color: #007aff;
-}
-.bigProgress span {
-  font-size: 10.5px;
-  color: var(--muted);
-}
-.distribution {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  margin: 8px 0;
-  color: var(--muted);
-}
-.contextSection textarea {
-  min-width: 0;
-  border: 1px solid var(--divider);
-  background: var(--surface);
-  padding: 8px 10px;
-  border-radius: 7px;
-  font-size: 12px;
-}
-.contextSection textarea {
-  width: 100%;
-  margin-top: 8px;
-  resize: vertical;
+@media (prefers-reduced-motion: reduce) {
+  .tabs button {
+    transition: none;
+  }
 }
 @media (max-width: 1400px) {
   .context {
@@ -160,20 +557,38 @@
   .context {
     width: 100%;
   }
-  .contextBody {
+  .contextBody:not(.planBody) {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  .contextBody > section {
+  .contextBody:not(.planBody) > section {
+    flex: 1;
+    min-width: 230px;
+  }
+  .contextBody:not(.planBody) > section + section {
+    border-top: 0;
+    border-left: 1px solid var(--divider-soft);
+  }
+  .planBody {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .planBody > section {
     flex: 1;
     min-width: 230px;
   }
 }
 @media (max-width: 760px) {
-  .contextBody {
+  .contextBody:not(.planBody),
+  .planBody {
     flex-direction: column;
   }
-  .contextBody > section {
+  .contextBody:not(.planBody) > section,
+  .planBody > section {
     min-width: 0;
+  }
+  .contextBody:not(.planBody) > section + section {
+    border-top: 1px solid var(--divider-soft);
+    border-left: 0;
   }
 }

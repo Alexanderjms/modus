@@ -10,6 +10,8 @@ import { ProjectCard } from "./projects/project-card";
 import { Icon } from "./projects/icon-helper";
 import { CreateProjectModal } from "./projects/create-project-modal";
 import { DeleteProjectModal } from "./projects/delete-project-modal";
+import { Skeleton } from "./skeleton";
+import { deleteProject, mutateProject } from "./projects/project-actions";
 
 const statuses = [null, "active", "completed", "archived"] as const;
 type ProjectAction = "archive" | "restore" | "duplicate" | "delete";
@@ -105,38 +107,12 @@ export function ProjectsOverview() {
     setPendingIds(new Set(pendingIdsRef.current));
     setActionError(null);
     try {
-      const duplicate = action === "duplicate";
-      const response = await fetch(
-        duplicate
-          ? `/api/projects/${project.id}/duplicate`
-          : `/api/projects/${project.id}`,
-        duplicate
-          ? { method: "POST" }
-          : {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                estado: action === "archive"
-                  ? "archived"
-                  : project.progress === 100
-                    ? "completed"
-                    : "active",
-              }),
-            },
-      );
-      const result = (await response.json().catch(() => ({}))) as {
-        project?: Project;
-        error?: string;
-      };
-      if (response.status !== (duplicate ? 201 : 200)) {
-        throw new Error(result.error || "No se pudo actualizar el proyecto.");
-      }
-      if (!result.project) throw new Error("La respuesta no incluye el proyecto actualizado.");
+      const updatedProject = await mutateProject(project, action);
       mutationVersion.current++;
       setProjects((current) =>
-        duplicate
-          ? [result.project!, ...current]
-          : current.map((item) => item.id === project.id ? result.project! : item),
+        action === "duplicate"
+          ? [updatedProject, ...current]
+          : current.map((item) => item.id === project.id ? updatedProject : item),
       );
       setLoadError("");
     } catch (reason) {
@@ -157,11 +133,7 @@ export function ProjectsOverview() {
     setPendingIds(new Set(pendingIdsRef.current));
     setDeleteError("");
     try {
-      const response = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
-      if (response.status !== 204) {
-        const result = (await response.json().catch(() => ({}))) as { error?: string };
-        throw new Error(result.error || "No se pudo eliminar el proyecto.");
-      }
+      await deleteProject(project);
       mutationVersion.current++;
       setProjects((current) => current.filter((item) => item.id !== project.id));
       setLoadError("");
@@ -261,12 +233,25 @@ export function ProjectsOverview() {
             )}
           </>
         ) : loading ? (
-          <p className={styles.empty} role="status">Cargando proyectos…</p>
+          <div className={styles.grid} role="status" aria-label="Cargando proyectos…">
+            {[0, 1, 2].map((key) => (
+              <div className={styles.skeletonCard} key={key}>
+                <div className={styles.skeletonTop}>
+                  <Skeleton variant="circular" width={30} height={30} />
+                  <Skeleton variant="text" width="45%" />
+                </div>
+                <Skeleton variant="text" width="85%" />
+                <Skeleton variant="text" width="60%" />
+              </div>
+            ))}
+          </div>
         ) : loadError ? null : (
           <EmptyState
             icon="folder-plus"
             title="Aún no tienes proyectos"
-            description="Crea tu primer proyecto para organizar tareas, conversaciones y contexto en un solo lugar."
+            description={
+              "Crea tu primer proyecto para organizar tareas, conversaciones y contexto en un solo lugar."
+            }
             onCreate={() => setCreateOpen(true)}
           />
         )}

@@ -1,0 +1,171 @@
+.menu[popover] {
+  position: fixed;
+  inset: auto;
+  width: 210px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 5px;
+  border: 1px solid var(--divider);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 10px 24px #00000029;
+  opacity: 0;
+  transform: scale(0.97);
+  transition:
+    opacity 150ms var(--ease-drawer),
+    transform 150ms var(--ease-drawer),
+    overlay 150ms allow-discrete,
+    display 150ms allow-discrete;
+}
+.menu[popover]:popover-open {
+  opacity: 1;
+  transform: scale(1);
+}
+@starting-style {
+  .menu[popover]:popover-open {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.menu .item {
+  display: flex;
+  width: 100%;
+  min-height: 32px;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.menu .item > span {
+  flex: 1;
+}
+.menu .item > i:first-child {
+  flex: 0 0 auto;
+  width: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.menu .item > i.check {
+  color: #007aff;
+  font-size: 13px;
+}
+.menu .item > i.priorityDot {
+  font-size: 8px;
+}
+.menu .item:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: -2px;
+}
+.menu .item.danger {
+  color: #c62828;
+}
+.menu .item.danger > i:first-child {
+  color: #c62828;
+}
+.menu .item.danger:focus-visible {
+  outline-color: #c62828;
+}
+.menu .separator {
+  height: 1px;
+  margin: 4px 5px;
+  background: var(--divider-soft, var(--divider));
+}
+.menu .confirm {
+  padding: 7px 8px 5px;
+}
+.menu .confirm > p {
+  margin: 0 1px 9px;
+  color: var(--foreground);
+  font-size: 12.5px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.menu .confirmActions {
+  display: flex;
+  gap: 6px;
+}
+.menu .confirmActions > button {
+  flex: 1;
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid var(--divider);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.menu .confirmActions > button:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: -2px;
+}
+.menu .confirmDelete {
+  border-color: transparent;
+  background: #ff3b30;
+  color: #ffffff;
+}
+.menu .confirmDelete:focus-visible {
+  outline-color: #ff3b30;
+}
+.menu .groupLabel {
+  margin: 0;
+  padding: 7px 9px 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu .item:hover {
+    background: var(--page);
+  }
+  .menu .confirmActions > button:hover {
+    background: var(--page);
+  }
+  .menu .confirmActions > button.confirmDelete:hover {
+    background: var(--page);
+    color: #c62828;
+  }
+}
+:global([data-theme="dark"]) .menu .item.danger,
+:global([data-theme="dark"]) .menu .item.danger > i:first-child {
+  color: #ff8a80;
+}
+:global([data-theme="dark"]) .menu .item.danger:focus-visible {
+  outline-color: #ff8a80;
+}
+@media (hover: hover) and (pointer: fine) {
+  :global([data-theme="dark"]) .menu .confirmActions > button.confirmDelete:hover {
+    color: #ff8a80;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu[popover] {
+    transform: none;
+    transition:
+      opacity 120ms ease,
+      overlay 120ms allow-discrete,
+      display 120ms allow-discrete;
+  }
+  .menu[popover]:popover-open {
+    transform: none;
+  }
+  @starting-style {
+    .menu[popover]:popover-open {
+      transform: none;
+    }
+  }
+}

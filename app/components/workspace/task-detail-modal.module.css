@@ -1,0 +1,3 @@
+.dialog {
+  width: min(620px, calc(100vw - 32px));
+}

@@ -8,8 +8,11 @@
   --card-border: #e5e5ea;
   --divider: #d6d6db;
   --divider-soft: #d6d6db66;
+  --column-blur: 6px;
+  --column-glass: #f7f7f9e6;
   --selected: #f2f7ff;
   --toggle-track: #e7e7ea;
+  --scroll-thumb: #6e6e7340;
   --success: #34c759;
   --ambient-blue: #4d9bff3d;
   --ambient-violet: #b37df03d;
@@ -28,8 +31,11 @@
   --card-border: #373840;
   --divider: #454650;
   --divider-soft: #45465099;
+  --column-blur: 20px;
+  --column-glass: #28293280;
   --selected: #192c45;
   --toggle-track: #3a3b45;
+  --scroll-thumb: #c4c4cf40;
   --ambient-blue: #378bff29;
   --ambient-violet: #aa72df26;
   --ambient-peach: #e49d6221;
@@ -42,13 +48,24 @@ body {
   color: var(--foreground);
 }
 
+:root[data-theme-switching],
+:root[data-theme-switching] *,
+:root[data-theme-switching]::before,
+:root[data-theme-switching]::after,
+:root[data-theme-switching]::backdrop,
+:root[data-theme-switching] *::before,
+:root[data-theme-switching] *::after,
+:root[data-theme-switching] *::backdrop {
+  transition: none !important;
+}
+
 :where(button:enabled, summary, a[href]) {
-  transition: filter 140ms ease-out;
+  transition: background-color 140ms ease-out, color 140ms ease-out;
 }
 
 @media (hover: hover) and (pointer: fine) {
   :where(button:enabled, summary, a[href]):hover {
-    filter: brightness(0.9);
+    background-color: color-mix(in srgb, currentColor 7%, transparent);
   }
 }
 

@@ -6,7 +6,7 @@ import type { Project } from "../projects-data";
 import styles from "../workspace.module.css";
 import chatStyles from "./chat.module.css";
 import { Board } from "./board";
-import { WorkspaceChatEmpty } from "./chat-empty";
+import { WorkspaceChat } from "./chat";
 import { WorkspaceContext } from "./context";
 import { ProjectSelector } from "./project-selector";
 
@@ -23,9 +23,16 @@ export function Workspace({
   const [projectsReload, setProjectsReload] = useState(0);
   const [chatOpen, setChatOpen] = useState(true);
   const [contextOpen, setContextOpen] = useState(true);
-  const [priority, setPriority] = useState("");
+  const [contextPendingChanges, setContextPendingChanges] = useState(false);
   const contextTrigger = useRef<HTMLButtonElement>(null);
   const chatTrigger = useRef<HTMLButtonElement>(null);
+  const contextCloseButton = useRef<HTMLButtonElement>(null);
+  const chatCloseButton = useRef<HTMLButtonElement>(null);
+  const focusChatPanel = useRef(false);
+  const focusChatTrigger = useRef(false);
+  const focusContextPanel = useRef(false);
+  const focusContextTrigger = useRef(false);
+  const selectedProject = projects.find((item) => item.name === project) ?? null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -64,14 +71,44 @@ export function Workspace({
     return () => controller.abort();
   }, [initialProject, projectsReload]);
 
+  useEffect(() => {
+    if (chatOpen && focusChatPanel.current) {
+      chatCloseButton.current?.focus();
+      focusChatPanel.current = false;
+    } else if (!chatOpen && focusChatTrigger.current) {
+      chatTrigger.current?.focus();
+      focusChatTrigger.current = false;
+    }
+  }, [chatOpen]);
+
+  useEffect(() => {
+    if (contextOpen && focusContextPanel.current) {
+      contextCloseButton.current?.focus();
+      focusContextPanel.current = false;
+    } else if (!contextOpen && focusContextTrigger.current) {
+      contextTrigger.current?.focus();
+      focusContextTrigger.current = false;
+    }
+  }, [contextOpen]);
+
   function closeChat() {
+    focusChatTrigger.current = true;
     setChatOpen(false);
-    requestAnimationFrame(() => chatTrigger.current?.focus());
   }
 
   function closeContext() {
+    focusContextTrigger.current = true;
     setContextOpen(false);
-    requestAnimationFrame(() => contextTrigger.current?.focus());
+  }
+
+  function showChat() {
+    focusChatPanel.current = true;
+    setChatOpen(true);
+  }
+
+  function showContext() {
+    focusContextPanel.current = true;
+    setContextOpen(true);
   }
 
   return (
@@ -80,15 +117,23 @@ export function Workspace({
       query={query}
       onSearch={setQuery}
       headerLeft={
-        <ProjectSelector
-          project={project}
-          projects={projects}
-          loading={projectsLoading}
-          error={projectsError}
-          onSelect={(name) => {
-            setProject(name);
-          }}
-        />
+        <>
+          <ProjectSelector
+            project={project}
+            projects={projects}
+            loading={projectsLoading}
+            error={projectsError}
+            onSelect={(name) => {
+              if (name === project) return;
+              if (
+                contextPendingChanges &&
+                !window.confirm("Hay cambios sin guardar. ¿Descartarlos y cambiar de proyecto?")
+              ) return;
+              setContextPendingChanges(false);
+              setProject(name);
+            }}
+          />
+        </>
       }
     >
       <main className={styles.workspace}>
@@ -104,21 +149,25 @@ export function Workspace({
               aria-hidden={!chatOpen}
               inert={!chatOpen}
             >
-              <WorkspaceChatEmpty onClose={closeChat} />
+              <WorkspaceChat
+                key={selectedProject?.id ?? "no-project"}
+                project={selectedProject}
+                onClose={closeChat}
+                closeButtonRef={chatCloseButton}
+              />
             </div>
           </div>
         </div>
         <Board
-          priority={priority}
-          onPriority={setPriority}
+          projectId={selectedProject?.id}
           projectName={project}
           projectsLoading={projectsLoading}
           projectsError={projectsError}
           onRetryProjects={() => setProjectsReload((value) => value + 1)}
           chatOpen={chatOpen}
-          onShowChat={() => setChatOpen(true)}
+          onShowChat={showChat}
           contextOpen={contextOpen}
-          onShowContext={() => setContextOpen(true)}
+          onShowContext={showContext}
           chatTrigger={chatTrigger}
           contextTrigger={contextTrigger}
         />
@@ -128,11 +177,17 @@ export function Workspace({
         >
           <div className="panel-clip">
             <WorkspaceContext
-              key={project}
+              key={selectedProject?.id ?? "no-project"}
               plan={!chatOpen}
               project={project}
+              projectId={selectedProject?.id}
+              projectsLoading={projectsLoading}
+              projectsError={projectsError}
+              onRetryProjects={() => setProjectsReload((value) => value + 1)}
               hidden={!contextOpen}
               onClose={closeContext}
+              closeButtonRef={contextCloseButton}
+              onPendingChangesChange={setContextPendingChanges}
             />
           </div>
         </div>

@@ -15,7 +15,15 @@ export function ThemeToggle({
 
   function toggleTheme() {
     const nextDark = document.documentElement.dataset.theme !== "dark";
-    document.documentElement.dataset.theme = nextDark ? "dark" : "light";
+    const root = document.documentElement;
+    root.dataset.themeSwitching = "true";
+    try {
+      void root.offsetHeight;
+      root.dataset.theme = nextDark ? "dark" : "light";
+      void root.offsetHeight;
+    } finally {
+      delete root.dataset.themeSwitching;
+    }
     setDark(nextDark);
     try {
       localStorage.setItem("modus-theme", nextDark ? "dark" : "light");

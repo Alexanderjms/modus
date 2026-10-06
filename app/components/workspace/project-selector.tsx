@@ -5,6 +5,7 @@ import Link from "next/link";
 import styles from "./project-selector.module.css";
 import headerStyles from "../shell/header.module.css";
 import shared from "../workspace.module.css";
+import { Skeleton } from "../skeleton";
 import type { Project } from "../projects-data";
 
 export function ProjectSelector({
@@ -53,11 +54,13 @@ export function ProjectSelector({
           <i aria-hidden="true" className="bi bi-folder" />
           <span>
             {project ||
-              (loading
-                ? "Cargando proyectos…"
-                : error
-                  ? "Error al cargar proyectos"
-                  : "Sin proyecto seleccionado")}
+              (loading ? (
+                <Skeleton variant="text" width={96} />
+              ) : error ? (
+                "Error al cargar proyectos"
+              ) : (
+                "Sin proyecto seleccionado"
+              ))}
           </span>
           <i aria-hidden="true" className="bi bi-chevron-down" />
         </summary>
@@ -99,22 +102,31 @@ export function ProjectSelector({
                 )}
               </button>
             ))}
-          {!projects.some(({ name }) =>
-            name
-              .toLocaleLowerCase("es")
-              .includes(query.trim().toLocaleLowerCase("es")),
-          ) && (
-            <p
-              className={shared.notice}
-              role={loading ? "status" : error ? "alert" : undefined}
-            >
-              {loading
-                ? "Cargando proyectos…"
-                : error ||
+          {loading ? (
+            <div role="status" aria-label="Cargando proyectos…">
+              {[0, 1, 2].map((key) => (
+                <div className={styles.projectSkeleton} key={key}>
+                  <Skeleton variant="circular" width={14} height={14} />
+                  <Skeleton variant="text" width="55%" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            !projects.some(({ name }) =>
+              name
+                .toLocaleLowerCase("es")
+                .includes(query.trim().toLocaleLowerCase("es")),
+            ) && (
+              <p
+                className={shared.notice}
+                role={error ? "alert" : undefined}
+              >
+                {error ||
                   (query
                     ? "Sin proyectos que coincidan."
                     : "Aún no hay proyectos.")}
-            </p>
+              </p>
+            )
           )}
           <div className={styles.projectMenuActions}>
             <Link className={styles.allProjects} href="/proyectos">

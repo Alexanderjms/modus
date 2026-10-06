@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
 import type { Project } from "../projects-data";
 import cardStyles from "./project-card.module.css";
 import menuStyles from "./menu.module.css";
 import { Icon } from "./icon-helper";
+import { ProjectActionsMenu, type ProjectAction } from "./project-actions-menu";
 
 export function ProjectCard({
   project,
@@ -15,18 +15,13 @@ export function ProjectCard({
   pending,
 }: {
   project: Project;
-  onAction: (project: Project, action: "archive" | "restore" | "duplicate" | "delete") => void | Promise<void>;
+  onAction: (project: Project, action: ProjectAction) => void | Promise<void>;
   onEdit: (project: Project) => void;
   pending: boolean;
 }) {
   const router = useRouter();
-  const menu = useRef<HTMLDetailsElement>(null);
   const href = `/workspace?project=${encodeURIComponent(project.name)}`;
   function act(action: "archive" | "restore" | "duplicate" | "delete") {
-    if (menu.current) {
-      menu.current.open = false;
-      menu.current.querySelector("summary")?.focus();
-    }
     void onAction(project, action);
   }
   return (
@@ -58,58 +53,12 @@ export function ProjectCard({
             )}
           </span>
         )}
-        <details ref={menu} className={menuStyles.menu}>
-          <summary aria-label={`Opciones de ${project.name}`}>
-            <Icon name="three-dots" className={menuStyles.icon} />
-          </summary>
-          <div className={menuStyles.menuBody}>
-            <Link href={href}>
-              <Icon name="folder" className={menuStyles.icon} />
-              Abrir
-            </Link>
-            <button
-              disabled={pending}
-              onClick={() => {
-                if (menu.current) {
-                  menu.current.open = false;
-                  menu.current.querySelector("summary")?.focus();
-                }
-                onEdit(project);
-              }}
-            >
-              <Icon name="pencil" className={menuStyles.icon} />
-              Editar
-            </button>
-            <button disabled={pending} onClick={() => act("duplicate")}>
-              <Icon name="copy" className={menuStyles.icon} />
-              Duplicar
-            </button>
-            <button
-              disabled={pending}
-              onClick={() =>
-                act(project.status === "archived" ? "restore" : "archive")
-              }
-            >
-              <Icon
-                name={
-                  project.status === "archived"
-                    ? "arrow-counterclockwise"
-                    : "archive"
-                }
-                className={menuStyles.icon}
-              />
-              {project.status === "archived" ? "Restaurar" : "Archivar"}
-            </button>
-            <button
-              className={menuStyles.danger}
-              disabled={pending}
-              onClick={() => act("delete")}
-            >
-              <Icon name="trash" className={menuStyles.icon} />
-              Eliminar
-            </button>
-          </div>
-        </details>
+        <ProjectActionsMenu
+          project={project}
+          onAction={onAction}
+          onEdit={onEdit}
+          pending={pending}
+        />
       </div>
       <p className={cardStyles.description}>{project.description}</p>
       <div className={cardStyles.progressRow}>

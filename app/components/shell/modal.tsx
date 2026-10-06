@@ -14,6 +14,8 @@ export function Modal({
   submitClassName = "",
   descriptionId,
   pending = false,
+  submitDisabled = false,
+  showFooter = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -25,6 +27,8 @@ export function Modal({
   submitClassName?: string;
   descriptionId?: string;
   pending?: boolean;
+  submitDisabled?: boolean;
+  showFooter?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -65,15 +69,17 @@ export function Modal({
           </button>
         </div>
         <div className={styles.body}>{children}</div>
-        <div className={styles.footer}>
-          <button
-            type="submit"
-            className={`${styles.primaryButton} ${submitClassName}`}
-            disabled={pending}
-          >
-            {submitLabel}
-          </button>
-        </div>
+        {showFooter && (
+          <div className={styles.footer}>
+            <button
+              type="submit"
+              className={`${styles.primaryButton} ${submitClassName}`}
+              disabled={pending || submitDisabled}
+            >
+              {submitLabel}
+            </button>
+          </div>
+        )}
       </form>
     </dialog>
   );

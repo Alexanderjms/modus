@@ -5,24 +5,32 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./project-card.module.css";
 import { Icon } from "./icon-helper";
-import { unavailable, type Project } from "./home-data";
+import type { Project } from "../projects-data";
+import { ProjectActionsMenu, type ProjectAction } from "../projects/project-actions-menu";
 
 export function ProjectCard({
   project,
   index,
   search,
+  onAction,
+  onEdit,
+  pending,
 }: {
   project: Project;
   index: number;
   search: string;
+  onAction: (project: Project, action: ProjectAction) => void | Promise<void>;
+  onEdit: (project: Project) => void;
+  pending: boolean;
 }) {
   const router = useRouter();
   const href = `/workspace?project=${encodeURIComponent(project.name)}`;
   return (
     <article
       className={`${styles.card} ${index === 0 && !search ? styles.highlighted : ""}`}
+      aria-busy={pending || undefined}
       onClick={(event) => {
-        if (!(event.target as Element).closest("a, button")) router.push(href);
+        if (!(event.target as Element).closest("a, button, details")) router.push(href);
       }}
     >
       <div className={styles.cardTop}>
@@ -34,14 +42,12 @@ export function ProjectCard({
             {project.name}
           </Link>
         </h3>
-        <button
-          className={styles.more}
-          aria-label={`Más opciones de ${project.name}`}
-          title={unavailable}
-          disabled
-        >
-          <Icon name="three-dots" />
-        </button>
+        <ProjectActionsMenu
+          project={project}
+          onAction={onAction}
+          onEdit={onEdit}
+          pending={pending}
+        />
       </div>
       <p className={styles.description}>{project.description}</p>
       <div className={styles.progressRow}>
@@ -56,7 +62,7 @@ export function ProjectCard({
           <span
             style={
               {
-                "--fill": `${project.fill}px`,
+                "--fill": `${project.progress}%`,
                 "--progress": `${project.progress}%`,
               } as CSSProperties
             }
@@ -69,10 +75,11 @@ export function ProjectCard({
         <span>·</span>
         <span className={styles.doing}>
           <b />
-          {project.doing}
+          {project.doing} en progreso
         </span>
         <span className={styles.activity}>{project.activity}</span>
       </div>
+      {pending && <span className="sr-only" role="status">Procesando {project.name}…</span>}
     </article>
   );
 }

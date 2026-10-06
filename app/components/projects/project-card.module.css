@@ -136,6 +136,11 @@
   font-size: 12px;
 }
 @media (hover: hover) and (pointer: fine) {
+  .archivedActions button:hover:not(:disabled) {
+    background: var(--page);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
   .card {
     transition:
       transform 160ms ease-out,

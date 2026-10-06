@@ -66,6 +66,12 @@
 .icon {
   color: #007aff;
 }
+@media (hover: hover) and (pointer: fine) {
+  .filters button:hover:not([aria-pressed="true"]) {
+    color: var(--foreground);
+    background: var(--surface);
+  }
+}
 @media (max-width: 1000px) {
   .toolbar {
     flex-wrap: wrap;

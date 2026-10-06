@@ -1,36 +1,143 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppShell } from "./app-shell";
 import styles from "./home-dashboard.module.css";
+import { Skeleton } from "./skeleton";
 import { ProjectCard } from "./home/project-card";
-import { TodayPlan } from "./home/today-plan";
 import { Icon } from "./home/icon-helper";
 import { EmptyState } from "./empty-state";
 import { CreateProjectModal } from "./projects/create-project-modal";
-import { projects, tasks } from "./home/home-data";
+import { DeleteProjectModal } from "./projects/delete-project-modal";
+import { type ProjectAction } from "./projects/project-actions-menu";
+import { deleteProject, mutateProject } from "./projects/project-actions";
+import { WeeklyActivity } from "./home/weekly-activity";
+import { initialProjects, type Project } from "./projects-data";
+
+type MutationAction = Exclude<ProjectAction, "delete">;
 
 export function HomeDashboard() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [completed, setCompleted] = useState(() => tasks.map(() => false));
-  const hasProjects = projects.length > 0;
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [projects, setProjects] = useState(initialProjects);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [reload, setReload] = useState(0);
+  const [pendingIds, setPendingIds] = useState<Set<number>>(() => new Set());
+  const [actionError, setActionError] = useState<{
+    project: Project;
+    action: MutationAction;
+    message: string;
+  } | null>(null);
+  const [activityRefresh, setActivityRefresh] = useState(0);
+  const mutationVersion = useRef(0);
+  const pendingIdsRef = useRef(new Set<number>());
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const version = mutationVersion.current;
+
+    async function loadProjects() {
+      setLoading(true);
+      setLoadError("");
+      try {
+        const response = await fetch("/api/projects", { signal: controller.signal });
+        const result = (await response.json().catch(() => ({}))) as {
+          projects?: Project[];
+          error?: string;
+        };
+        if (!response.ok) throw new Error(result.error || "No se pudieron cargar los proyectos.");
+        if (!Array.isArray(result.projects)) throw new Error("La respuesta no incluye los proyectos.");
+        if (mutationVersion.current === version) setProjects(result.projects);
+        else setReload((current) => current + 1);
+      } catch (reason) {
+        if (!controller.signal.aborted && mutationVersion.current === version) {
+          setLoadError(
+            reason instanceof Error ? reason.message : "No se pudieron cargar los proyectos.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+
+    void loadProjects();
+    return () => controller.abort();
+  }, [reload]);
+
+  function action(project: Project, action: ProjectAction) {
+    if (pendingIdsRef.current.has(project.id)) return;
+    if (action === "delete") {
+      setActionError(null);
+      setDeleteError("");
+      setDeletingProject(project);
+      return;
+    }
+    void executeAction(project, action);
+  }
+
+  async function executeAction(project: Project, action: MutationAction) {
+    if (pendingIdsRef.current.has(project.id)) return;
+    pendingIdsRef.current.add(project.id);
+    setPendingIds(new Set(pendingIdsRef.current));
+    setActionError(null);
+    try {
+      const updatedProject = await mutateProject(project, action);
+      mutationVersion.current++;
+      setProjects((current) => action === "duplicate"
+        ? [updatedProject, ...current]
+        : current.map((item) => item.id === project.id ? updatedProject : item));
+      setLoadError("");
+    } catch (reason) {
+      setActionError({
+        project,
+        action,
+        message: reason instanceof Error ? reason.message : "No se pudo actualizar el proyecto.",
+      });
+    } finally {
+      pendingIdsRef.current.delete(project.id);
+      setPendingIds(new Set(pendingIdsRef.current));
+    }
+  }
+
+  async function executeDelete(project: Project) {
+    if (pendingIdsRef.current.has(project.id)) return;
+    pendingIdsRef.current.add(project.id);
+    setPendingIds(new Set(pendingIdsRef.current));
+    setDeleteError("");
+    try {
+      await deleteProject(project);
+      mutationVersion.current++;
+      setProjects((current) => current.filter((item) => item.id !== project.id));
+      setLoadError("");
+      setDeletingProject(null);
+      setActivityRefresh((current) => current + 1);
+    } catch (reason) {
+      setDeleteError(reason instanceof Error ? reason.message : "No se pudo eliminar el proyecto.");
+    } finally {
+      pendingIdsRef.current.delete(project.id);
+      setPendingIds(new Set(pendingIdsRef.current));
+    }
+  }
+
+  function closeDeleteModal() {
+    if (deletingProject && pendingIdsRef.current.has(deletingProject.id)) return;
+    setDeletingProject(null);
+    setDeleteError("");
+  }
+
   const search = query.trim().toLocaleLowerCase("es");
   const visibleProjects = projects.filter((project) =>
     `${project.name} ${project.description}`
       .toLocaleLowerCase("es")
       .includes(search),
   );
-  const visibleTasks = tasks
-    .map((task, index) => ({ task, index }))
-    .filter(({ task }) =>
-      `${task.text} ${task.project.name}`
-        .toLocaleLowerCase("es")
-        .includes(search),
-    );
 
   return (
     <AppShell query={query} onSearch={setQuery}>
@@ -40,13 +147,39 @@ export function HomeDashboard() {
             <h1>Buenos días, Alex</h1>
             <p>Esto es lo que tienes para hoy.</p>
           </div>
-          <button className={styles.primary} onClick={() => setCreateOpen(true)}>
-            <Icon name="plus" />
-            Nuevo proyecto
-          </button>
+          {!loading && !loadError && projects.length === 0 && (
+            <button className={styles.primary} onClick={() => setCreateOpen(true)}>
+              <Icon name="plus" />
+              Nuevo proyecto
+            </button>
+          )}
         </div>
-        {hasProjects ? (
+        {loading || projects.length > 0 ? (
           <>
+            {loadError && projects.length > 0 && (
+              <p className={styles.empty} role="alert">
+                {loadError}{" "}
+                <button
+                  className={styles.textButton}
+                  type="button"
+                  onClick={() => setReload((current) => current + 1)}
+                >
+                  Reintentar
+                </button>
+              </p>
+            )}
+            {actionError && (
+              <p className={styles.empty} role="alert">
+                {actionError.message}{" "}
+                <button
+                  className={styles.textButton}
+                  type="button"
+                  onClick={() => executeAction(actionError.project, actionError.action)}
+                >
+                  Reintentar
+                </button>
+              </p>
+            )}
             <section
               aria-labelledby="continue-heading"
               className={styles.continue}
@@ -65,14 +198,25 @@ export function HomeDashboard() {
                   />
                 </Link>
               </div>
-              <div className={styles.projects}>
-                {visibleProjects.length ? (
+              <div
+                className={styles.projects}
+                role={loading ? "status" : undefined}
+                aria-label={loading ? "Cargando proyectos" : undefined}
+              >
+                {loading ? (
+                  [0, 1, 2].map((key) => (
+                    <Skeleton key={key} variant="rounded" width="100%" height={130} />
+                  ))
+                ) : visibleProjects.length ? (
                   visibleProjects.map((project, index) => (
                     <ProjectCard
-                      key={project.name}
+                      key={project.id}
                       project={project}
                       index={index}
                       search={search}
+                      onAction={action}
+                      onEdit={setEditingProject}
+                      pending={pendingIds.has(project.id)}
                     />
                   ))
                 ) : (
@@ -82,15 +226,18 @@ export function HomeDashboard() {
                 )}
               </div>
             </section>
-            <TodayPlan
-              tasks={tasks}
-              visibleTasks={visibleTasks}
-              completed={completed}
-              setCompleted={setCompleted}
-              search={search}
-              query={query}
-            />
           </>
+        ) : loadError ? (
+          <p className={styles.empty} role="alert">
+            {loadError}{" "}
+            <button
+              className={styles.textButton}
+              type="button"
+              onClick={() => setReload((current) => current + 1)}
+            >
+              Reintentar
+            </button>
+          </p>
         ) : (
           <EmptyState
             icon="folder-plus"
@@ -99,9 +246,10 @@ export function HomeDashboard() {
             onCreate={() => setCreateOpen(true)}
           />
         )}
+        <WeeklyActivity refreshKey={activityRefresh} />
         <span className="sr-only" role="status">
-          {search
-            ? visibleProjects.length || visibleTasks.length
+          {!loading && !loadError && search
+            ? visibleProjects.length
               ? `Resultados para ${query}`
               : `Sin resultados para ${query}`
             : ""}
@@ -110,7 +258,34 @@ export function HomeDashboard() {
       <CreateProjectModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => router.push("/proyectos")}
+        onCreated={(project) => {
+          mutationVersion.current++;
+          setProjects((current) => [
+            project,
+            ...current.filter((item) => item.id !== project.id),
+          ]);
+          setLoadError("");
+          router.push("/proyectos");
+        }}
+      />
+      <CreateProjectModal
+        open={editingProject !== null}
+        project={editingProject ?? undefined}
+        onClose={() => setEditingProject(null)}
+        onUpdated={(project) => {
+          mutationVersion.current++;
+          setProjects((current) => current.map((item) => item.id === project.id ? project : item));
+          setLoadError("");
+        }}
+      />
+      <DeleteProjectModal
+        project={deletingProject}
+        error={deleteError}
+        pending={deletingProject !== null && pendingIds.has(deletingProject.id)}
+        onClose={closeDeleteModal}
+        onConfirm={() => {
+          if (deletingProject) void executeDelete(deletingProject);
+        }}
       />
     </AppShell>
   );

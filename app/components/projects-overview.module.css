@@ -36,6 +36,20 @@
   align-items: start;
   gap: 14px;
 }
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 15px 14px;
+  border: 1px solid var(--divider-soft);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.skeletonTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .empty {
   color: var(--muted);
   font-size: 12.5px;

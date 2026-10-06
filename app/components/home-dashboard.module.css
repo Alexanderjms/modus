@@ -57,6 +57,14 @@
 .textButtonIcon {
   font-size: 10px;
 }
+@media (hover: hover) and (pointer: fine) {
+  .primary:hover:not(:disabled) {
+    background: #006ee6;
+  }
+  .textButton:hover {
+    background: #007aff1f;
+  }
+}
 .projects {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
