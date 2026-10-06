@@ -8,6 +8,11 @@ export type ContextDocument = {
 
 export function isContextFile(resource: ContextResource): boolean;
 
+export function getContextResourceDomain(
+  resource: ContextResource,
+  validUrl: boolean,
+): string;
+
 export function isValidContextDocument(document: ContextDocument): boolean;
 
 export function isContextDocument(value: unknown): value is ContextDocument;

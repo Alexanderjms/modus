@@ -12,6 +12,7 @@ import styles from "./context.module.css";
 import shared from "../workspace.module.css";
 import { isProjectContextFileUrl } from "./context-file-resource.mjs";
 import {
+  getContextResourceDomain,
   isContextFile,
   isValidContextDocument,
   type ContextDocument,
@@ -25,6 +26,18 @@ export {
   type ContextDocument,
   type ContextResource,
 } from "./context-document.mjs";
+
+function getResourceTitle(parsedUrl: URL, fallback: string) {
+  const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+  let title = pathParts[pathParts.length - 1] || parsedUrl.hostname.replace(/^www\./i, "");
+  try {
+    title = decodeURIComponent(title);
+  } catch {
+    // Keep the original path segment when percent-encoding is invalid.
+  }
+  title = title.replace(/[-_]+/g, " ").trim() || fallback;
+  return title.slice(0, 200);
+}
 
 export function ContextSections({
   document,
@@ -68,6 +81,16 @@ export function ContextSections({
   const [editingRule, setEditingRule] = useState<number | null>(null);
   const [addingRule, setAddingRule] = useState(false);
   const [ruleDraft, setRuleDraft] = useState("");
+  const [resourceDraft, setResourceDraft] = useState<{
+    index: number;
+    isNew: boolean;
+    title: string;
+    url: string;
+  } | null>(null);
+  const [resourceDraftError, setResourceDraftError] = useState<{
+    field: "url" | "document";
+    message: string;
+  } | null>(null);
   const [openRuleMenu, setOpenRuleMenu] = useState<number | null>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [openResourceMenu, setOpenResourceMenu] = useState(false);
@@ -76,7 +99,14 @@ export function ContextSections({
   const [uploadError, setUploadError] = useState("");
   const [retryFile, setRetryFile] = useState<File | null>(null);
   const [focusResourceIndex, setFocusResourceIndex] = useState<number | null>(null);
+  const [focusResourceActionIndex, setFocusResourceActionIndex] = useState<number | null>(null);
   const [confirmDeleteRule, setConfirmDeleteRule] = useState<number | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [confirmDeleteResource, setConfirmDeleteResource] = useState<{
+    index: number;
+    resource: ContextResource;
+  } | null>(null);
+  const [focusResourceDeleteIndex, setFocusResourceDeleteIndex] = useState<number | null>(null);
   const [focusRuleAction, setFocusRuleAction] = useState<number | null>(null);
   const ruleDraftPending = addingRule || (
     editingRule !== null && ruleDraft !== document.rules[editingRule]
@@ -86,7 +116,8 @@ export function ContextSections({
   const resourceMenuRef = useRef<HTMLDivElement>(null);
   const resourceAddRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const resourceTitleRefs = useRef(new Map<number, HTMLInputElement>());
+  const resourceUrlRefs = useRef(new Map<number, HTMLInputElement>());
+  const resourceActionRefs = useRef(new Map<number, HTMLButtonElement>());
   const uploadControllerRef = useRef<AbortController | null>(null);
   const uploadVersionRef = useRef(0);
   const uploadingRef = useRef(false);
@@ -97,8 +128,10 @@ export function ContextSections({
   loadStateRef.current = loadState;
   const ruleInputRef = useRef<HTMLInputElement>(null);
   const deleteCancelRef = useRef<HTMLButtonElement>(null);
+  const resourceDeleteCancelRef = useRef<HTMLButtonElement>(null);
   const addRuleRef = useRef<HTMLButtonElement>(null);
   const ruleActionRefs = useRef(new Map<number, HTMLButtonElement>());
+  const resourceDeleteRefs = useRef(new Map<number, HTMLButtonElement>());
 
   useEffect(() => {
     if (editingContext) contextRef.current?.focus();
@@ -109,8 +142,8 @@ export function ContextSections({
   }, [editingRule, addingRule]);
 
   useEffect(() => {
-    onDraftPendingChange(ruleDraftPending || uploading);
-  }, [onDraftPendingChange, ruleDraftPending, uploading]);
+    onDraftPendingChange(ruleDraftPending || resourceDraft !== null || uploading);
+  }, [onDraftPendingChange, resourceDraft, ruleDraftPending, uploading]);
 
   useEffect(() => {
     if (loadState !== "ready") {
@@ -208,6 +241,20 @@ export function ContextSections({
   }, [confirmDeleteRule]);
 
   useEffect(() => {
+    if (confirmDeleteResource !== null) resourceDeleteCancelRef.current?.focus();
+    if (confirmDeleteResource === null) return;
+    const resourceIndex = confirmDeleteResource.index;
+    function cancelOnEscape(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setConfirmDeleteResource(null);
+      setFocusResourceDeleteIndex(resourceIndex);
+    }
+    globalThis.document.addEventListener("keydown", cancelOnEscape);
+    return () => globalThis.document.removeEventListener("keydown", cancelOnEscape);
+  }, [confirmDeleteResource]);
+
+  useEffect(() => {
     if (focusRuleAction === null) return;
     if (focusRuleAction === -1) addRuleRef.current?.focus();
     else ruleActionRefs.current.get(focusRuleAction)?.focus();
@@ -216,9 +263,27 @@ export function ContextSections({
 
   useEffect(() => {
     if (focusResourceIndex === null) return;
-    resourceTitleRefs.current.get(focusResourceIndex)?.focus();
+    const input = resourceUrlRefs.current.get(focusResourceIndex);
+    input?.focus();
+    input?.scrollIntoView({
+      block: "nearest",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
     setFocusResourceIndex(null);
   }, [document.resources, focusResourceIndex]);
+
+  useEffect(() => {
+    if (focusResourceActionIndex === null) return;
+    if (focusResourceActionIndex < 0) resourceAddRef.current?.focus();
+    else resourceActionRefs.current.get(focusResourceActionIndex)?.focus();
+    setFocusResourceActionIndex(null);
+  }, [document.resources, focusResourceActionIndex]);
+
+  useEffect(() => {
+    if (focusResourceDeleteIndex === null) return;
+    resourceDeleteRefs.current.get(focusResourceDeleteIndex)?.focus();
+    setFocusResourceDeleteIndex(null);
+  }, [document.resources, focusResourceDeleteIndex]);
 
   useEffect(() => {
     if (loadState !== "ready") {
@@ -227,21 +292,72 @@ export function ContextSections({
       setEditingRule(null);
       setAddingRule(false);
       setRuleDraft("");
+      setResourceDraft(null);
+      setResourceDraftError(null);
+      setFocusResourceIndex(null);
+      setFocusResourceActionIndex(null);
+      setConfirmDeleteResource(null);
+      setFocusResourceDeleteIndex(null);
       setOpenRuleMenu(null);
       setOpenResourceMenu(false);
       setConfirmDeleteRule(null);
     }
   }, [loadState]);
 
+  const previousProjectIdRef = useRef(projectId);
+  useEffect(() => {
+    if (previousProjectIdRef.current === projectId) return;
+    previousProjectIdRef.current = projectId;
+    setResourceDraft(null);
+    setResourceDraftError(null);
+    setFocusResourceIndex(null);
+    setFocusResourceActionIndex(null);
+    setConfirmDeleteResource(null);
+    setFocusResourceDeleteIndex(null);
+  }, [projectId]);
+
   useEffect(() => {
     if (hidden) {
       setOpenRuleMenu(null);
       setOpenResourceMenu(false);
+      setConfirmDeleteResource(null);
+      setFocusResourceDeleteIndex(null);
     }
   }, [hidden]);
 
   function update(patch: Partial<ContextDocument>) {
     onChange({ ...document, ...patch });
+  }
+
+  const isCollapsed = (key: string) => collapsed[key] === true;
+
+  function toggleSection(key: string) {
+    const collapsing = !isCollapsed(key);
+    setCollapsed((current) => ({ ...current, [key]: collapsing }));
+    if (!collapsing) return;
+    if (key === "rules") {
+      setOpenRuleMenu(null);
+      setConfirmDeleteRule(null);
+    } else if (key === "resources") {
+      setOpenResourceMenu(false);
+      setConfirmDeleteResource(null);
+    }
+  }
+
+  function renderSectionToggle(key: string, label: string) {
+    const open = !isCollapsed(key);
+    return (
+      <button
+        type="button"
+        className={styles.sectionToggle}
+        aria-expanded={open}
+        aria-controls={`${id}-${key}-panel`}
+        aria-label={`${open ? "Contraer" : "Expandir"} ${label}`}
+        onClick={() => toggleSection(key)}
+      >
+        <i aria-hidden="true" className="bi bi-caret-down-fill" />
+      </button>
+    );
   }
 
   function beginRuleMenu(index: number, button: HTMLButtonElement) {
@@ -272,9 +388,108 @@ export function ContextSections({
 
   function addUrlResource() {
     const index = document.resources.length;
-    update({ resources: [...document.resources, { title: "", url: "" }] });
+    setResourceDraft({ index, isNew: true, title: "", url: "" });
+    setResourceDraftError(null);
     setFocusResourceIndex(index);
     setOpenResourceMenu(false);
+  }
+
+  function editUrlResource(index: number) {
+    if (resourceDraft || uploading) return;
+    const resource = document.resources[index];
+    setResourceDraft({ index, isNew: false, title: resource.title, url: resource.url });
+    setResourceDraftError(null);
+    setFocusResourceIndex(index);
+  }
+
+  function cancelResourceEdit() {
+    if (!resourceDraft) return;
+    const { index, isNew } = resourceDraft;
+    setResourceDraft(null);
+    setResourceDraftError(null);
+    setFocusResourceActionIndex(isNew ? -1 : index);
+  }
+
+  function confirmResourceEdit() {
+    if (!resourceDraft) return;
+    const url = resourceDraft.url.trim();
+    if (!url || url.length > 2048) {
+      setResourceDraftError({
+        field: "url",
+        message: !url ? "Escribe una URL." : "La URL no puede superar 2048 caracteres.",
+      });
+      resourceUrlRefs.current.get(resourceDraft.index)?.focus();
+      return;
+    }
+    let parsedUrl: URL | null = null;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      parsedUrl = null;
+    }
+    if (!parsedUrl || (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:")) {
+      setResourceDraftError({ field: "url", message: "Usa una URL http o https válida." });
+      resourceUrlRefs.current.get(resourceDraft.index)?.focus();
+      return;
+    }
+
+    const currentResource = document.resources[resourceDraft.index];
+    const title = !resourceDraft.isNew && currentResource?.url.trim() === url
+      ? currentResource.title
+      : getResourceTitle(parsedUrl, url);
+    const resource = { title, url };
+    const resources = resourceDraft.isNew
+      ? [...document.resources, resource]
+      : document.resources.map((item, index) => index === resourceDraft.index ? resource : item);
+    if (!isValidContextDocument({ ...document, resources })) {
+      setResourceDraftError({
+        field: "document",
+        message: "No se puede guardar: el contexto supera el límite permitido.",
+      });
+      return;
+    }
+
+    update({ resources });
+    setFocusResourceActionIndex(resourceDraft.index);
+    setResourceDraft(null);
+    setResourceDraftError(null);
+  }
+
+  function submitResourceOnEnter(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cancelResourceEdit();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      if (!disabled) confirmResourceEdit();
+    }
+  }
+
+  function beginResourceRemoval(index: number) {
+    if (disabled || uploading || resourceDraft || confirmDeleteResource || confirmDeleteRule !== null) return;
+    setOpenResourceMenu(false);
+    setOpenRuleMenu(null);
+    setConfirmDeleteResource({ index, resource: document.resources[index] });
+  }
+
+  function cancelResourceRemoval() {
+    if (confirmDeleteResource === null) return;
+    setFocusResourceDeleteIndex(confirmDeleteResource.index);
+    setConfirmDeleteResource(null);
+  }
+
+  function confirmResourceRemoval() {
+    if (disabled || confirmDeleteResource === null) return;
+    const { index, resource } = confirmDeleteResource;
+    const currentResource = document.resources[index];
+    if (!currentResource || currentResource.title !== resource.title || currentResource.url !== resource.url) {
+      cancelResourceRemoval();
+      return;
+    }
+    const resources = document.resources.filter((_, currentIndex) => currentIndex !== index);
+    update({ resources });
+    setFocusResourceActionIndex(resources.length ? Math.min(index, resources.length - 1) : -1);
+    setConfirmDeleteResource(null);
   }
 
   function handleResourceMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -421,6 +636,52 @@ export function ContextSections({
     }
   }
 
+  function renderResourceEditor(index: number, isNew = false) {
+    if (!resourceDraft) return null;
+    const draft = resourceDraft;
+    const suffix = isNew ? "new" : index;
+    const errorId = `${id}-resource-error-${suffix}`;
+    return (
+      <>
+        <label className={styles.srOnly} htmlFor={`${id}-resource-url-${suffix}`}>
+          {isNew ? "URL del nuevo recurso" : `Editar URL del recurso ${index + 1}`}
+        </label>
+        <input
+          ref={(element) => {
+            if (element) resourceUrlRefs.current.set(index, element);
+            else resourceUrlRefs.current.delete(index);
+          }}
+          id={`${id}-resource-url-${suffix}`}
+          type="url"
+          value={draft.url}
+          maxLength={2048}
+          placeholder="https://…"
+          disabled={disabled}
+          aria-invalid={resourceDraftError?.field === "url" || resourceDraftError?.field === "document"}
+          aria-describedby={resourceDraftError ? errorId : undefined}
+          onKeyDown={submitResourceOnEnter}
+          onChange={(event) => {
+            setResourceDraft({ ...draft, url: event.target.value });
+            setResourceDraftError(null);
+          }}
+        />
+        <div className={styles.resourceActions}>
+          <button type="button" aria-label={isNew ? "Cancelar nueva URL" : "Cancelar edición de URL"} disabled={disabled} onClick={cancelResourceEdit}>
+            <i aria-hidden="true" className="bi bi-x" />
+          </button>
+          <button type="button" aria-label={isNew ? "Confirmar nueva URL" : "Confirmar URL"} disabled={disabled} onClick={confirmResourceEdit}>
+            <i aria-hidden="true" className="bi bi-check" />
+          </button>
+        </div>
+        {resourceDraftError && (
+          <p className={styles.resourceEditError} id={errorId} role="alert">
+            {resourceDraftError.message}
+          </p>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       {loadState === "loading" && <ContextSkeleton />}
@@ -450,29 +711,42 @@ export function ContextSections({
                   className={`bi bi-${editingContext ? "check" : "pencil"}`}
                 />
               </button>
+              {renderSectionToggle("context", "el contexto del proyecto")}
             </header>
-            {editingContext ? (
-              <>
-                <textarea
-                  ref={contextRef}
-                  id={`${id}-description`}
-                  rows={6}
-                  maxLength={5000}
-                  value={document.context}
-                  disabled={disabled}
-                  onChange={(event) => update({ context: event.target.value })}
-                  aria-label="Contexto del proyecto"
-                  placeholder="Describe el proyecto para orientar las respuestas de la IA…"
-                />
-                <p className={styles.fieldHint}>
-                  {document.context.length}/5000 caracteres
-                </p>
-              </>
-            ) : (
-              <p className={styles.contextText}>
-                {document.context || "Aún no se ha agregado contexto para este proyecto."}
-              </p>
-            )}
+            <div
+              id={`${id}-context-panel`}
+              role="region"
+              aria-labelledby={`${id}-context`}
+              aria-hidden={isCollapsed("context")}
+              inert={isCollapsed("context")}
+              data-open={!isCollapsed("context")}
+              className={styles.sectionBody}
+            >
+              <div className={styles.sectionBodyInner}>
+                {editingContext ? (
+                  <>
+                    <textarea
+                      ref={contextRef}
+                      id={`${id}-description`}
+                      rows={6}
+                      maxLength={5000}
+                      value={document.context}
+                      disabled={disabled}
+                      onChange={(event) => update({ context: event.target.value })}
+                      aria-label="Contexto del proyecto"
+                      placeholder="Describe el proyecto para orientar las respuestas de la IA…"
+                    />
+                    <p className={styles.fieldHint}>
+                      {document.context.length}/5000 caracteres
+                    </p>
+                  </>
+                ) : (
+                  <p className={styles.contextText}>
+                    {document.context || "Aún no se ha agregado contexto para este proyecto."}
+                  </p>
+                )}
+              </div>
+            </div>
           </section>
 
           <section
@@ -486,7 +760,7 @@ export function ContextSections({
                 aria-label="Agregar regla"
                 title={atRuleLimit ? "Máximo 50 reglas." : undefined}
                 ref={addRuleRef}
-                disabled={disabled || atRuleLimit || addingRule || editingRule !== null || confirmDeleteRule !== null}
+                disabled={disabled || atRuleLimit || addingRule || editingRule !== null || confirmDeleteRule !== null || confirmDeleteResource !== null}
                 onClick={() => {
                   setAddingRule(true);
                   setRuleDraft("");
@@ -494,7 +768,18 @@ export function ContextSections({
               >
                 <i aria-hidden="true" className="bi bi-plus" />
               </button>
+              {renderSectionToggle("rules", "las reglas a seguir")}
             </header>
+            <div
+              id={`${id}-rules-panel`}
+              role="region"
+              aria-labelledby={`${id}-rules`}
+              aria-hidden={isCollapsed("rules")}
+              inert={isCollapsed("rules")}
+              data-open={!isCollapsed("rules")}
+              className={styles.sectionBody}
+            >
+              <div className={styles.sectionBodyInner}>
             {document.rules.length || addingRule ? (
               <ul className={styles.editableList}>
                 {document.rules.map((rule, index) => (
@@ -569,7 +854,7 @@ export function ContextSections({
                           aria-haspopup="menu"
                           aria-expanded={openRuleMenu === index}
                           aria-controls={`${id}-rule-actions`}
-                          disabled={disabled || addingRule || editingRule !== null || confirmDeleteRule !== null}
+                          disabled={disabled || addingRule || editingRule !== null || confirmDeleteRule !== null || confirmDeleteResource !== null}
                           onClick={(event) => beginRuleMenu(index, event.currentTarget)}
                         >
                           <i aria-hidden="true" className="bi bi-three-dots" />
@@ -614,6 +899,8 @@ export function ContextSections({
             ) : (
               <p>Aún no hay reglas para este proyecto.</p>
             )}
+              </div>
+            </div>
             {openRuleMenu !== null && typeof window !== "undefined" && createPortal(
               <div
                 ref={ruleMenuRef}
@@ -653,11 +940,12 @@ export function ContextSections({
                 aria-controls={`${id}-resource-menu`}
                 title={atResourceLimit ? "Máximo 50 recursos." : undefined}
                 ref={resourceAddRef}
-                disabled={disabled || atResourceLimit || uploading}
+                disabled={disabled || atResourceLimit || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null}
                 onClick={(event) => beginResourceMenu(event.currentTarget)}
               >
                 <i aria-hidden="true" className="bi bi-plus" />
               </button>
+              {renderSectionToggle("resources", "los recursos")}
             </header>
             <input
               ref={fileInputRef}
@@ -671,6 +959,16 @@ export function ContextSections({
                 if (file) void uploadResource(file, filePickerProjectIdRef.current);
               }}
             />
+            <div
+              id={`${id}-resources-panel`}
+              role="region"
+              aria-labelledby={`${id}-resources`}
+              aria-hidden={isCollapsed("resources")}
+              inert={isCollapsed("resources")}
+              data-open={!isCollapsed("resources")}
+              className={styles.sectionBody}
+            >
+              <div className={styles.sectionBodyInner}>
             {openResourceMenu && typeof window !== "undefined" && createPortal(
               <div
                 ref={resourceMenuRef}
@@ -702,118 +1000,134 @@ export function ContextSections({
               </div>,
               globalThis.document.body,
             )}
-            {document.resources.length ? (
+            {document.resources.length || resourceDraft?.isNew ? (
               <ul className={styles.editableList}>
-                {document.resources.map((resource, index) => (
-                  <li
-                    className={`${styles.resourceFields} ${isContextFile(resource) ? styles.fileResourceFields : ""}`}
-                    key={index}
-                  >
-                    {isContextFile(resource) ? (
-                      <a
-                        className={`${styles.resourceLink} ${styles.fileResourceLink}`}
-                        href={resource.url}
-                        download={resource.title}
-                      >
-                        <i aria-hidden="true" className="bi bi-file-earmark-arrow-down" />
-                        <span>{resource.title}</span>
-                      </a>
-                    ) : (
-                      <>
-                        {resource.title.trim() &&
-                          isValidContextDocument({
-                            context: "",
-                            rules: [],
-                            resources: [resource],
-                          }) && (
-                        <a
-                          className={styles.resourceLink}
-                          href={resource.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                            <i
-                              aria-hidden="true"
-                              className="bi bi-box-arrow-up-right"
-                            />
-                            {resource.title}
-                        </a>
-                          )}
-                        <label
-                          className={styles.srOnly}
-                          htmlFor={`${id}-resource-title-${index}`}
-                        >
-                          Título del recurso {index + 1}
-                        </label>
-                        <input
-                          ref={(element) => {
-                            if (element) resourceTitleRefs.current.set(index, element);
-                            else resourceTitleRefs.current.delete(index);
-                          }}
-                          id={`${id}-resource-title-${index}`}
-                          value={resource.title}
-                          maxLength={200}
-                          placeholder="Título"
-                          disabled={disabled}
-                          aria-invalid={!resource.title.trim() || resource.title.length > 200}
-                          onChange={(event) =>
-                            update({
-                              resources: document.resources.map((item, i) =>
-                                i === index ? { ...item, title: event.target.value } : item,
-                              ),
-                            })
-                          }
-                        />
-                        <label
-                          className={styles.srOnly}
-                          htmlFor={`${id}-resource-url-${index}`}
-                        >
-                          URL del recurso {index + 1}
-                        </label>
-                        <input
-                          id={`${id}-resource-url-${index}`}
-                          type="url"
-                          value={resource.url}
-                          maxLength={2048}
-                          placeholder="https://…"
-                          disabled={disabled}
-                          aria-invalid={!isValidContextDocument({
-                            context: "",
-                            rules: [],
-                            resources: [resource],
-                          })}
-                          onChange={(event) =>
-                            update({
-                              resources: document.resources.map((item, i) =>
-                                i === index ? { ...item, url: event.target.value } : item,
-                              ),
-                            })
-                          }
-                        />
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      className={styles.removeButton}
-                      aria-label={isContextFile(resource)
-                        ? `Quitar archivo ${resource.title}. El archivo almacenado no se eliminará del servidor.`
-                        : `Eliminar recurso ${index + 1}`}
-                      title={isContextFile(resource)
-                        ? "Quita el recurso de Modus; el archivo almacenado no se elimina del servidor."
-                        : undefined}
-                      disabled={disabled}
-                      onClick={() =>
-                        update({
-                          resources: document.resources.filter(
-                            (_, i) => i !== index,
-                          ),
-                        })
-                      }
+                {document.resources.map((resource, index) => {
+                  const isFile = isContextFile(resource);
+                  const editing = resourceDraft?.index === index;
+                  const validUrl = isValidContextDocument({
+                    context: "",
+                    rules: [],
+                    resources: [resource],
+                  });
+                  const domain = getContextResourceDomain(resource, validUrl);
+
+                  return (
+                    <li
+                      className={`${styles.resourceFields} ${editing ? styles.resourceEditFields : ""}`}
+                      key={index}
                     >
-                      <i aria-hidden="true" className="bi bi-trash3" />
-                    </button>
+                      {confirmDeleteResource?.index === index ? (
+                        <div
+                          className={styles.deleteConfirm}
+                          role="group"
+                          aria-label={`Confirmar ${isFile ? "quitar archivo" : "eliminar recurso"} ${resource.title || index + 1}`}
+                        >
+                          <span>
+                            {isFile
+                              ? `¿Quitar «${resource.title}» de Recursos? El archivo almacenado no se eliminará.`
+                              : `¿Eliminar «${resource.title || `recurso ${index + 1}`}»?`}
+                          </span>
+                          <button ref={resourceDeleteCancelRef} type="button" onClick={cancelResourceRemoval}>Cancelar</button>
+                          <button
+                            type="button"
+                            className={styles.deleteConfirmAction}
+                            disabled={disabled}
+                            onClick={confirmResourceRemoval}
+                          >{isFile ? "Quitar de Recursos" : "Eliminar"}</button>
+                        </div>
+                      ) : isFile ? (
+                        <>
+                          <a
+                            className={`${styles.resourceLink} ${styles.fileResourceLink}`}
+                            href={resource.url}
+                            download={resource.title}
+                          >
+                            <i aria-hidden="true" className="bi bi-file-earmark-arrow-down" />
+                            <span>{resource.title}</span>
+                          </a>
+                          <div className={styles.resourceActions}>
+                            <button
+                              ref={(element) => {
+                                if (element) {
+                                  resourceActionRefs.current.set(index, element);
+                                  resourceDeleteRefs.current.set(index, element);
+                                } else {
+                                  resourceActionRefs.current.delete(index);
+                                  resourceDeleteRefs.current.delete(index);
+                                }
+                              }}
+                              type="button"
+                              className={styles.removeButton}
+                              aria-label={`Quitar archivo ${resource.title}. El archivo almacenado no se eliminará del servidor.`}
+                              title="Quita el recurso de Modus; el archivo almacenado no se elimina del servidor."
+                              disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null}
+                              onClick={() => beginResourceRemoval(index)}
+                            >
+                              <i aria-hidden="true" className="bi bi-trash3" />
+                            </button>
+                          </div>
+                        </>
+                      ) : editing ? (
+                        renderResourceEditor(index)
+                      ) : (
+                        <>
+                          {validUrl ? (
+                            <a
+                              className={styles.resourceLink}
+                              href={resource.url.trim()}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={resource.url.trim()}
+                              aria-label={`${resource.title} — ${resource.url.trim()}`}
+                            >
+                              <i aria-hidden="true" className="bi bi-box-arrow-up-right" />
+                              <span className={styles.resourceTitle} title={resource.title}>{resource.title}</span>
+                              <span className={styles.resourceDomain}>{domain}</span>
+                            </a>
+                          ) : (
+                            <span className={`${styles.resourceLink} ${styles.invalidResourceLink}`}>
+                              {resource.title || "URL pendiente"}
+                            </span>
+                          )}
+                          <div className={styles.resourceActions}>
+                            <button
+                              ref={(element) => {
+                                if (element) resourceActionRefs.current.set(index, element);
+                                else resourceActionRefs.current.delete(index);
+                              }}
+                              type="button"
+                              aria-label={`Editar recurso ${resource.title || index + 1}`}
+                              title="Editar URL"
+                              disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null}
+                              onClick={() => editUrlResource(index)}
+                            >
+                              <i aria-hidden="true" className="bi bi-pencil" />
+                            </button>
+                            <button
+                              ref={(element) => {
+                                if (element) resourceDeleteRefs.current.set(index, element);
+                                else resourceDeleteRefs.current.delete(index);
+                              }}
+                              type="button"
+                              className={styles.removeButton}
+                              aria-label={`Eliminar recurso ${resource.title || index + 1}`}
+                              disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null}
+                              onClick={() => beginResourceRemoval(index)}
+                            >
+                              <i aria-hidden="true" className="bi bi-trash3" />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+                {resourceDraft?.isNew && (
+                  <li className={`${styles.resourceFields} ${styles.resourceEditFields}`} key="new-url">
+                    {renderResourceEditor(resourceDraft.index, true)}
                   </li>
-                ))}
+                )}
               </ul>
             ) : (
               <p>Aún no hay recursos para este proyecto.</p>
@@ -830,21 +1144,23 @@ export function ContextSections({
                   <button
                     type="button"
                     className={shared.textButton}
-                    disabled={uploading || disabled}
+                    disabled={uploading || disabled || confirmDeleteResource !== null}
                     onClick={() => void uploadResource(retryFile)}
                   >Reintentar subida</button>
                 )}
               </div>
             )}
+              </div>
+            </div>
           </section>
 
           <div className={styles.saveActions}>
             {saving && <p className={styles.saveStatus} role="status">Guardando…</p>}
-            {!saving && saved && !hasPendingChanges && !ruleDraftPending && (
+            {!saving && saved && !hasPendingChanges && !ruleDraftPending && resourceDraft === null && (
               <p className={styles.savedMessage} role="status">Guardado</p>
             )}
-            {ruleDraftPending && (
-              <p className={styles.fieldHint} role="status">Confirma o cancela la regla para guardar los cambios.</p>
+            {(ruleDraftPending || resourceDraft !== null) && (
+              <p className={styles.fieldHint} role="status">Confirma o cancela la edición para guardar los cambios.</p>
             )}
             {saveError && (
               <div className={styles.saveError}>

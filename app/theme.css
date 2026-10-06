@@ -64,7 +64,7 @@ body {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  :where(button:enabled, summary, a[href]):hover {
+  :where(button:enabled:hover, summary:hover, a[href]:hover) {
     background-color: color-mix(in srgb, currentColor 7%, transparent);
   }
 }

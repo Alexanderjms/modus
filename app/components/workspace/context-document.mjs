@@ -4,6 +4,15 @@ export function isContextFile(resource) {
   return isProjectContextFileUrl(resource.url);
 }
 
+export function getContextResourceDomain(resource, validUrl) {
+  if (!validUrl || isContextFile(resource)) return "";
+  try {
+    return new URL(resource.url.trim()).hostname;
+  } catch {
+    return "";
+  }
+}
+
 export function isValidContextDocument(document) {
   if (
     document.context.length > 5000 ||
