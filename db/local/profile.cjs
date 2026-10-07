@@ -17,4 +17,19 @@ function hasLocalProfile(customPath) {
   }
 }
 
-module.exports = { hasLocalProfile };
+function hasProfile() {
+  const { getStorageMode } = require("./storage.cjs");
+  if (getStorageMode() !== "turso") return hasLocalProfile();
+  const { getDatabase } = require("./db.cjs");
+  let db;
+  try {
+    db = getDatabase();
+    return Boolean(db.prepare("SELECT 1 AS found FROM usuarios LIMIT 1").get());
+  } catch {
+    return false;
+  } finally {
+    db?.close();
+  }
+}
+
+module.exports = { hasLocalProfile, hasProfile };

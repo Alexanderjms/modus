@@ -1,4 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
+import { cookies } from "next/headers";
+import { UNLOCK_COOKIE, isUnlocked, lockKind } from "../../../../db/local/pin-lock.cjs";
 import {
   jsonResponse,
   withNoStore,
@@ -6,7 +8,7 @@ import {
   resolveUser,
   openProjectDatabase,
   getDecryptedProviderKey,
-  discoverProviderModels,
+  discoverProviderModelsCached,
   ALLOWED_PROVIDERS,
 } from "../../../../db/local/chat.cjs";
 
@@ -26,6 +28,9 @@ export async function GET(request: Request) {
   }
 
   let db: DatabaseSync | null = null;
+  if (provider === "chatgpt" && lockKind() && !isUnlocked((await cookies()).get(UNLOCK_COOKIE)?.value)) {
+    return jsonResponse({ error: "Desbloquea tu perfil antes de usar ChatGPT." }, 401);
+  }
   let apiKey: string | null = null;
 
   try {
@@ -41,8 +46,12 @@ export async function GET(request: Request) {
     }
 
     try {
-      apiKey = await getDecryptedProviderKey(db, user.id, provider);
-    } catch {
+      apiKey = await getDecryptedProviderKey(db, user.id, provider, provider === "chatgpt" ? (await cookies()).get(UNLOCK_COOKIE)?.value ?? null : undefined);
+    } catch (reason) {
+      if (reason && typeof reason === "object" && (reason as { name?: string }).name === "OAuthError") {
+        const err = reason as { message: string; status: number; code: string };
+        return jsonResponse({ error: err.message, code: err.code }, err.status);
+      }
       return jsonResponse({ error: "Error al recuperar la clave del proveedor" }, 500);
     }
   } catch {
@@ -62,7 +71,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const discovery = await discoverProviderModels(provider, apiKey, region, request.signal);
+  const discovery = await discoverProviderModelsCached(provider, apiKey, region, request.signal);
   if ("error" in discovery && discovery.error) {
     return discovery.error;
   }

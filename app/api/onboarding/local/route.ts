@@ -1,4 +1,5 @@
-import { getDatabase } from "../../../../db/local/db.cjs";
+import { getDatabase, getDefaultDbPath } from "../../../../db/local/db.cjs";
+import { setStorageMode } from "../../../../db/local/storage.cjs";
 import { applySchema } from "../../../../db/local/migrate.cjs";
 import { hashPin, hashPinAsync, isValidPinFormat } from "../../../../db/local/pin.cjs";
 
@@ -73,7 +74,7 @@ async function executeLocalSetup({
 
   let db;
   try {
-    db = getDatabase();
+    db = getDatabase(process.env.MODUS_SQLITE_PATH || getDefaultDbPath());
   } catch {
     throw new PipelineError("Error interno al inicializar la base de datos", 500);
   }
@@ -141,6 +142,7 @@ async function executeLocalSetup({
 
     db.exec("COMMIT;");
     inTransaction = false;
+    setStorageMode("local");
     await notifyProgress("Perfil de usuario registrado...");
   } catch (err) {
     if (inTransaction) {

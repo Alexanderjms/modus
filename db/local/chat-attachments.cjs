@@ -14,6 +14,8 @@ const MAX_MODEL_FILE_BYTES = 12 * 1024 * 1024;
 
 const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+const { isOfficeType, extractOfficeText } = require("./office-text.cjs");
+
 const TEXT_TYPES = new Set(["text/plain", "text/markdown", "text/csv", "application/json"]);
 
 function ensureAttachmentsTable(db) {
@@ -50,6 +52,15 @@ function validateAttachmentBytes(type, buffer) {
   if (type === "image/jpeg") return hasPrefix(buffer, [0xff, 0xd8, 0xff]);
   if (type === "image/webp") return buffer.length >= 12 && buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP";
   if (type === "application/pdf") return hasPrefix(buffer, [0x25, 0x50, 0x44, 0x46, 0x2d]);
+  if (isOfficeType(type)) {
+    if (!hasPrefix(buffer, [0x50, 0x4b, 0x03, 0x04])) return false;
+    try {
+      extractOfficeText(type, buffer);
+      return true;
+    } catch {
+      return false;
+    }
+  }
   if (TEXT_TYPES.has(type)) {
     if (buffer.includes(0)) return false;
     try {
@@ -157,10 +168,6 @@ function resolveMessageAttachments(db, projectId, messages) {
   return { data: resolved };
 }
 
-/**
- * Prepara los mensajes para el modelo: quita `attachmentIds` y añade `files` con los bytes
- * de los adjuntos del proyecto. Los más recientes tienen prioridad dentro del presupuesto.
- */
 function attachFilesToMessages(db, projectId, messages) {
   const out = messages.map(({ role, content }) => ({ role, content }));
   let budget = MAX_MODEL_FILE_BYTES;
@@ -171,6 +178,14 @@ function attachFilesToMessages(db, projectId, messages) {
     for (const id of ids) {
       const file = getAttachment(db, projectId, id);
       if (!file) continue;
+      if (isOfficeType(file.type)) {
+        try {
+          files.push({ name: file.name, type: file.type, text: extractOfficeText(file.type, file.data) });
+        } catch {
+          files.push({ name: file.name, type: file.type, skipped: true });
+        }
+        continue;
+      }
       const isText = TEXT_TYPES.has(file.type);
       if (!isText && file.size > budget) {
         files.push({ name: file.name, type: file.type, skipped: true });
@@ -182,6 +197,31 @@ function attachFilesToMessages(db, projectId, messages) {
     if (files.length) out[i].files = files;
   }
   return out;
+}
+
+function attachmentIdsOfMessages(rawMessages) {
+  try {
+    const parsed = JSON.parse(rawMessages);
+    return Array.isArray(parsed)
+      ? parsed.flatMap((message) => (Array.isArray(message?.attachments) ? message.attachments : []))
+          .flatMap((attachment) => (typeof attachment?.id === "string" ? [attachment.id] : []))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function deleteUnreferencedAttachments(db, projectId, ids) {
+  if (!ids.length) return 0;
+  ensureAttachmentsTable(db);
+  const referenced = collectReferencedIds(db, projectId);
+  const remove = db.prepare("DELETE FROM chat_adjuntos WHERE id = ? AND proyecto_id = ?");
+  let removed = 0;
+  for (const id of new Set(ids)) {
+    if (!isValidAttachmentId(id) || referenced.has(id)) continue;
+    removed += Number(remove.run(id, projectId).changes);
+  }
+  return removed;
 }
 
 function deleteAttachment(db, projectId, id) {
@@ -218,6 +258,8 @@ module.exports = {
   getStagedAttachmentBytes,
   pruneStagedAttachments,
   resolveMessageAttachments,
+  attachmentIdsOfMessages,
+  deleteUnreferencedAttachments,
   attachFilesToMessages,
   deleteAttachment,
 };

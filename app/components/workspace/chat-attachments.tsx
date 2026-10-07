@@ -2,6 +2,7 @@
 
 import type { PendingAttachment } from "./use-chat-attachments";
 import { attachmentUrl } from "../../chat-attachments.mjs";
+import { FileTypeIcon } from "./file-type-icon";
 import styles from "./chat-attachments.module.css";
 
 export function ChatAttachments({ items, projectId, disabled, onRetry, onCancel, onRemove }: {
@@ -11,7 +12,7 @@ export function ChatAttachments({ items, projectId, disabled, onRetry, onCancel,
   if (!items.length) return null;
   return <ul className={styles.list} aria-label="Archivos adjuntos">
     {items.map((item) => <li className={styles.item} key={item.key}>
-      {item.preview ? <img className={styles.preview} src={item.preview} alt="" /> : <span className={styles.icon} aria-hidden="true"><i className="bi bi-file-earmark" /></span>}
+      {item.preview ? <img className={styles.preview} src={item.preview} alt="" /> : <span className={styles.icon} aria-hidden="true"><FileTypeIcon name={item.file.name} size={20} /></span>}
       <div className={styles.info}>
         <span className={styles.name} title={item.file.name}>{item.file.name}</span>
         <span className={styles.meta}>{Math.max(1, Math.ceil(item.file.size / 1024))} KiB · {item.status === "uploading" ? `Subiendo ${item.progress}%` : item.status === "ready" ? "Listo" : item.status === "removing" ? "Quitando…" : "Subida incompleta"}</span>

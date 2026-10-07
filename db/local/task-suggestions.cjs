@@ -6,7 +6,7 @@ const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{
 const ALLOWED_PRIORITIES = new Set(["alta", "media", "baja", "sin prioridad"]);
 const ALLOWED_STATUSES = new Set(["pending", "accepted", "discarded"]);
 
-const MAX_SUGGESTIONS_PER_MESSAGE = 12;
+const MAX_SUGGESTIONS_PER_MESSAGE = Infinity;
 const MAX_SUBTASKS_PER_SUGGESTION = 20;
 const MAX_TITLE_LEN = 255;
 const MAX_DESC_LEN = 2000;
@@ -56,10 +56,6 @@ function sanitizeSubtasks(subtasks) {
   return result;
 }
 
-/**
- * Valida una etiqueta propuesta (name 1..80, color HEX #RRGGBB opcional).
- * @returns {{name: string, color?: string}|null}
- */
 function sanitizeProposalTag(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   if (Object.keys(raw).some((key) => key !== "name" && key !== "color")) return null;
@@ -73,13 +69,6 @@ function sanitizeProposalTag(raw) {
   return { name };
 }
 
-/**
- * Valida y normaliza una lista de etiquetas propuestas (máx 10, deduplicada
- * por nombre case-insensitive).
- * @param {unknown} tags
- * @param {{ required?: boolean }} [options] required exige al menos una etiqueta.
- * @returns {Array<{name: string, color?: string}>|null} null si es inválida
- */
 function sanitizeProposalTags(tags, options = {}) {
   const required = options.required === true;
   if (tags === undefined || tags === null) return required ? null : [];
@@ -117,13 +106,9 @@ function isValidDateOnly(val) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === val;
 }
 
-/**
- * Valida los cambios propuestos para una tarea existente. Devuelve null si son
- * inválidos o están vacíos. Etiquetas y subtareas solo se AÑADEN.
- */
 function sanitizeTaskChanges(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const allowed = ["title", "description", "priority", "startDate", "endDate", "column", "addTags", "addSubtasks", "removeTags", "removeSubtasks", "completeSubtasks", "reopenSubtasks"];
+  const allowed = ["title", "description", "priority", "startDate", "endDate", "column", "addTags", "addSubtasks", "removeTags", "removeSubtasks", "completeSubtasks", "reopenSubtasks", "renameSubtasks"];
   const keys = Object.keys(raw);
   if (keys.length === 0 || keys.some((key) => !allowed.includes(key))) return null;
 
@@ -174,16 +159,30 @@ function sanitizeTaskChanges(raw) {
     if (!titles) return null;
     changes[key] = titles;
   }
+  if (raw.renameSubtasks !== undefined) {
+    const list = raw.renameSubtasks;
+    if (!Array.isArray(list) || list.length === 0 || list.length > MAX_SUBTASKS_PER_SUGGESTION) return null;
+    const renames = [];
+    for (const item of list) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+      if (Object.keys(item).some((key) => key !== "from" && key !== "to")) return null;
+      const from = sanitizeSuggestionTitle(item.from);
+      const to = sanitizeSuggestionTitle(item.to);
+      if (!from || !to) return null;
+      renames.push({ from, to });
+    }
+    changes.renameSubtasks = renames;
+  }
   return changes;
 }
 
-/**
- * Valida y formatea las sugerencias emitidas por el modelo en su envelope de respuesta.
- * Genera el UUID v4 en el servidor y fuerza status="pending", taskId=null.
- * Soporta dos modos: "create" (nueva tarea, kind ausente) y "add-tags"
- * (añadir etiquetas a una tarea existente vía targetTaskId).
- */
 function sanitizeModelProposals(rawSuggestions) {
+  if (rawSuggestions === undefined) return [];
+  if (!Array.isArray(rawSuggestions)) return null;
+  return rawSuggestions.slice(0, MAX_SUGGESTIONS_PER_MESSAGE).flatMap((item) => sanitizeProposalList([item]) ?? []);
+}
+
+function sanitizeProposalList(rawSuggestions) {
   if (rawSuggestions === undefined) return [];
   if (!Array.isArray(rawSuggestions)) return null;
   if (rawSuggestions.length > MAX_SUGGESTIONS_PER_MESSAGE) return null;
@@ -288,9 +287,6 @@ function sanitizeModelProposals(rawSuggestions) {
   return proposals;
 }
 
-/**
- * Valida un array de sugerencias ya persistidas o enviadas para guardar (PUT).
- */
 function validatePersistedSuggestions(suggestions) {
   if (!Array.isArray(suggestions)) {
     return { error: "suggestions debe ser un array" };
@@ -408,12 +404,6 @@ function validatePersistedSuggestions(suggestions) {
   return { data: result };
 }
 
-/**
- * Valida el cuerpo de revisión editable enviado al endpoint /accept.
- * Devuelve `mode` ("create" | "add-tags") para contrastarlo con el tipo de
- * sugerencia persistida; el payload del cliente NUNCA decide el tipo ni el
- * targetTaskId.
- */
 function validateSuggestionAcceptReview(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return { error: "El cuerpo debe ser un objeto JSON" };
@@ -422,14 +412,12 @@ function validateSuggestionAcceptReview(body) {
   const keys = Object.keys(body);
   const hasTitle = keys.includes("title");
 
-  // Modo edit: payload estricto { changes: {...} }.
   if (keys.length === 1 && keys[0] === "changes") {
     const changes = sanitizeTaskChanges(body.changes);
     if (!changes) return { error: "changes contiene cambios inválidos o vacíos" };
     return { mode: "edit", data: { changes } };
   }
 
-  // Modo add-subtasks: payload estricto { subtasks: [...] } sin otros campos.
   if (keys.length === 1 && keys[0] === "subtasks") {
     const subtasks = sanitizeSubtasks(body.subtasks);
     if (subtasks === null || subtasks.length === 0) {
@@ -438,7 +426,6 @@ function validateSuggestionAcceptReview(body) {
     return { mode: "add-subtasks", data: { subtasks } };
   }
 
-  // Modo add-tags: payload estricto { tags: [...] } sin otros campos.
   if (!hasTitle) {
     if (keys.length === 0 || keys.some((key) => key !== "tags")) {
       return { error: "El cuerpo contiene campos no permitidos" };
@@ -450,7 +437,6 @@ function validateSuggestionAcceptReview(body) {
     return { mode: "add-tags", data: { tags } };
   }
 
-  // Modo create: payload editable de la nueva tarea.
   const createKeys = ["title", "description", "priority", "subtasks", "tags"];
   if (keys.some((key) => !createKeys.includes(key))) {
     return { error: "El cuerpo contiene campos no permitidos" };
@@ -496,9 +482,6 @@ function validateSuggestionAcceptReview(body) {
   };
 }
 
-/**
- * Asegura la existencia de la tabla relacional idempotente chat_suggestion_tasks.
- */
 function ensureSuggestionTasksTable(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS chat_suggestion_tasks (

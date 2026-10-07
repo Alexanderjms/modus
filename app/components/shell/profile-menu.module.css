@@ -42,6 +42,12 @@
     color: var(--foreground);
   }
 }
+.profileMenu .logout {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--divider-soft);
+  border-radius: 0 0 5px 5px;
+}
 .profileMenu i {
   color: #007aff;
 }

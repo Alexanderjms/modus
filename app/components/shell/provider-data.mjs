@@ -6,20 +6,12 @@ export const providers = [
     logo: "aws-amazon-bedrock.svg",
   },
   {
-    id: "cerebras",
-    name: "Cerebras",
-    placeholder: "API key",
-    logo: "cerebras.svg",
-  },
-  {
     id: "deepinfra",
     name: "DeepInfra",
     placeholder: "API key",
     logo: "deepinfra.svg",
   },
-  { id: "google", name: "Google AI Studio", placeholder: "API key", logo: "google.svg" },
   { id: "groq", name: "Groq", placeholder: "API key", logo: "groq.svg" },
-  { id: "nvidia", name: "NVIDIA", placeholder: "API key", logo: "nvidia.svg" },
   { id: "opencode", name: "OpenCode Go", placeholder: "API key", logo: "opencode.svg" },
   {
     id: "openrouter",
@@ -46,6 +38,7 @@ export function providerErrorForStatus(status) {
 }
 
 export function providerRequestError(reason, fallback) {
+  if (reason instanceof Error && reason.userMessage) return reason.message;
   const knownErrors = [...KNOWN_STATUS_ERRORS.values(), INVALID_RESPONSE_ERROR];
   return reason instanceof Error && knownErrors.includes(reason.message)
     ? reason.message
@@ -53,7 +46,17 @@ export function providerRequestError(reason, fallback) {
 }
 
 export async function readProviderStatus(response) {
-  if (!response.ok) throw new Error(providerErrorForStatus(response.status));
+  if (!response.ok) {
+    if (response.status === 422 || response.status === 502) {
+      const body = await response.json().catch(() => null);
+      if (body && typeof body.error === "string" && body.error.length <= 300) {
+        const error = new Error(body.error);
+        error.userMessage = true;
+        throw error;
+      }
+    }
+    throw new Error(providerErrorForStatus(response.status));
+  }
 
   const data = await response.json();
   if (

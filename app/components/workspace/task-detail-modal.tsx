@@ -15,6 +15,7 @@ import {
   type EditableSubtask,
 } from "./task-detail-sections";
 import styles from "./task-editor.module.css";
+import { useWorkspaceRequest } from "./workspace-query-provider";
 
 export type TaskEditPayload = {
   title: string;
@@ -33,6 +34,7 @@ export function TaskDetailModal({
   catalogs,
   onSave,
   onTagDataChange,
+  onTagEdited,
   savePending = false,
   onClose,
 }: {
@@ -41,9 +43,11 @@ export function TaskDetailModal({
   catalogs: TaskCatalogsDto | null;
   onSave: (taskId: number, projectId: number, column: 0 | 1 | 2, payload: TaskEditPayload) => Promise<string | null>;
   onTagDataChange: (catalogs: TaskCatalogsDto, tasks: BoardTask[]) => void;
+  onTagEdited: (tagId: number, name: string, color: string) => void;
   savePending?: boolean;
   onClose: () => void;
 }) {
+  const request = useWorkspaceRequest();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -69,6 +73,7 @@ export function TaskDetailModal({
   const [tagError, setTagError] = useState("");
   const [tagActionNotice, setTagActionNotice] = useState("");
   const [tagActionPending, setTagActionPending] = useState(false);
+  const revertTagEdit = useRef<(() => void) | null>(null);
   const [tagEditTarget, setTagEditTarget] = useState<{ option: ChatPickerOption; draftKey?: string } | null>(null);
   const [tagDeleteTarget, setTagDeleteTarget] = useState<{ option: ChatPickerOption; draftKey?: string } | null>(null);
   const [tagEditName, setTagEditName] = useState("");
@@ -279,11 +284,27 @@ export function TaskDetailModal({
         return;
       }
       if (projectId === undefined || existingId === null) throw new Error("No se pudo identificar la etiqueta del proyecto.");
-      const response = await fetch(`/api/projects/${projectId}/tags/${existingId}`, {
+      const target = tagEditTarget;
+      const previous = { name: target.option.label, color: target.option.color || "#007AFF" };
+      onTagEdited(existingId, name, tagEditColor);
+      setTagEditTarget(null);
+      setTagActionNotice(`Etiqueta «${name}» actualizada en todas las tareas de este proyecto.`);
+      revertTagEdit.current = () => {
+        onTagEdited(existingId, previous.name, previous.color);
+        setTagActionNotice("");
+        setTagEditTarget(target);
+      };
+      const response = await request(`/api/projects/${projectId}/tags/${existingId}?projectId=${projectId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
         body: JSON.stringify({ name, color: tagEditColor }),
+        signal: AbortSignal.timeout(45000),
+      }).catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "TimeoutError") {
+          throw new Error("El servidor tardó demasiado en guardar la etiqueta. Inténtalo de nuevo.");
+        }
+        throw error;
       });
       const data = await response.json().catch(() => ({})) as {
         error?: string;
@@ -297,10 +318,11 @@ export function TaskDetailModal({
         || !Array.isArray(data.catalogs.statuses) || !Array.isArray(data.catalogs.tags)) {
         throw new Error("El servidor devolvió una respuesta no válida.");
       }
+      revertTagEdit.current = null;
       onTagDataChange(data.catalogs, data.tasks);
-      setTagEditTarget(null);
-      setTagActionNotice(`Etiqueta «${name}» actualizada en todas las tareas de este proyecto.`);
     } catch (error) {
+      revertTagEdit.current?.();
+      revertTagEdit.current = null;
       setTagActionError(error instanceof Error ? error.message : "Error al actualizar la etiqueta.");
     } finally {
       setTagActionPending(false);
@@ -335,7 +357,7 @@ export function TaskDetailModal({
     setTagActionPending(true);
     setTagActionError("");
     try {
-      const response = await fetch(`/api/projects/${projectId}/tags/${id}`, {
+      const response = await request(`/api/projects/${projectId}/tags/${id}?projectId=${projectId}`, {
         method: "DELETE",
         cache: "no-store",
       });
@@ -391,6 +413,10 @@ export function TaskDetailModal({
 
   const setSubtaskCompleted = (localKey: string, completed: boolean) => {
     setSubtasks((current) => current.map((item) => item.localKey === localKey ? { ...item, completed } : item));
+  };
+
+  const setAllSubtasksCompleted = (completed: boolean) => {
+    setSubtasks((current) => current.map((item) => exitingSubtaskKeysRef.current.has(item.localKey) ? item : { ...item, completed }));
   };
 
   const addSubtask = () => {
@@ -557,6 +583,7 @@ export function TaskDetailModal({
                 onAdd={addSubtask}
                 onSetTitle={setSubtaskTitle}
                 onSetCompleted={setSubtaskCompleted}
+                onSetAllCompleted={setAllSubtasksCompleted}
                 onStartRemoval={startSubtaskRemoval}
                 onFinishRemoval={finishSubtaskRemoval}
               />

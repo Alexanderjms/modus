@@ -108,8 +108,7 @@ export async function POST(
         "content-type": contentType,
       },
       body: fullPayload,
-      // @ts-expect-error duplex required for Request with body in some node types
-      duplex: "half",
+      ...({ duplex: "half" } as Record<string, unknown>),
     });
 
     let formData: FormData;

@@ -51,8 +51,11 @@ export function validMessages(value) {
     typeof item === "object" && item !== null &&
     (item.role === "user" || item.role === "assistant") && typeof item.content === "string" &&
     (!Object.hasOwn(item, "attachments") || (item.role === "user" && Array.isArray(item.attachments) && item.attachments.length > 0 && item.attachments.length <= maxAttachments && item.attachments.every(validAttachment))) &&
+    (!Object.hasOwn(item, "tasks") || (item.role === "user" && Array.isArray(item.tasks) && item.tasks.length > 0 && item.tasks.length <= 10 &&
+      item.tasks.every((task) => typeof task === "object" && task !== null && Object.keys(task).every((key) => key === "id" || key === "title") &&
+        Number.isSafeInteger(task.id) && task.id > 0 && typeof task.title === "string" && task.title.length <= 255))) &&
     (!Object.hasOwn(item, "suggestions") || (item.role === "assistant" && Array.isArray(item.suggestions) &&
-      item.suggestions.length <= 12 && item.suggestions.every(validSuggestion))),
+      item.suggestions.every(validSuggestion))),
   );
 }
 
@@ -85,8 +88,8 @@ export async function readChat(response) {
   return data.chat;
 }
 
-export async function createChat(projectId, signal) {
-  const response = await fetch("/api/chats", {
+export async function createChat(projectId, signal, transport = fetch) {
+  const response = await transport("/api/chats", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ projectId }),

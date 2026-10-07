@@ -5,15 +5,21 @@ const fs = require("node:fs");
 const { DatabaseSync } = require("node:sqlite");
 const { getDatabase, getDefaultDbPath } = require("./db.cjs");
 const { hashPin, isValidPinFormat, verifyPin } = require("./pin.cjs");
+const { hashPassword, verifyPassword } = require("../password.cjs");
 
 const UNLOCK_COOKIE = "modus-unlock";
+const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,32}$/;
 const MAX_PIN_LENGTH = 12;
 const FREE_ATTEMPTS = 5;
 const BASE_LOCKOUT_MS = 30_000;
 const MAX_LOCKOUT_MS = 15 * 60_000;
 
-// Las sesiones viven en memoria: al reiniciar la app se vuelve a pedir el PIN.
-const state = (globalThis.__modusPinLock ??= { sessions: new Set(), failures: 0, lockedUntil: 0 });
+const state = (globalThis.__modusPinLock ??= {
+  sessions: new Set(),
+  users: new Map(),
+  failures: 0,
+  lockedUntil: 0,
+});
 
 function readPinHash() {
   const dbPath = process.env.MODUS_SQLITE_PATH || getDefaultDbPath();
@@ -61,22 +67,76 @@ function checkPin(pin, hash) {
   return { ok: true };
 }
 
-/** @returns {{ ok: true, token: string } | { ok: false, retryAfter: number }} */
-function unlock(pin) {
+function createSession(userId) {
+  const token = crypto.randomBytes(32).toString("hex");
+  state.sessions.add(token);
+  if (userId != null) {
+    state.users.set(token, userId);
+    state.lastUserId = userId;
+  }
+  return token;
+}
+
+function getSessionUserId(token) {
+  return typeof token === "string" ? state.users.get(token) ?? null : null;
+}
+
+function getCloudUserId() {
+  return state.lastUserId ?? null;
+}
+
+function endSession(token) {
+  if (typeof token === "string") {
+    const userId = state.users.get(token);
+    state.sessions.delete(token);
+    state.users.delete(token);
+    if (userId != null && state.lastUserId === userId && ![...state.users.values()].includes(userId)) state.lastUserId = null;
+  }
+}
+
+function lockKind() {
+  const { getStorageMode } = require("./storage.cjs");
+  if (getStorageMode() === "turso") {
+    return "password";
+  }
+  return hasPin() ? "pin" : null;
+}
+
+function unlock(payload) {
+  const { pin, username, password } = payload || {};
+  const { getStorageMode } = require("./storage.cjs");
+  if (getStorageMode() === "turso") {
+    const wait = lockoutSeconds();
+    if (wait > 0) return { ok: false, retryAfter: wait };
+    if (!username || !password) {
+      registerFailure();
+      return { ok: false, retryAfter: lockoutSeconds() };
+    }
+    const db = getDatabase();
+    try {
+      const user = db.prepare("SELECT id, contrasena FROM usuarios WHERE usuario = ? COLLATE NOCASE").get(username.trim());
+      if (!user || !verifyPassword(password, user.contrasena)) {
+        registerFailure();
+        return { ok: false, retryAfter: lockoutSeconds() };
+      }
+      state.failures = 0;
+      const token = createSession(user.id);
+      return { ok: true, token };
+    } finally {
+      db.close();
+    }
+  }
+
   const hash = readPinHash();
   if (hash) {
     const result = checkPin(pin, hash);
     if (!result.ok) return result;
   }
-  const token = crypto.randomBytes(32).toString("hex");
-  state.sessions.add(token);
+  state.failures = 0;
+  const token = createSession();
   return { ok: true, token };
 }
 
-/**
- * Configura, cambia o quita el PIN del perfil local. Si ya hay uno, exige el actual.
- * @returns {{ ok: true } | { ok: false, status: number, error: string, retryAfter?: number }}
- */
 function changePin({ currentPin, newPin }) {
   if (newPin !== null && (!isValidPinFormat(newPin) || newPin.length < 4 || newPin.length > MAX_PIN_LENGTH)) {
     return { ok: false, status: 400, error: `El PIN debe tener entre 4 y ${MAX_PIN_LENGTH} dígitos.` };
@@ -102,4 +162,59 @@ function changePin({ currentPin, newPin }) {
   }
 }
 
-module.exports = { UNLOCK_COOKIE, hasPin, isUnlocked, unlock, changePin };
+function getCloudProfile(userId) {
+  const db = getDatabase();
+  try {
+    const user = userId
+      ? db.prepare("SELECT id, usuario FROM usuarios WHERE id = ?").get(userId)
+      : db.prepare("SELECT id, usuario FROM usuarios ORDER BY id LIMIT 1").get();
+    if (!user) return null;
+    return { id: user.id, username: user.usuario };
+  } finally {
+    db.close();
+  }
+}
+
+function updateCloudProfile({ userId, username, newPassword }) {
+  if (typeof username !== "string" || !USERNAME_REGEX.test(username.trim())) {
+    return { ok: false, status: 400, error: "El usuario debe tener entre 3 y 32 caracteres: letras, números, punto, guion o guion bajo." };
+  }
+  const cleanUsername = username.trim();
+  const db = getDatabase();
+  try {
+    const user = userId
+      ? db.prepare("SELECT id, usuario, contrasena FROM usuarios WHERE id = ?").get(userId)
+      : db.prepare("SELECT id, usuario, contrasena FROM usuarios ORDER BY id LIMIT 1").get();
+    if (!user) {
+      return { ok: false, status: 404, error: "No se encontró el usuario en Turso." };
+    }
+    if (newPassword) {
+      if (typeof newPassword !== "string" || newPassword.length < 8 || newPassword.length > 200) {
+        return { ok: false, status: 400, error: "La nueva contraseña debe tener entre 8 y 200 caracteres." };
+      }
+      const newHash = hashPassword(newPassword);
+      db.prepare("UPDATE usuarios SET usuario = ?, contrasena = ? WHERE id = ?").run(cleanUsername, newHash, user.id);
+    } else {
+      db.prepare("UPDATE usuarios SET usuario = ? WHERE id = ?").run(cleanUsername, user.id);
+    }
+    return { ok: true };
+  } finally {
+    db.close();
+  }
+}
+
+module.exports = {
+  UNLOCK_COOKIE,
+  USERNAME_REGEX,
+  hasPin,
+  isUnlocked,
+  lockKind,
+  createSession,
+  endSession,
+  unlock,
+  changePin,
+  getCloudProfile,
+  updateCloudProfile,
+  getSessionUserId,
+  getCloudUserId,
+};

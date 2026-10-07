@@ -6,15 +6,21 @@ import type { Project } from "../projects-data";
 import styles from "../workspace.module.css";
 import chatStyles from "./chat.module.css";
 import { Board } from "./board";
+import type { TaskChange } from "./optimistic-suggestion";
 import { WorkspaceChat } from "./chat";
 import { WorkspaceContext } from "./context";
 import { ProjectSelector } from "./project-selector";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceRequest } from "./workspace-query-provider";
+import { invalidateWorkspaceQueries } from "./workspace-query.mjs";
 
 export function Workspace({
   initialProject,
 }: {
   initialProject?: string;
 }) {
+  const request = useWorkspaceRequest();
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [projects, setProjects] = useState<readonly Project[]>([]);
   const [project, setProject] = useState("");
@@ -22,6 +28,8 @@ export function Workspace({
   const [projectsError, setProjectsError] = useState("");
   const [projectsReload, setProjectsReload] = useState(0);
   const [tasksVersion, setTasksVersion] = useState(0);
+  const [appliedTask, setAppliedTask] = useState<{ projectId: number; key: number; changes: Omit<TaskChange, "refresh">[] } | null>(null);
+  const appliedBuffer = useRef<Omit<TaskChange, "refresh">[]>([]);
   const [chatOpen, setChatOpen] = useState(true);
   const [contextOpen, setContextOpen] = useState(true);
   const [contextPendingChanges, setContextPendingChanges] = useState(false);
@@ -41,7 +49,7 @@ export function Workspace({
       setProjectsLoading(true);
       setProjectsError("");
       try {
-        const response = await fetch("/api/projects", { signal: controller.signal });
+        const response = await request("/api/projects", { signal: controller.signal });
         const result = (await response.json().catch(() => ({}))) as {
           projects?: Project[];
           error?: string;
@@ -70,7 +78,7 @@ export function Workspace({
     }
     void loadProjects();
     return () => controller.abort();
-  }, [initialProject, projectsReload]);
+  }, [initialProject, projectsReload, request]);
 
   useEffect(() => {
     if (chatOpen && focusChatPanel.current) {
@@ -155,8 +163,18 @@ export function Workspace({
                 project={selectedProject}
                 onClose={closeChat}
                 closeButtonRef={chatCloseButton}
-                onTaskCreated={(projectId) => {
-                  if (selectedProject?.id === projectId) setTasksVersion((value) => value + 1);
+                onTaskCreated={(projectId, change) => {
+                  if (selectedProject?.id !== projectId) return;
+                  const { refresh = true, ...applied } = change ?? {};
+                  if (applied.task || applied.patch || applied.replaceId !== undefined) {
+                    appliedBuffer.current.push(applied);
+                    if (appliedBuffer.current.length === 1) queueMicrotask(() => {
+                      const changes = appliedBuffer.current;
+                      appliedBuffer.current = [];
+                      setAppliedTask((current) => ({ projectId, key: (current?.key ?? 0) + 1, changes }));
+                    });
+                  }
+                  if (refresh) setTasksVersion((value) => value + 1);
                 }}
               />
             </div>
@@ -165,10 +183,11 @@ export function Workspace({
         <Board
           projectId={selectedProject?.id}
           tasksVersion={tasksVersion}
+          appliedTask={appliedTask}
           projectName={project}
           projectsLoading={projectsLoading}
           projectsError={projectsError}
-          onRetryProjects={() => setProjectsReload((value) => value + 1)}
+           onRetryProjects={() => { void invalidateWorkspaceQueries(queryClient, "/api/projects"); setProjectsReload((value) => value + 1); }}
           chatOpen={chatOpen}
           onShowChat={showChat}
           contextOpen={contextOpen}
@@ -188,7 +207,7 @@ export function Workspace({
               projectId={selectedProject?.id}
               projectsLoading={projectsLoading}
               projectsError={projectsError}
-              onRetryProjects={() => setProjectsReload((value) => value + 1)}
+              onRetryProjects={() => { void invalidateWorkspaceQueries(queryClient, "/api/projects"); setProjectsReload((value) => value + 1); }}
               hidden={!contextOpen}
               onClose={closeContext}
               closeButtonRef={contextCloseButton}

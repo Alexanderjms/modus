@@ -3,6 +3,8 @@ export const maxAttachments = 5;
 export const attachmentTypes = {
   png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
   pdf: "application/pdf", txt: "text/plain", md: "text/markdown", csv: "text/csv", json: "application/json",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 };
 export const attachmentAccept = Object.keys(attachmentTypes).map((extension) => `.${extension}`).join(",");
 
@@ -11,7 +13,7 @@ export function attachmentError(file) {
   const extension = file.name.split(".").pop().toLowerCase();
   const type = Object.hasOwn(attachmentTypes, extension) ? attachmentTypes[extension] : null;
   const alternateType = (extension === "md" && file.type === "text/plain") || (extension === "csv" && file.type === "application/vnd.ms-excel");
-  if (!type || (file.type && file.type !== "application/octet-stream" && file.type !== type && !alternateType)) return "Tipo no permitido. Usa PNG, JPG, WebP, PDF, TXT, MD, CSV o JSON.";
+  if (!type || (file.type && file.type !== "application/octet-stream" && file.type !== type && !alternateType)) return "Tipo no permitido. Usa PNG, JPG, WebP, PDF, TXT, MD, CSV, JSON, XLSX o DOCX.";
   if (!Number.isSafeInteger(file.size) || file.size < 1) return "El archivo está vacío.";
   if (file.size > maxAttachmentBytes) return "El archivo supera el límite de 10 MiB.";
   return "";

@@ -5,7 +5,7 @@ import {
   validateLoopbackSecurity,
   resolveUser,
   openProjectDatabase,
-  getWeeklyActivity,
+  getActivity,
 } from "../../../../db/local/tasks.cjs";
 
 export const runtime = "nodejs";
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
       return withNoStore(user);
     }
 
-    const activity = getWeeklyActivity(db, user.id);
+    const activity = getActivity(db, user.id);
     return jsonResponse(activity, 200);
   } catch {
     return jsonResponse({ error: "Error interno del servidor" }, 500);

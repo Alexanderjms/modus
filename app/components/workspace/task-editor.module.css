@@ -1,5 +1,5 @@
-.taskEditorDialog {
-  width: min(960px, calc(100vw - 24px));
+.taskEditorDialog.taskEditorDialog {
+  width: min(1200px, calc(100vw - 24px));
 }
 .taskEditor {
   display: flex;
@@ -428,6 +428,39 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+.subtaskHeader {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.subtaskHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-left: auto;
+}
+.editorSubtasks .subtaskToggleAll {
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #007aff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 140ms var(--ease-drawer);
+}
+.editorSubtasks .subtaskToggleAll:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.editorSubtasks .subtaskToggleAll:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
 .subtaskAddRow {
   display: flex;
   min-width: 0;
@@ -475,6 +508,8 @@
 .subtaskRows {
   margin: 0;
   padding: 0;
+  max-height: min(340px, 45dvh);
+  overflow-y: auto;
   border-top: 1px solid var(--divider-soft);
   list-style: none;
 }
@@ -621,6 +656,9 @@
   }
   .editorSubtasks .subtaskAddButton:hover:not(:disabled) {
     background: #006ee6;
+  }
+  .editorSubtasks .subtaskToggleAll:hover:not(:disabled) {
+    background: color-mix(in srgb, #007aff 10%, transparent);
   }
   .selectedTags button:hover {
     background: color-mix(in srgb, currentColor 12%, transparent);

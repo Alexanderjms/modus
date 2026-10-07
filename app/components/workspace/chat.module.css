@@ -247,6 +247,40 @@
 .userMessage > p {
   white-space: pre-wrap;
 }
+.messageTasks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.messageTasks li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid var(--divider);
+  border-radius: 999px;
+  background: var(--page);
+  font-size: 11px;
+}
+.messageTasks i {
+  flex: none;
+  color: #007aff;
+}
+.messageTasks span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.taskDropActive {
+  outline: 2px dashed #007aff;
+  outline-offset: -4px;
+  border-radius: 12px;
+  background: color-mix(in srgb, #007aff 6%, transparent);
+}
 .messageAttachments {
   display: grid;
   gap: 8px;
@@ -264,6 +298,11 @@
   overflow-wrap: anywhere;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+.messageAttachments a > i {
+  display: inline-block;
+  flex: none;
+  text-decoration: none;
 }
 .messageAttachments a:focus-visible {
   outline: 2px solid #007aff;
@@ -695,5 +734,42 @@
 @media (max-width: 390px) {
   .settingsTop {
     gap: 6px;
+  }
+}
+
+.autoApply {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 14px 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+.autoNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 12px 0;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid color-mix(in srgb, #007aff 30%, var(--divider));
+  border-radius: 8px;
+  background: color-mix(in srgb, #007aff 8%, var(--surface));
+  font-size: 11.5px;
+}
+.autoNotice button {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 6px;
+  color: #007aff;
+  font-weight: 600;
+}
+.autoNotice button:disabled {
+  opacity: 0.6;
+}
+@media (hover: hover) and (pointer: fine) {
+  .autoNotice button:hover:not(:disabled) {
+    background: color-mix(in srgb, #007aff 12%, transparent);
   }
 }

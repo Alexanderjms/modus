@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { Geist } from "next/font/google";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./globals.css";
 import "./theme.css";
 import "./panels.css";
 import { PinLockScreen } from "./components/pin-lock-screen";
-import { UNLOCK_COOKIE, hasPin, isUnlocked } from "../db/local/pin-lock.cjs";
+import { isSignedOut } from "../db/local/storage.cjs";
+import { UNLOCK_COOKIE, lockKind, isUnlocked } from "../db/local/pin-lock.cjs";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -27,7 +29,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const locked = hasPin() && !isUnlocked((await cookies()).get(UNLOCK_COOKIE)?.value);
+  if (isSignedOut()) {
+    const pathname = (await headers()).get("x-pathname") ?? "/";
+    if (pathname !== "/" && !pathname.startsWith("/onboarding")) redirect("/");
+  }
+  const unlocked = isUnlocked((await cookies()).get(UNLOCK_COOKIE)?.value);
+  const kind = unlocked ? null : lockKind();
 
   return (
     <html lang="es" className={geist.variable} suppressHydrationWarning>
@@ -38,7 +45,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className="font-sans">{locked ? <PinLockScreen /> : children}</body>
+      <body className="font-sans">{kind ? <PinLockScreen kind={kind} /> : children}</body>
     </html>
   );
 }

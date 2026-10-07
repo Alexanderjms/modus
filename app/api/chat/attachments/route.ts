@@ -35,7 +35,6 @@ export async function POST(request: Request) {
 
   const name = url.searchParams.get("name");
   const rawHeaderType = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-  // El cliente puede enviar application/octet-stream cuando File.type viene vacío: se trata como desconocido.
   const headerType = rawHeaderType === "application/octet-stream" ? "" : rawHeaderType;
 
   const nameError = attachmentError({ name, type: headerType, size: 1 });

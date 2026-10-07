@@ -1,6 +1,5 @@
 export type ProviderId =
   | "bedrock"
-  | "cerebras"
   | "deepinfra"
   | "google"
   | "groq"

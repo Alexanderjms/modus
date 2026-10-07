@@ -5,6 +5,7 @@ import styles from "./chat.module.css";
 import shared from "../workspace.module.css";
 import { ChatDropzone } from "./chat-dropzone";
 import { ChatAttachments } from "./chat-attachments";
+import { ChatTaskRefs } from "./chat-task-refs";
 import type { PendingAttachment } from "./use-chat-attachments";
 import attachmentStyles from "./chat-attachments.module.css";
 
@@ -22,6 +23,8 @@ export function ChatComposer({
   onRetryAttachment,
   onCancelAttachment,
   onRemoveAttachment,
+  taskRefs,
+  onRemoveTask,
 }: {
   draft: string;
   onDraftChange: (value: string) => void;
@@ -36,6 +39,8 @@ export function ChatComposer({
   onRetryAttachment: (key: string) => void;
   onCancelAttachment: (key: string) => void;
   onRemoveAttachment: (key: string) => void;
+  taskRefs: { id: number; title: string }[];
+  onRemoveTask: (id: number) => void;
 }) {
   const id = useId();
 
@@ -50,6 +55,7 @@ export function ChatComposer({
     >
       <label className={styles.composerLabel} htmlFor={id}>Mensaje al chat</label>
       <ChatAttachments items={attachments} projectId={projectId} disabled={attachmentsDisabled} onRetry={onRetryAttachment} onCancel={onCancelAttachment} onRemove={onRemoveAttachment} />
+      <ChatTaskRefs items={taskRefs} disabled={sending} onRemove={onRemoveTask} />
       {attachmentError && <p className={attachmentStyles.error} role="alert">{attachmentError}</p>}
       <div>
         <button
@@ -86,12 +92,12 @@ export function ChatComposer({
           className={styles.send}
           aria-label={sending ? "Esperando respuesta" : "Enviar mensaje"}
           title={!canSend ? "Elige un proyecto, proveedor y modelo disponible." : undefined}
-          disabled={(!draft.trim() && !readyAttachments) || !canSend || sending || attachments.some((item) => item.status !== "ready")}
+          disabled={(!draft.trim() && !readyAttachments && !taskRefs.length) || !canSend || sending || attachments.some((item) => item.status !== "ready")}
         >
           <i aria-hidden="true" className={sending ? "bi bi-hourglass-split" : "bi bi-send"} />
         </button>
       </div>
-      <p id={`${id}-hint`}>Enter envía · Shift+Enter añade una línea. Los archivos se guardan con el mensaje y se envían al modelo.</p>
+      <p id={`${id}-hint`}>Enter envía · Shift+Enter añade una línea. Los archivos se guardan con el mensaje y se envían al modelo. Arrastra tareas del tablero para dárselas al chat.</p>
       {!!attachments.length && <p>Quita los adjuntos del borrador para cambiar de chat.</p>}
     </form>
   )}</ChatDropzone>;

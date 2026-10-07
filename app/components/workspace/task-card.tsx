@@ -96,8 +96,8 @@ export function TaskCard({
     event.currentTarget.blur();
     suppressClick.current = true;
     setIsDragging(true);
-    event.dataTransfer.setData("application/x-modus-task", JSON.stringify({ taskId: task.id, projectId }));
-    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-modus-task", JSON.stringify({ taskId: task.id, projectId, title: task.title }));
+    event.dataTransfer.effectAllowed = "copyMove";
   };
 
   const isInternalDrag = (event: DragEvent<HTMLElement>) =>

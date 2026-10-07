@@ -1,4 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
+import { cookies } from "next/headers";
+import { UNLOCK_COOKIE, isUnlocked, lockKind, getSessionUserId } from "../../../db/local/pin-lock.cjs";
+import { readTavilyRecord } from "../../../db/local/tavily.cjs";
+import { decryptWithDpapi } from "../../../db/local/credentials.cjs";
 import {
   jsonResponse,
   withNoStore,
@@ -6,7 +10,9 @@ import {
   resolveUser,
   openProjectDatabase,
   getDecryptedProviderKey,
-  discoverProviderModels,
+  discoverProviderModelsCached,
+  extractStreamingAnswer,
+  extractStreamingSuggestions,
   searchTavily,
   formatWebSearchContext,
   validateChatRequest,
@@ -18,6 +24,7 @@ import {
   getOpenCodeProtocolForModel,
   MAX_CHAT_BODY_BYTES,
 } from "../../../db/local/chat.cjs";
+import { injectTaskContext } from "../../../db/local/chat-tasks.cjs";
 import { attachFilesToMessages } from "../../../db/local/chat-attachments.cjs";
 import { getProjectContext } from "../../../db/local/project-context.cjs";
 import { compileProjectContext, withSnapshot } from "../../../db/local/project-graph.cjs";
@@ -61,6 +68,9 @@ export async function POST(request: Request) {
   let db: DatabaseSync | null = null;
   let projectRow: { id: number; nombre: string } | undefined;
   let apiKey: string | null = null;
+  let tavilyEncryptedKey: string | null = null;
+  const sessionToken = (await cookies()).get(UNLOCK_COOKIE)?.value;
+  let tavilyAuthorized = false;
 
   let projectContext: ProjectContextCompiled | null = null;
   let capturedResources: any = null;
@@ -88,9 +98,12 @@ export async function POST(request: Request) {
     if (!projectRow) {
       return jsonResponse({ error: "Proyecto no encontrado o no pertenece a tu perfil" }, 404);
     }
+    tavilyAuthorized = (!lockKind() || isUnlocked(sessionToken)) &&
+      ((db as { kind?: string }).kind !== "turso" || getSessionUserId(sessionToken) === user.id);
+    if (tavilyAuthorized) tavilyEncryptedKey = readTavilyRecord(db, user.id)?.clave_cifrada ?? null;
 
     try {
-      messages = attachFilesToMessages(db, projectId, messages);
+      messages = attachFilesToMessages(db, projectId, injectTaskContext(db, projectId, messages.slice(-15)));
     } catch {
       return jsonResponse({ error: "No se pudieron leer los adjuntos del mensaje" }, 500);
     }
@@ -107,7 +120,6 @@ export async function POST(request: Request) {
           coverage: compiled.coverage,
           version: compiled.version,
         };
-        // Catálogo de etiquetas del proyecto, acotado, para que el modelo reutilice nombres existentes.
         try {
           const tagCatalog = getProjectCatalogs(db, projectId).tags || [];
           const boundedTags = tagCatalog
@@ -132,8 +144,15 @@ export async function POST(request: Request) {
     }
 
     try {
-      apiKey = await getDecryptedProviderKey(db, user.id, provider);
-    } catch {
+      if (provider === "chatgpt" && lockKind() && !isUnlocked((await cookies()).get(UNLOCK_COOKIE)?.value)) {
+        return jsonResponse({ error: "Desbloquea tu perfil antes de usar ChatGPT." }, 401);
+      }
+      apiKey = await getDecryptedProviderKey(db, user.id, provider, provider === "chatgpt" ? (await cookies()).get(UNLOCK_COOKIE)?.value ?? null : undefined);
+    } catch (reason) {
+      if (reason && typeof reason === "object" && (reason as { name?: string }).name === "OAuthError") {
+        const err = reason as { message: string; status: number; code: string };
+        return jsonResponse({ error: err.message, code: err.code }, err.status);
+      }
       return jsonResponse({ error: "Error al recuperar la clave del proveedor" }, 500);
     }
   } catch {
@@ -153,7 +172,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const discovery = await discoverProviderModels(provider, apiKey, region, request.signal);
+  const discovery = await discoverProviderModelsCached(provider, apiKey, region, request.signal);
   if ("error" in discovery && discovery.error) {
     return discovery.error;
   }
@@ -190,7 +209,7 @@ export async function POST(request: Request) {
       }
       effectiveProtocol = requestedProtocol;
     }
-  } else if (provider === "bedrock") {
+  } else if (provider === "bedrock" || provider === "chatgpt") {
     effectiveProtocol = "responses";
   }
 
@@ -211,6 +230,36 @@ export async function POST(request: Request) {
         } catch {}
         send({ type: "error", error, status: response.status });
         try { controller.close(); } catch {}
+      };
+
+      let streamed: any[] = [];
+      const streamAnswer = () => {
+        let sent = 0;
+        let sentObjects = 0;
+        streamed = [];
+        return (raw: string) => {
+          const answer = extractStreamingAnswer(raw);
+          if (answer.length > sent) {
+            sent = answer.length;
+            send({ type: "delta", text: answer });
+          }
+          const objects = extractStreamingSuggestions(raw);
+          for (; sentObjects < objects.length; sentObjects++) {
+            const proposal = objects[sentObjects];
+            if (!proposal) continue;
+            streamed.push(proposal);
+            send({ type: "suggestion", suggestion: proposal });
+          }
+        };
+      };
+      const keepStreamedIds = (suggestions?: any[]) => {
+        const used = new Set<string>();
+        return suggestions?.map((item) => {
+          const match = streamed.find((s) => !used.has(s.id) && s.title === item.title && s.kind === item.kind);
+          if (!match) return item;
+          used.add(match.id);
+          return { ...item, id: match.id };
+        });
       };
 
       try {
@@ -238,8 +287,6 @@ export async function POST(request: Request) {
 
         send({ type: "thinking" });
 
-        // Paso 1: Decisión del modelo sobre responder directo o buscar en la web
-        // Se preserva el contexto completo del proyecto (grafo/kanban/reglas/citas/recursos) en esta llamada
         const decisionPrompt = buildDecisionSystemPrompt(projectRow!.nombre, projectContext);
         const decisionInference = await executeInference(
           provider,
@@ -253,7 +300,8 @@ export async function POST(request: Request) {
           request.signal,
           undefined,
           projectContext,
-          decisionPrompt
+          decisionPrompt,
+          streamAnswer()
         );
 
         if (request.signal.aborted) {
@@ -261,15 +309,34 @@ export async function POST(request: Request) {
           return;
         }
 
-        if (decisionInference.error) {
+        if ("error" in decisionInference) {
           await sendError(decisionInference.error);
           return;
         }
 
-        const decision = parseModelDecision(decisionInference.text);
+        let decision = parseModelDecision(decisionInference.text);
+        if (!decision && !request.signal.aborted) {
+          const retry = await executeInference(
+            provider,
+            apiKey,
+            model,
+            effectiveProtocol,
+            region,
+            [
+              ...messages,
+              { role: "assistant", content: String(decisionInference.text ?? "").slice(0, 6000) },
+              { role: "user", content: "Tu respuesta no tenía el formato JSON pedido. Responde de nuevo SOLO con el objeto JSON válido, sin texto antes ni después ni bloques de código." },
+            ],
+            projectRow!.nombre,
+            projectRow!.id,
+            request.signal,
+            undefined,
+            projectContext,
+            decisionPrompt
+          );
+          if (!("error" in retry)) decision = parseModelDecision(retry.text);
+        }
 
-        // Fallo controlado si el modelo no emitió una decisión estructurada válida:
-        // no exponer envelopes crudos ni texto no validado al cliente
         if (!decision) {
           send({
             type: "error",
@@ -280,7 +347,6 @@ export async function POST(request: Request) {
           return;
         }
 
-        // Si la decisión es "answer", entregamos la respuesta ya generada
         if (decision.action === "answer") {
           const answerDecision = decision as { action: "answer"; answer: string; suggestions?: any[] };
           send({
@@ -288,26 +354,42 @@ export async function POST(request: Request) {
             message: {
               role: "assistant",
               content: answerDecision.answer,
-              ...(answerDecision.suggestions ? { suggestions: answerDecision.suggestions } : {}),
+              ...(answerDecision.suggestions ? { suggestions: keepStreamedIds(answerDecision.suggestions) } : {}),
             },
           });
           try { controller.close(); } catch {}
           return;
         }
 
-        // Acción es "search": verificar si tenemos clave de Tavily sin simular searching
-        const tavilyKey = process.env.TAVILY_API_KEY?.trim();
+        if (!tavilyAuthorized || (lockKind() && !isUnlocked(sessionToken))) {
+          send({ type: "error", error: "Desbloquea tu perfil para utilizar la búsqueda web de Tavily.", status: 401 });
+          try { controller.close(); } catch {}
+          return;
+        }
+        let tavilyKey: string | null;
+        try {
+          tavilyKey = tavilyEncryptedKey ? await decryptWithDpapi(tavilyEncryptedKey) : process.env.TAVILY_API_KEY?.trim() || null;
+        } catch {
+          send({ type: "error", error: "No se pudo recuperar la clave segura de Tavily. Revisa su configuración en el menú de usuario.", status: 500 });
+          try { controller.close(); } catch {}
+          return;
+        }
         if (!tavilyKey) {
           send({
             type: "error",
-            error: "El modelo solicitó buscar información en la web, pero no está configurada la variable TAVILY_API_KEY en el servidor.",
+            error: "Configura la API key de Tavily desde el menú de usuario para utilizar la búsqueda web.",
             status: 503,
           });
           try { controller.close(); } catch {}
           return;
         }
 
-        // Emitir "searching" INMEDIATAMENTE antes de llamar a Tavily y tras validar la clave
+        if (lockKind() && !isUnlocked(sessionToken)) {
+          send({ type: "error", error: "La sesión se cerró antes de iniciar la búsqueda web.", status: 401 });
+          try { controller.close(); } catch {}
+          return;
+        }
+
         send({ type: "searching" });
 
         const search = await searchTavily(
@@ -326,7 +408,6 @@ export async function POST(request: Request) {
           return;
         }
 
-        // Tras la búsqueda, volvemos a thinking para la inferencia final
         send({ type: "thinking" });
 
         const contextWithSearch = {
@@ -348,7 +429,8 @@ export async function POST(request: Request) {
           request.signal,
           undefined,
           contextWithSearch,
-          finalPrompt
+          finalPrompt,
+          streamAnswer()
         );
 
         if (request.signal.aborted) {
@@ -356,7 +438,7 @@ export async function POST(request: Request) {
           return;
         }
 
-        if (finalInference.error) {
+        if ("error" in finalInference) {
           await sendError(finalInference.error);
           return;
         }
@@ -369,12 +451,10 @@ export async function POST(request: Request) {
             message: {
               role: "assistant",
               content: finalAnswerDecision.answer,
-              ...(finalAnswerDecision.suggestions ? { suggestions: finalAnswerDecision.suggestions } : {}),
+              ...(finalAnswerDecision.suggestions ? { suggestions: keepStreamedIds(finalAnswerDecision.suggestions) } : {}),
             },
           });
         } else {
-          // Si el modelo devolvió texto plano o no estructuró JSON en la respuesta final,
-          // enviar como texto plano limpio sin propuestas para compatibilidad
           send({ type: "complete", message: { role: "assistant", content: finalInference.text } });
         }
         try { controller.close(); } catch {}

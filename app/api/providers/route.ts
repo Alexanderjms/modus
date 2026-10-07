@@ -1,4 +1,5 @@
 import {
+  ALLOWED_PROVIDERS,
   ALLOWED_PROVIDERS_SET,
   MAX_KEY_LENGTH,
   ensureProvidersTable,
@@ -10,6 +11,10 @@ import {
   isDpapiAvailable,
   encryptWithDpapi,
 } from "../../../db/local/providers.cjs";
+import { profileFor, publicConnection } from "../../../db/local/chatgpt-oauth.cjs";
+import { cookies } from "next/headers";
+import { UNLOCK_COOKIE, isUnlocked, lockKind } from "../../../db/local/pin-lock.cjs";
+import { validateProviderKey } from "../../../db/local/provider-validation.cjs";
 
 export const runtime = "nodejs";
 
@@ -38,6 +43,17 @@ export async function GET(request: Request) {
 
     ensureProvidersTable(db);
     const data = getProviderStatusList(db, userId);
+    try {
+      const unlocked = !lockKind() || isUnlocked((await cookies()).get(UNLOCK_COOKIE)?.value);
+      if (unlocked) {
+        const connection = publicConnection(profileFor(db, userId, (await cookies()).get(UNLOCK_COOKIE)?.value ?? null));
+        (data.providers as Array<Record<string, unknown>>).push({ id: "chatgpt", configured: connection.configured, connection });
+      } else {
+        (data.providers as Array<Record<string, unknown>>).push({ id: "chatgpt", configured: false });
+      }
+    } catch {
+      (data.providers as Array<Record<string, unknown>>).push({ id: "chatgpt", configured: false });
+    }
     return Response.json(data, {
       status: 200,
       headers: NO_STORE_HEADERS,
@@ -96,6 +112,13 @@ export async function PUT(request: Request) {
   const validatedUpdates: Array<{ providerId: string; plainValue: string | null }> = [];
 
   for (const [providerId, rawValue] of keyEntries) {
+    if (providerId === "chatgpt") {
+      return Response.json(
+        { error: "ChatGPT se conecta con tu cuenta mediante OAuth; no admite API key." },
+        { status: 400, headers: NO_STORE_HEADERS }
+      );
+    }
+
     if (!ALLOWED_PROVIDERS_SET.has(providerId)) {
       return Response.json(
         { error: "Proveedor no permitido en la solicitud" },
@@ -131,6 +154,14 @@ export async function PUT(request: Request) {
     }
 
     validatedUpdates.push({ providerId, plainValue: trimmed });
+  }
+
+  for (const item of validatedUpdates) {
+    if (item.plainValue === null) continue;
+    const check = await validateProviderKey(item.providerId, item.plainValue, request.signal);
+    if (!check.ok) {
+      return Response.json({ error: check.error }, { status: check.status, headers: NO_STORE_HEADERS });
+    }
   }
 
   const preparedDbOperations: Array<{ providerId: string; encryptedValue: string | null }> = [];
@@ -171,6 +202,9 @@ export async function PUT(request: Request) {
           clave_cifrada = excluded.clave_cifrada,
           fecha_actualizacion = excluded.fecha_actualizacion
       `);
+      db.prepare(`
+        DELETE FROM proveedor_claves WHERE usuario_id = ? AND proveedor <> 'tavily' AND proveedor NOT IN (${ALLOWED_PROVIDERS.map(() => "?").join(", ")})
+      `).run(userId, ...ALLOWED_PROVIDERS);
       const deleteStmt = db.prepare(`
         DELETE FROM proveedor_claves WHERE usuario_id = ? AND proveedor = ?
       `);

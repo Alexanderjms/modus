@@ -4,11 +4,11 @@ const { applySchema } = require("./migrate.cjs");
 const { validatePersistedSuggestions, ensureSuggestionTasksTable } = require("./task-suggestions.cjs");
 const { validAttachment, MAX_ATTACHMENTS } = require("./chat-attachments.cjs");
 
-const MAX_CHAT_JSON_BODY_BYTES = 512 * 1024;
-const MAX_MESSAGES = 40;
+const MAX_CHAT_JSON_BODY_BYTES = 16 * 1024 * 1024;
+const MAX_MESSAGES = 5000;
 const MAX_USER_MESSAGE_CONTENT_LEN = 4000;
 const MAX_ASSISTANT_MESSAGE_CONTENT_LEN = 80000;
-const MAX_TOTAL_CONTENT_LEN = 200000;
+const MAX_TOTAL_CONTENT_LEN = 10_000_000;
 const MAX_MODEL_LENGTH = 1000;
 
 const { ALLOWED_PROVIDERS_SET } = require("./providers.cjs");
@@ -125,9 +125,11 @@ function validateMessages(messages) {
     const keys = Object.keys(msg);
     const hasSuggestions = Object.hasOwn(msg, "suggestions");
     const hasAttachments = Object.hasOwn(msg, "attachments");
+    const hasTasks = Object.hasOwn(msg, "tasks");
     const allowedKeys = new Set(["role", "content"]);
     if (hasSuggestions) allowedKeys.add("suggestions");
     if (hasAttachments) allowedKeys.add("attachments");
+    if (hasTasks) allowedKeys.add("tasks");
     if (keys.length < 2 || !("role" in msg) || !("content" in msg) || keys.some((key) => !allowedKeys.has(key))) {
       return { error: "Mensaje contiene campos no permitidos" };
     }
@@ -143,6 +145,22 @@ function validateMessages(messages) {
 
     if (hasAttachments && expectedRole !== "user") {
       return { error: "Solo los mensajes de usuario pueden incluir adjuntos" };
+    }
+
+    let sanitizedTasks = undefined;
+    if (hasTasks) {
+      const tasks = msg.tasks;
+      if (expectedRole !== "user") return { error: "Solo los mensajes de usuario pueden incluir tareas" };
+      if (!Array.isArray(tasks) || tasks.length < 1 || tasks.length > 10) return { error: "Máximo 10 tareas por mensaje" };
+      const seenTaskIds = new Set();
+      for (const task of tasks) {
+        if (!task || typeof task !== "object" || Array.isArray(task) || Object.keys(task).some((key) => key !== "id" && key !== "title") ||
+          !Number.isSafeInteger(task.id) || task.id <= 0 || typeof task.title !== "string" || task.title.length > 255 || seenTaskIds.has(task.id)) {
+          return { error: "Las tareas del mensaje no son válidas" };
+        }
+        seenTaskIds.add(task.id);
+      }
+      sanitizedTasks = tasks.map((task) => ({ id: task.id, title: task.title }));
     }
 
     let sanitizedSuggestions = undefined;
@@ -204,6 +222,7 @@ function validateMessages(messages) {
       role: expectedRole,
       content: msg.content,
       ...(sanitizedAttachments !== undefined ? { attachments: sanitizedAttachments } : {}),
+      ...(sanitizedTasks !== undefined ? { tasks: sanitizedTasks } : {}),
       ...(sanitizedSuggestions !== undefined ? { suggestions: sanitizedSuggestions } : {}),
     });
   }

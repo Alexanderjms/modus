@@ -8,6 +8,9 @@ import { ContextPlan } from "./context-plan";
 import { mergeContextSave } from "./context-autosave.mjs";
 import { getContextPanelLoadState } from "./context-load-state.mjs";
 import { ContextSections } from "./context-sections";
+import { useWorkspaceRequest } from "./workspace-query-provider";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateWorkspaceQueries } from "./workspace-query.mjs";
 import {
   isContextDocument,
   isValidContextDocument,
@@ -40,6 +43,8 @@ export function WorkspaceContext({
   onPendingChangesChange: (pending: boolean) => void;
 }) {
   const id = useId();
+  const request = useWorkspaceRequest();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<(typeof planTabs)[number]>("Resumen");
   const [notes, setNotes] = useState("");
   const [document, setDocument] = useState<ContextDocument>({ context: "", rules: [], resources: [] });
@@ -109,7 +114,7 @@ export function WorkspaceContext({
 
     async function loadDocument() {
       try {
-        const response = await fetch(`/api/projects/${projectId}/context`, {
+        const response = await request(`/api/projects/${projectId}/context`, {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -141,7 +146,7 @@ export function WorkspaceContext({
       saveController.current?.abort();
       if (generationRef.current === generation) generationRef.current++;
     };
-  }, [projectId, projectsLoading, projectsError, loadAttempt, onPendingChangesChange]);
+  }, [projectId, projectsLoading, projectsError, loadAttempt, onPendingChangesChange, request]);
 
   useEffect(() => {
     if (!hasPendingChanges) return;
@@ -171,7 +176,7 @@ export function WorkspaceContext({
     setSaveError("");
     setSaved(false);
     try {
-      const response = await fetch(`/api/projects/${requestProjectId}/context`, {
+      const response = await request(`/api/projects/${requestProjectId}/context`, {
         method: "PUT",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
@@ -212,7 +217,7 @@ export function WorkspaceContext({
         if (generationRef.current === generation && !controller.signal.aborted) setSaving(false);
       }
     }
-  }, [loadState]);
+  }, [loadState, request]);
 
   useEffect(() => {
     if (
@@ -337,7 +342,10 @@ export function WorkspaceContext({
               return true;
             }}
             onRetrySave={() => void saveDocument()}
-            onRetry={projectsError ? onRetryProjects : () => setLoadAttempt((attempt) => attempt + 1)}
+            onRetry={projectsError ? onRetryProjects : () => {
+              if (projectId) void invalidateWorkspaceQueries(queryClient, `/api/projects/${projectId}/context`);
+              setLoadAttempt((attempt) => attempt + 1);
+            }}
             loadState={panelLoadState}
             loadError={projectsError || loadError}
             saving={saving}

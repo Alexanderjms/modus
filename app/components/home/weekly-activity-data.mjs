@@ -27,8 +27,8 @@ export function parseWeeklyActivity(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("La respuesta de actividad no es válida.");
   }
-  if (!Array.isArray(value.days) || value.days.length !== 7) {
-    throw new Error("La respuesta de actividad debe incluir siete días.");
+  if (!Array.isArray(value.days) || value.days.length < 1 || value.days.length > 400) {
+    throw new Error("La respuesta de actividad debe incluir entre 1 y 400 días.");
   }
   if (typeof value.historyNotice !== "string" || !value.historyNotice.trim()) {
     throw new Error("La respuesta no incluye el aviso del historial.");
@@ -46,7 +46,7 @@ export function parseWeeklyActivity(value) {
 
     const { localDate, dayNumber } = parseDate(day.date);
     if (previousDay !== null && dayNumber !== previousDay + 1) {
-      throw new Error("Los siete días de actividad deben estar en orden consecutivo.");
+      throw new Error("Los días de actividad deben estar en orden consecutivo.");
     }
     previousDay = dayNumber;
     total += day.completed;

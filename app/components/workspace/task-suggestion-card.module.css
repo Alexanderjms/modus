@@ -411,3 +411,41 @@
   color: var(--muted);
   text-decoration: line-through;
 }
+
+.previewList {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.previewList li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  color: var(--foreground);
+  font-size: 11.5px;
+  line-height: 16px;
+}
+
+.previewList i {
+  flex: none;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.previewList span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewList .previewMore {
+  color: var(--muted);
+  padding-left: 16px;
+}

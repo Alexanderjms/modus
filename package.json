@@ -4,12 +4,13 @@
   "private": true,
   "packageManager": "pnpm@12.4.2",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --hostname 127.0.0.1",
     "lint": "eslint app eslint.config.mjs tailwind.config.ts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.104.1",
     "bootstrap-icons": "^1.13.1",
     "next": "15.5.27",
     "react": "19.1.0",

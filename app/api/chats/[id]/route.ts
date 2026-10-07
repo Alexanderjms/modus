@@ -16,7 +16,11 @@ import {
   MAX_CHAT_JSON_BODY_BYTES,
 } from "../../../../db/local/conversations.cjs";
 import { readLimitedJsonBody } from "../../../../db/local/chat.cjs";
-import { resolveMessageAttachments } from "../../../../db/local/chat-attachments.cjs";
+import {
+  attachmentIdsOfMessages,
+  deleteUnreferencedAttachments,
+  resolveMessageAttachments,
+} from "../../../../db/local/chat-attachments.cjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -437,7 +441,7 @@ export async function DELETE(
     ensureChatsTable(db);
 
     const existingChat = db
-      .prepare("SELECT id, revision FROM chats WHERE id = ? AND proyecto_id = ?")
+      .prepare("SELECT id, revision, mensajes FROM chats WHERE id = ? AND proyecto_id = ?")
       .get(chatId, projectId) as Record<string, unknown> | undefined;
 
     if (!existingChat) {
@@ -461,6 +465,8 @@ export async function DELETE(
           409
         );
       }
+
+      deleteUnreferencedAttachments(db, projectId, attachmentIdsOfMessages(String(existingChat.mensajes ?? "[]")));
 
       db.exec("COMMIT;");
       committed = true;

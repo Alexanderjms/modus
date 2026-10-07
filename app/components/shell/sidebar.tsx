@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import styles from "./sidebar.module.css";
 import { ProfileMenu } from "./profile-menu";
 import { ProfileModal, ProvidersModal } from "./profile-modals";
+import { TavilyModal } from "./tavily-modal";
 
 export function Sidebar({
   active = "inicio",
@@ -14,6 +15,30 @@ export function Sidebar({
   const [profileOpen, setProfileOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProvidersModal, setShowProvidersModal] = useState(false);
+  const [showTavilyModal, setShowTavilyModal] = useState(false);
+  const [chatGPTCallbackError, setChatGPTCallbackError] = useState(false);
+  const [storageType, setStorageType] = useState<"local" | "cloud">("local");
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("chatgpt")) return;
+    setChatGPTCallbackError(url.searchParams.get("chatgpt") === "error");
+    setShowProvidersModal(true);
+    url.searchParams.delete("chatgpt");
+    window.history.replaceState(window.history.state, "", url.toString());
+    window.dispatchEvent(new Event("modus:providers-changed"));
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/storage", { cache: "no-store", signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result: { mode?: string } | null) => {
+        if (result?.mode === "turso") setStorageType("cloud");
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   const profileId = useId();
 
@@ -75,16 +100,24 @@ export function Sidebar({
         onToggle={(open) => setProfileOpen(open)}
         onOpenProfile={() => setShowProfileModal(true)}
         onOpenProviders={() => setShowProvidersModal(true)}
+        onOpenTavily={() => setShowTavilyModal(true)}
+        onLogout={() => {
+          void fetch("/api/auth/logout", { method: "POST" })
+            .catch(() => {})
+            .finally(() => window.location.assign("/"));
+        }}
       />
       <ProfileModal
         open={showProfileModal}
         onClose={() => setShowProfileModal(false)}
-        storageType="local"
+        storageType={storageType}
       />
       <ProvidersModal
         open={showProvidersModal}
-        onClose={() => setShowProvidersModal(false)}
+        onClose={() => { setShowProvidersModal(false); setChatGPTCallbackError(false); }}
+        callbackError={chatGPTCallbackError}
       />
+      <TavilyModal open={showTavilyModal} onClose={() => setShowTavilyModal(false)} />
     </>
   );
 }

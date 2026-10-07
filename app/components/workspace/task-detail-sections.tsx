@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, RefObject } from "react";
+import { useState, type CSSProperties, type RefObject } from "react";
 import type { TaskCatalogsDto } from "../../api/tasks/route";
 import { getTaskTagHue } from "./task-card";
 import { ChatPicker, type ChatPickerOption } from "./chat-picker";
@@ -50,8 +50,8 @@ export function TaskTagsSection({
   onNewTagColorChange: (value: string) => void;
   onAddTag: () => void;
   onAppendTagKey: (key: string) => void;
-  onTagAction: (option: ChatPickerOption, action: "rename" | "delete") => void;
-  tagActionPending: boolean;
+  onTagAction?: (option: ChatPickerOption, action: "rename" | "delete") => void;
+  tagActionPending?: boolean;
   onStartRemoval: (key: string) => void;
   onCancelRemoval: (key: string) => void;
   onFinishRemoval: (key: string) => void;
@@ -69,11 +69,11 @@ export function TaskTagsSection({
         ]}
         emptyLabel="Aún no hay etiquetas. Crea una abajo."
         onChange={() => {}}
-        optionActions={{
+        optionActions={onTagAction ? {
           disabled: tagActionPending,
           labels: { rename: "Editar" },
           onSelect: onTagAction,
-        }}
+        } : undefined}
         multipleValues={tagKeys.filter((key) => !exitingTagKeys.has(key))}
         onMultipleChange={(values) => {
           const selected = tagKeys.filter((key) => !exitingTagKeys.has(key));
@@ -189,6 +189,7 @@ export function TaskSubtasksSection({
   onAdd,
   onSetTitle,
   onSetCompleted,
+  onSetAllCompleted,
   onStartRemoval,
   onFinishRemoval,
 }: {
@@ -202,12 +203,53 @@ export function TaskSubtasksSection({
   onAdd: () => void;
   onSetTitle: (localKey: string, title: string) => void;
   onSetCompleted: (localKey: string, completed: boolean) => void;
+  onSetAllCompleted: (completed: boolean) => void;
   onStartRemoval: (localKey: string) => void;
   onFinishRemoval: (localKey: string) => void;
 }) {
+  const active = subtasks.filter((item) => !exitingKeys.has(item.localKey));
+  const allCompleted = active.length > 0 && active.every((item) => item.completed);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "copied" | "error">("idle");
+  const copyText = active.map((item) => item.title.trim()).filter(Boolean).join("\n");
+
+  const copyAll = async () => {
+    if (!copyText || copyStatus === "copying") return;
+    setCopyStatus("copying");
+    try {
+      await navigator.clipboard.writeText(copyText);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+  };
+
   return (
     <section className={`${styles.editorSection} ${styles.editorSubtasks}`} aria-labelledby="task-subtasks-title">
-      <h3 id="task-subtasks-title">Checklist</h3>
+      <div className={styles.subtaskHeader}>
+        <h3 id="task-subtasks-title">Checklist</h3>
+        <div className={styles.subtaskHeaderActions}>
+          {active.length > 1 && (
+            <button
+              className={styles.subtaskToggleAll}
+              type="button"
+              disabled={saving || savePending}
+              onClick={() => onSetAllCompleted(!allCompleted)}
+            >
+              {allCompleted ? "Desmarcar todos" : "Marcar todos"}
+            </button>
+          )}
+          <button
+            className={styles.subtaskToggleAll}
+            type="button"
+            disabled={saving || savePending || !copyText || copyStatus === "copying"}
+            onClick={() => void copyAll()}
+          >
+            {copyStatus === "copying" ? "Copiando…" : "Copiar todas"}
+          </button>
+        </div>
+      </div>
+      {copyStatus === "copied" && <p className={styles.editorHint} role="status">Checklist copiada.</p>}
+      {copyStatus === "error" && <p className={styles.editorError} role="alert">No se pudo copiar. Revisa los permisos del portapapeles e inténtalo de nuevo.</p>}
       <div className={styles.subtaskAddRow}>
         <label className={styles.visuallyHidden} htmlFor="task-new-subtask">Agregar item al checklist</label>
         <input

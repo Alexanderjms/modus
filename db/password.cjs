@@ -51,7 +51,12 @@ function verifyPassword(password, stored) {
   return crypto.timingSafeEqual(actual, expected);
 }
 
+const PENDING_PASSWORD = "scrypt$pending$0$0$0$0";
+const isPendingPassword = (stored) => stored === PENDING_PASSWORD;
+
 module.exports = {
+  PENDING_PASSWORD,
+  isPendingPassword,
   hashPassword,
   hashPasswordAsync,
   verifyPassword,

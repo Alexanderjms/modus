@@ -22,6 +22,22 @@
   border-radius: 999px;
 }
 
+textarea::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  border: 4px solid transparent;
+  background-clip: content-box;
+}
+
+textarea::-webkit-resizer {
+  background:
+    linear-gradient(135deg, transparent 0 52%, var(--muted) 52% 62%, transparent 62% 76%, var(--muted) 76% 86%, transparent 86%);
+  opacity: 0.8;
+}
+
 *::-webkit-scrollbar-button {
   display: none;
   width: 0;

@@ -1,6 +1,6 @@
 "use strict";
 
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -161,8 +161,27 @@ async function decryptWithDpapi(encryptedSecret) {
   return result;
 }
 
+function decryptWithDpapiSync(encryptedSecret) {
+  if (typeof encryptedSecret !== "string" || encryptedSecret.length === 0) {
+    throw new TypeError("La clave cifrada debe ser una cadena Base64 no vacía");
+  }
+  const result = spawnSync(resolvePowerShellBinary(), ["-NoProfile", "-NonInteractive", "-Command", DECRYPT_SCRIPT], {
+    input: encryptedSecret,
+    encoding: "utf8",
+    timeout: TIMEOUT_MS,
+    windowsHide: true,
+  });
+  if (result.status !== 0 || !result.stdout) {
+    const err = new Error("Operación de protección DPAPI falló");
+    err.code = "ERR_DPAPI_FAILED";
+    throw err;
+  }
+  return result.stdout;
+}
+
 module.exports = {
   isDpapiAvailable,
+  decryptWithDpapiSync,
   resolvePowerShellBinary,
   encryptWithDpapi,
   decryptWithDpapi,

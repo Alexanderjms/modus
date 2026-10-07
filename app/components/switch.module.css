@@ -1,0 +1,74 @@
+.switch.switch {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  box-sizing: border-box;
+  width: 30px;
+  height: 18px;
+  min-width: 30px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 20%, var(--surface));
+  background-image: none;
+  appearance: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 220ms var(--ease-drawer);
+}
+
+.switch.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 1px #0000001f, 0 1px 4px #00000040;
+  transition:
+    transform 240ms var(--ease-drawer),
+    width 180ms var(--ease-drawer);
+}
+
+.switch.switch[aria-checked="true"] {
+  background: #007aff;
+}
+
+.switch.switch[aria-checked="true"]::after {
+  transform: translateX(12px);
+}
+
+.switch.switch:active:not(:disabled)::after {
+  width: 18px;
+}
+
+.switch.switch[aria-checked="true"]:active:not(:disabled)::after {
+  transform: translateX(8px);
+}
+
+.switch.switch:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+
+.switch.switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .switch.switch[aria-checked="false"]:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--foreground) 28%, var(--surface));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch.switch,
+  .switch.switch::after {
+    transition: none;
+  }
+}

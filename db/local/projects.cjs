@@ -139,6 +139,20 @@ function parseProjectId(rawId) {
 }
 
 function resolveUser(db) {
+  if (db.kind === "turso") {
+    const lock = require("./pin-lock.cjs");
+    const activeId = typeof lock.getCloudUserId === "function" ? lock.getCloudUserId() : null;
+    let row;
+    try {
+      row = activeId
+        ? db.prepare("SELECT id FROM usuarios WHERE id = ?").get(activeId)
+        : db.prepare("SELECT id FROM usuarios ORDER BY id LIMIT 1").get();
+    } catch {
+      return Response.json({ error: "No se pudo consultar el perfil en Turso." }, { status: 502 });
+    }
+    if (!row) return Response.json({ error: "Inicia sesión para continuar." }, { status: 401 });
+    return { id: row.id };
+  }
   let users;
   try {
     users = db.prepare("SELECT id FROM usuarios LIMIT 2").all();
@@ -158,13 +172,16 @@ function resolveUser(db) {
 }
 
 function openProjectDatabase() {
+  const { getStorageMode } = require("./storage.cjs");
+  const cloud = getStorageMode() === "turso";
   const dbPath = process.env.MODUS_SQLITE_PATH || getDefaultDbPath();
-  if (dbPath !== ":memory:" && !fs.existsSync(dbPath)) {
+  if (!cloud && dbPath !== ":memory:" && !fs.existsSync(dbPath)) {
     return { error: Response.json({ error: "Configura primero tu perfil local." }, { status: 409 }) };
   }
 
   try {
     const db = getDatabase();
+    if (cloud && globalThis.__modusTursoSchemaChecked) return { db };
     const tagColumns = db.prepare("SELECT name FROM pragma_table_info('etiquetas')").all();
     if (tagColumns.length && !tagColumns.some(({ name }) => name === "proyecto_id")) {
       try {
@@ -174,9 +191,14 @@ function openProjectDatabase() {
         return { error: Response.json({ error: "No se pudo actualizar el esquema local de etiquetas. Tus datos no se han modificado." }, { status: 500 }) };
       }
     }
+    if (cloud) globalThis.__modusTursoSchemaChecked = true;
     return { db };
   } catch {
-    return { error: Response.json({ error: "Configura primero tu perfil local." }, { status: 409 }) };
+    return {
+      error: cloud
+        ? Response.json({ error: "No se pudo conectar con Turso. Revisa tus credenciales y tu conexión." }, { status: 502 })
+        : Response.json({ error: "Configura primero tu perfil local." }, { status: 409 }),
+    };
   }
 }
 

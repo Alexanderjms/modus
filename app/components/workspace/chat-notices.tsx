@@ -54,7 +54,7 @@ export function ChatNotices({
       )}
       {!providersLoading && provider && !providerConfigured && (
         <p className={styles.inlineStatus}>
-          Este chat usa un proveedor sin configurar. Elige uno configurado para enviar.
+          {provider === "chatgpt" ? "Conecta o reconecta tu cuenta de ChatGPT desde Proveedores para enviar." : "Este chat usa un proveedor sin configurar. Elige uno configurado para enviar."}
         </p>
       )}
       {provider === "bedrock" && (
@@ -74,7 +74,7 @@ export function ChatNotices({
           <button type="button" onClick={onReloadModels}>Reintentar</button>
         </p>
       )}
-      {!modelsLoading && !modelsError && provider && modelsCount === 0 && (
+      {!modelsLoading && !modelsError && provider && providerConfigured && modelsCount === 0 && (
         <p className={styles.inlineStatus}>Este proveedor no ofrece modelos disponibles.</p>
       )}
       {!modelsLoading && model && !hasSelectedModel && (

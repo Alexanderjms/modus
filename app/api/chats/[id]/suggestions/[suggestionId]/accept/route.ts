@@ -76,7 +76,6 @@ export async function POST(
     db.exec("BEGIN IMMEDIATE;");
     let committed = false;
     try {
-      // 1. Obtener chat con bloqueo inmediato y verificar titularidad
       const chatRow = db
         .prepare(`
           SELECT c.*, p.usuario_id
@@ -93,13 +92,11 @@ export async function POST(
 
       const projectId = Number(chatRow.proyecto_id);
 
-      // 2. Comprobar idempotencia en la tabla chat_suggestion_tasks
       const mappingRow = db
         .prepare("SELECT tarea_id FROM chat_suggestion_tasks WHERE chat_id = ? AND suggestion_id = ?")
         .get(chatId, suggestionId) as { tarea_id: number | null } | undefined;
 
       if (mappingRow) {
-        // Ya fue aceptada previamente
         let existingTask: TaskDto | null = null;
         if (mappingRow.tarea_id) {
           existingTask = getProjectTaskById(db, Number(mappingRow.tarea_id), projectId);
@@ -119,7 +116,6 @@ export async function POST(
         );
       }
 
-      // 3. Inspeccionar mensajes para ubicar la propuesta
       let messages: any[] = [];
       try {
         messages = JSON.parse(String(chatRow.mensajes || "[]"));
@@ -159,7 +155,6 @@ export async function POST(
       }
 
       if (foundProposal.status === "accepted") {
-        // En el historial figura accepted pero no tenía mapping (caso anómalo/PUT huérfano)
         db.exec("ROLLBACK;");
         return jsonResponse({ error: "La sugerencia ya se encuentra marcada como aceptada" }, 409);
       }
@@ -200,6 +195,7 @@ export async function POST(
           removeSubtasks?: string[];
           completeSubtasks?: string[];
           reopenSubtasks?: string[];
+          renameSubtasks?: { from: string; to: string }[];
         };
         const updateArgs: Record<string, unknown> = { projectId, taskId: targetTaskId };
         if (changes.title !== undefined) updateArgs.title = changes.title;
@@ -224,7 +220,8 @@ export async function POST(
               .map((t) => (t.color ? { name: t.name, color: t.color } : { name: t.name })),
           ];
         }
-        if (changes.addSubtasks || changes.removeSubtasks || changes.completeSubtasks || changes.reopenSubtasks) {
+        if (changes.addSubtasks || changes.removeSubtasks || changes.completeSubtasks || changes.reopenSubtasks || changes.renameSubtasks) {
+          const renamed = new Map((changes.renameSubtasks ?? []).map((item) => [norm(item.from), item.to]));
           const removed = new Set((changes.removeSubtasks ?? []).map(norm));
           const completed = new Set((changes.completeSubtasks ?? []).map(norm));
           const reopened = new Set((changes.reopenSubtasks ?? []).map(norm));
@@ -233,7 +230,7 @@ export async function POST(
               .filter((st: { title: string }) => !removed.has(norm(st.title)))
               .map((st: { id: number; title: string; completed: boolean }) => ({
                 id: st.id,
-                title: st.title,
+                title: renamed.get(norm(st.title)) ?? st.title,
                 completed: completed.has(norm(st.title)) ? true : reopened.has(norm(st.title)) ? false : st.completed,
               })),
             ...(changes.addSubtasks ?? []).map((st) => ({ title: st.title, completed: false })),
@@ -274,7 +271,6 @@ export async function POST(
           return jsonResponse({ error: "La tarea objetivo no existe en este proyecto" }, 404);
         }
 
-        // updateProjectTask reemplaza las subtareas: conservar las actuales (con id) y añadir las nuevas.
         const mergedSubtasks = [
           ...targetTask.subtasks.map((st: { id: number; title: string; completed: boolean }) => ({
             id: st.id,
@@ -305,23 +301,18 @@ export async function POST(
           throw subErr;
         }
       } else if (proposalKind === "add-tags") {
-        // El tipo de acción y la tarea objetivo salen SIEMPRE de la propuesta guardada,
-        // nunca del payload del cliente.
         const targetTaskId = Number(foundProposal.targetTaskId);
         if (!Number.isSafeInteger(targetTaskId) || targetTaskId <= 0) {
           db.exec("ROLLBACK;");
           return jsonResponse({ error: "La sugerencia no referencia una tarea objetivo válida" }, 400);
         }
 
-        // Verifica existencia y pertenencia al proyecto del chat (nunca leer datos ajenos).
         const targetTask = getProjectTaskById(db, targetTaskId, projectId);
         if (!targetTask) {
           db.exec("ROLLBACK;");
           return jsonResponse({ error: "La tarea objetivo no existe en este proyecto" }, 404);
         }
 
-        // Unión de etiquetas: conservar las existentes y añadir las propuestas.
-        // updateProjectTask reemplaza asociaciones, por lo que incluimos las actuales.
         const mergedTags: unknown[] = [
           ...targetTask.tags.map((t: { id: number }) => ({ id: t.id })),
           ...(reviewData.tags as { name: string; color?: string }[]).map((t) =>
@@ -350,14 +341,12 @@ export async function POST(
           throw tagErr;
         }
       } else {
-        // Modo create: resolución de prioridad de catálogo
         const priorityCatalogRow = db
           .prepare("SELECT id FROM prioridades WHERE LOWER(TRIM(nombre)) = LOWER(?)")
           .get(reviewData.priority.trim()) as { id: number } | undefined;
 
         const priorityId = priorityCatalogRow ? Number(priorityCatalogRow.id) : null;
 
-        // Creación atómica de la tarea en columna 0 ('Por hacer')
         db.exec("SAVEPOINT create_accepted_task_sp;");
         try {
           const baseTask = createProjectTask(db, {
@@ -405,13 +394,11 @@ export async function POST(
         }
       }
 
-      // 6. Registrar mapeo de idempotencia
       db.prepare(`
         INSERT INTO chat_suggestion_tasks (chat_id, suggestion_id, tarea_id)
         VALUES (?, ?, ?)
       `).run(chatId, suggestionId, acceptedTaskId);
 
-      // 7. Actualizar el estado de la sugerencia en el historial JSON y subir la revisión del chat
       const acceptedSuggestion: TaskSuggestion = {
         ...foundProposal,
         status: "accepted",
@@ -456,7 +443,6 @@ export async function POST(
       db.exec("COMMIT;");
       committed = true;
 
-      // 8. Re-leer el chat actualizado para la respuesta canónica
       const freshChatRow = db.prepare("SELECT * FROM chats WHERE id = ?").get(chatId) as Record<string, unknown>;
       const canonicalChat = rowToChatConversation(freshChatRow);
 

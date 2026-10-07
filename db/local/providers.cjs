@@ -8,16 +8,15 @@ const {
 const { applySchema } = require("./migrate.cjs");
 const { isDpapiAvailable, encryptWithDpapi, decryptWithDpapi } = require("./credentials.cjs");
 
-const ALLOWED_PROVIDERS = Object.freeze([
+const API_KEY_PROVIDERS = Object.freeze([
   "bedrock",
-  "cerebras",
   "deepinfra",
-  "google",
   "groq",
-  "nvidia",
   "opencode",
   "openrouter",
 ]);
+
+const ALLOWED_PROVIDERS = Object.freeze([...API_KEY_PROVIDERS, "chatgpt"]);
 
 const ALLOWED_PROVIDERS_SET = new Set(ALLOWED_PROVIDERS);
 const MAX_KEY_LENGTH = 4096;
@@ -83,7 +82,7 @@ function getProviderStatusList(db, userId) {
     .all(userId);
   const configuredSet = new Set(rows.map((r) => r.proveedor));
 
-  const providers = ALLOWED_PROVIDERS.map((id) => ({
+  const providers = API_KEY_PROVIDERS.map((id) => ({
     id,
     configured: configuredSet.has(id),
   }));
@@ -97,7 +96,11 @@ function getProviderStatusList(db, userId) {
   };
 }
 
-async function getDecryptedProviderKey(db, userId, providerId) {
+async function getDecryptedProviderKey(db, userId, providerId, sessionToken) {
+  if (providerId === "chatgpt") {
+    const { getAccessToken, profileFor } = require("./chatgpt-oauth.cjs");
+    return await getAccessToken(profileFor(db, userId, sessionToken));
+  }
   if (!ALLOWED_PROVIDERS_SET.has(providerId)) {
     throw new Error(`Proveedor no soportado: ${providerId}`);
   }

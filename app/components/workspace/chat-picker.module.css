@@ -160,6 +160,9 @@
   outline: 0;
 }
 .options {
+  display: grid;
+  align-content: start;
+  gap: 2px;
   max-height: min(260px, calc(100dvh - 100px));
   overflow: auto;
   overscroll-behavior: contain;

@@ -1,10 +1,8 @@
 export const providers = [
+  { id: "chatgpt", name: "ChatGPT · OAuth", logo: "chatgpt.svg", invertInDark: true },
   { id: "bedrock", name: "AWS Amazon Bedrock", logo: "aws-amazon-bedrock.svg" },
-  { id: "cerebras", name: "Cerebras", logo: "cerebras.svg" },
   { id: "deepinfra", name: "DeepInfra", logo: "deepinfra.svg" },
-  { id: "google", name: "Google AI Studio", logo: "google.svg" },
   { id: "groq", name: "Groq", logo: "groq.svg" },
-  { id: "nvidia", name: "NVIDIA", logo: "nvidia.svg" },
   { id: "opencode", name: "OpenCode Go", logo: "opencode.svg", invertInDark: true },
   { id: "openrouter", name: "OpenRouter", logo: "openrouter-mono.svg", invertInDark: true },
 ];

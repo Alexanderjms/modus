@@ -1,12 +1,19 @@
 export type ChatProviderId =
+  | "chatgpt"
   | "bedrock"
-  | "cerebras"
   | "deepinfra"
-  | "google"
   | "groq"
-  | "nvidia"
   | "opencode"
   | "openrouter";
+
+export type ChatGPTConnection = {
+  id: "chatgpt";
+  status: "connected" | "disconnected" | "expired" | "permission_required";
+  configured: boolean;
+  email: string | null;
+  expiresAt: string | null;
+  available: boolean;
+};
 
 export type ChatProtocol = "chat-completions" | "responses" | "messages";
 
@@ -34,11 +41,11 @@ export type TaskSuggestionChanges = {
   column?: 0 | 1 | 2;
   addTags?: TaskSuggestionTag[];
   addSubtasks?: { title: string }[];
-  /** Nombres de etiquetas y títulos de subtareas ya existentes en la tarea. */
   removeTags?: string[];
   removeSubtasks?: string[];
   completeSubtasks?: string[];
   reopenSubtasks?: string[];
+  renameSubtasks?: { from: string; to: string }[];
 };
 
 export type TaskSuggestion = {
@@ -48,14 +55,10 @@ export type TaskSuggestion = {
   priority: "alta" | "media" | "baja" | "sin prioridad";
   subtasks: { title: string }[];
   status: "pending" | "accepted" | "discarded";
-  /** Tarea creada/afectada tras aceptar. En add-tags apunta a la tarea objetivo. */
   taskId?: number | null;
-  /** Ausente equivale a "create" por retrocompatibilidad. */
   kind?: "create" | "add-tags" | "add-subtasks" | "edit";
-  /** Obligatorio cuando kind es "add-tags" o "add-subtasks". Nunca confundir con taskId. */
   targetTaskId?: number;
   tags?: TaskSuggestionTag[];
-  /** Solo con kind === "edit". Etiquetas y subtareas únicamente se añaden. */
   changes?: TaskSuggestionChanges;
 };
 
@@ -66,6 +69,7 @@ export type ChatMessage = {
   content: string;
   attachments?: ChatAttachment[];
   suggestions?: TaskSuggestion[];
+  tasks?: { id: number; title: string }[];
 };
 
 export type ChatRequest = {
@@ -74,7 +78,6 @@ export type ChatRequest = {
   model: string;
   protocol?: ChatProtocol;
   region?: string;
-  /** @deprecated El servidor decide automáticamente si busca en la web según la consulta. Se acepta por retrocompatibilidad. */
   webSearch?: boolean;
   messages: ChatMessage[];
 };

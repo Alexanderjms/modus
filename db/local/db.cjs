@@ -25,6 +25,18 @@ function getDefaultDbPath() {
 }
 
 function getDatabase(customPath) {
+  if (!customPath) {
+    const { getStorageMode, loadTursoConfig } = require("./storage.cjs");
+    if (getStorageMode() === "turso") {
+      const config = loadTursoConfig();
+      if (!config) {
+        const err = new Error("Faltan las credenciales de Turso.");
+        err.code = "TURSO_NOT_CONFIGURED";
+        throw err;
+      }
+      return require("../cloud/turso-db.cjs").openTurso(config);
+    }
+  }
   const dbPath = customPath || process.env.MODUS_SQLITE_PATH || getDefaultDbPath();
 
   if (dbPath !== ":memory:") {

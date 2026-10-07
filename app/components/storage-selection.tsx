@@ -73,6 +73,28 @@ function StorageOption({
 export function StorageSelection() {
   const [storage, setStorage] = useState<StorageLocation>("local");
   const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function continueSetup() {
+    if (pending) return;
+    setPending(true);
+    setError("");
+    try {
+      const response = await fetch("/api/storage", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: storage }),
+      });
+      const result = (await response.json().catch(() => null)) as { next?: string } | null;
+      if (response.ok && result?.next) {
+        router.push(result.next);
+        return;
+      }
+    } catch {}
+    setError("No se pudo continuar. Inténtalo de nuevo.");
+    setPending(false);
+  }
 
   return (
     <div className="flex w-full flex-col items-center gap-6">
@@ -97,15 +119,17 @@ export function StorageSelection() {
       </fieldset>
       <button
         type="button"
-        onClick={() => {
-          router.push(
-            storage === "turso" ? "/onboarding/turso" : "/onboarding/local",
-          );
-        }}
-        className="rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-xs font-semibold text-white [line-height:normal] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
+        disabled={pending}
+        onClick={() => void continueSetup()}
+        className="rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-xs font-semibold text-white [line-height:normal] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF] disabled:opacity-60"
       >
-        Continuar
+        {pending ? "Continuando…" : "Continuar"}
       </button>
+      {error && (
+        <p role="alert" className="w-full text-center text-[12px] leading-[18px] text-[#c2413a]">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

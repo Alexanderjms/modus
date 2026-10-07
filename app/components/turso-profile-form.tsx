@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 const INPUT_CLASS =
-  "h-full min-w-0 flex-1 bg-transparent p-0 text-[12.5px] font-normal leading-[normal] text-[var(--foreground)] caret-[#007AFF] outline-none placeholder:text-[var(--foreground)] placeholder:opacity-100";
+  "h-full min-w-0 flex-1 bg-transparent p-0 text-[12.5px] font-normal leading-[normal] text-[var(--foreground)] caret-[#007AFF] outline-none placeholder:text-[var(--muted)] placeholder:opacity-100";
 const FIELD_CLASS =
   "flex h-[34px] w-full items-center gap-[6px] rounded-[7px] bg-[var(--surface)] pl-[10px] pr-[3px] outline outline-1 -outline-offset-[0.5px] outline-[var(--border)] has-[input:focus]:shadow-[0px_0px_3px_#007AFF33] has-[input:focus]:outline-2 has-[input:focus]:-outline-offset-[1px] has-[input:focus]:outline-[#007AFF]";
 
@@ -15,6 +15,8 @@ export function TursoProfileForm() {
   const confirmation = useRef<HTMLInputElement>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
 
   function validateConfirmation() {
     confirmation.current?.setCustomValidity(
@@ -25,9 +27,32 @@ export function TursoProfileForm() {
     );
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    router.push("/onboarding/listo");
+    if (pending) return;
+    const form = new FormData(event.currentTarget);
+    setPending(true);
+    setError("");
+    try {
+      const response = await fetch("/api/onboarding/turso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          usuario: String(form.get("usuario") ?? ""),
+          password: String(form.get("password") ?? ""),
+          confirmation: String(form.get("confirmation") ?? ""),
+        }),
+      });
+      if (response.ok) {
+        router.push("/onboarding/listo");
+        return;
+      }
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(result?.error ?? "No se pudo crear el perfil. Inténtalo de nuevo.");
+    } catch {
+      setError("No se pudo conectar con el servidor. Inténtalo de nuevo.");
+    }
+    setPending(false);
   }
 
   return (
@@ -40,20 +65,13 @@ export function TursoProfileForm() {
       <div className="flex w-full flex-col gap-4">
         {[
           {
-            id: "turso-first-name",
-            label: "Nombre",
-            name: "givenName",
-            value: "Alexander",
-            autoComplete: "given-name",
+            id: "turso-username",
+            label: "Usuario",
+            name: "usuario",
+            value: "",
+            type: "text",
+            autoComplete: "username",
             ref: firstName,
-          },
-          {
-            id: "turso-last-name",
-            label: "Apellido",
-            name: "familyName",
-            value: "Molina",
-            autoComplete: "family-name",
-            ref: undefined,
           },
         ].map((field) => (
           <div
@@ -71,10 +89,11 @@ export function TursoProfileForm() {
                 id={field.id}
                 ref={field.ref}
                 name={field.name}
-                type="text"
+                type={field.type}
                 required
+                disabled={pending}
                 pattern={".*\\S.*"}
-                autoFocus={field.name === "givenName"}
+                autoFocus={field.name === "usuario"}
                 autoComplete={field.autoComplete}
                 defaultValue={field.value}
                 className={INPUT_CLASS}
@@ -87,6 +106,7 @@ export function TursoProfileForm() {
             id: "turso-profile-password",
             label: "Contraseña",
             name: "password",
+            placeholder: "Escribe tu contraseña",
             ref: password,
             visible: showPassword,
             setVisible: setShowPassword,
@@ -95,6 +115,7 @@ export function TursoProfileForm() {
             id: "turso-profile-confirmation",
             label: "Confirmar contraseña",
             name: "confirmation",
+            placeholder: "Repite tu contraseña",
             ref: confirmation,
             visible: showConfirmation,
             setVisible: setShowConfirmation,
@@ -117,9 +138,10 @@ export function TursoProfileForm() {
                 name={field.name}
                 type={field.visible ? "text" : "password"}
                 required
+                disabled={pending}
                 minLength={8}
                 autoComplete="new-password"
-                placeholder={"•".repeat(16)}
+                placeholder={field.placeholder}
                 aria-describedby={
                   field.name === "password"
                     ? "turso-password-requirement"
@@ -162,11 +184,17 @@ export function TursoProfileForm() {
           </div>
         ))}
       </div>
+      {error && (
+        <p role="alert" className="mt-4 w-full text-[12px] leading-[18px] text-[#c2413a]">
+          {error}
+        </p>
+      )}
       <button
         type="submit"
-        className="mt-6 inline-flex w-fit items-center justify-center rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-[12px] font-semibold leading-[normal] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
+        disabled={pending}
+        className="mt-6 inline-flex w-fit items-center justify-center rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-[12px] font-semibold leading-[normal] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF] disabled:opacity-60"
       >
-        Crear perfil
+        {pending ? "Creando perfil…" : "Crear perfil"}
       </button>
     </form>
   );

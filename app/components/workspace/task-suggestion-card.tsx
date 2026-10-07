@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import type { TaskSuggestion, TaskSuggestionChanges } from "../../chat-contract";
 import { Modal } from "../shell/modal";
+import type { TaskCatalogsDto } from "../../api/tasks/route";
 import { describeChanges, TaskEditReview, type SuggestionTargetTask } from "./task-edit-review";
 import { fallbackPriorityColor, getTaskTagHue } from "./task-card";
 import styles from "./task-suggestion-card.module.css";
@@ -26,6 +27,7 @@ export function TaskSuggestionCard({
   suggestion,
   targetTaskTitle,
   targetTask,
+  catalogs,
   catalogTags,
   actionsDisabled,
   pending,
@@ -36,6 +38,7 @@ export function TaskSuggestionCard({
   suggestion: TaskSuggestionView;
   targetTaskTitle?: string;
   targetTask?: SuggestionTargetTask;
+  catalogs: TaskCatalogsDto | null;
   catalogTags: CatalogTag[];
   actionsDisabled: boolean;
   pending: boolean;
@@ -100,9 +103,9 @@ export function TaskSuggestionCard({
         setError("Añade entre 1 y 20 subtareas de hasta 255 caracteres.");
         return;
       }
+      setReviewing(false);
       const failure = await onAccept(suggestion, { subtasks: reviewed });
-      if (!failure) setReviewing(false);
-      else setError(failure);
+      if (failure) setError(failure);
       return;
     }
     const reviewedTags = tags.map(({ name, color }) => ({ name: name.trim(), color }))
@@ -141,9 +144,9 @@ export function TaskSuggestionCard({
       }
       draft = createDraft;
     }
+    setReviewing(false);
     const failure = await onAccept(suggestion, draft);
-    if (!failure) setReviewing(false);
-    else setError(failure);
+    if (failure) setError(failure);
   }
 
   const formInvalid = isAddTags && tags.every(({ name }) => !name.trim()) ||
@@ -163,6 +166,19 @@ export function TaskSuggestionCard({
       {isEdit && <dl className={styles.changes} aria-label="Cambios propuestos">
         {changeRows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
       </dl>}
+      {(isAddSubtasks || !isExisting) && suggestion.subtasks.length > 0 && (
+        <ul className={styles.previewList} aria-label="Subtareas propuestas">
+          {suggestion.subtasks.slice(0, 3).map(({ title: item }, index) => (
+            <li key={`${item}-${index}`}>
+              <i aria-hidden="true" className="bi bi-circle" />
+              <span>{item}</span>
+            </li>
+          ))}
+          {suggestion.subtasks.length > 3 && (
+            <li className={styles.previewMore}>+{suggestion.subtasks.length - 3} más</li>
+          )}
+        </ul>
+      )}
       {suggestion.tags && suggestion.tags.length > 0 && (
         <ul className={styles.tags} aria-label="Etiquetas propuestas">
           {suggestion.tags.map(({ name, color }, index) => (
@@ -177,7 +193,9 @@ export function TaskSuggestionCard({
           <i aria-hidden="true" className="bi bi-list-check" />
           {suggestion.subtasks.length} {suggestion.subtasks.length === 1 ? "subtarea" : "subtareas"}
         </span>}
-        {suggestion.status === "pending" ? (
+        {suggestion.status === "pending" && pending ? (
+          <span role="status" className={styles.discarded}>{isAddTags ? "Aplicando etiquetas…" : isAddSubtasks ? "Añadiendo subtareas…" : isEdit ? "Aplicando cambios…" : "Creando tarea…"}</span>
+        ) : suggestion.status === "pending" ? (
           <div className={styles.actions}>
             <button type="button" disabled={actionsDisabled} onClick={openReview}>Aceptar</button>
             <button type="button" disabled={actionsDisabled} onClick={() => onDiscard(suggestion)}>Descartar</button>
@@ -195,18 +213,20 @@ export function TaskSuggestionCard({
           </span>
         )}
       </div>
+      {error && !reviewing && suggestion.status === "pending" && <p className={styles.error} role="alert">{error}</p>}
       {isEdit ? <TaskEditReview
         open={reviewing}
         onClose={() => { if (!pending) setReviewing(false); }}
         changes={suggestion.changes ?? {}}
         target={targetTask}
+        catalogs={catalogs}
         targetLabel={targetLabel}
-        catalogTags={catalogTags}
         pending={pending}
         onSubmit={async (changes) => {
+          setReviewing(false);
           const failure = await onAccept(suggestion, { changes });
-          if (!failure) setReviewing(false);
-          return failure;
+          if (failure) setError(failure);
+          return null;
         }}
       /> : <Modal
         open={reviewing}

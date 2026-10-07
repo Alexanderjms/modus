@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { validateLoopbackSecurity } from "../../../db/local/providers.cjs";
-import { UNLOCK_COOKIE, changePin, hasPin, isUnlocked } from "../../../db/local/pin-lock.cjs";
+import { UNLOCK_COOKIE, changePin, lockKind, isUnlocked } from "../../../db/local/pin-lock.cjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,14 +10,14 @@ const NO_STORE = { "Cache-Control": "no-store" };
 export async function GET(request: Request) {
   const secError = validateLoopbackSecurity(request);
   if (secError) return secError;
-  return Response.json({ hasPin: hasPin() }, { headers: NO_STORE });
+  return Response.json({ hasPin: lockKind() === "pin" }, { headers: NO_STORE });
 }
 
 export async function PUT(request: Request) {
   const secError = validateLoopbackSecurity(request);
   if (secError) return secError;
 
-  if (hasPin() && !isUnlocked((await cookies()).get(UNLOCK_COOKIE)?.value)) {
+  if (lockKind() !== null && !isUnlocked((await cookies()).get(UNLOCK_COOKIE)?.value)) {
     return Response.json({ error: "Desbloquea Modus antes de cambiar el PIN." }, { status: 403, headers: NO_STORE });
   }
 

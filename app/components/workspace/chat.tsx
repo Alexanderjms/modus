@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type DragEvent, type RefObject } from "react";
 import type {
   ChatConversation,
   ChatMessage,
@@ -11,14 +11,17 @@ import type {
   ChatResponse,
   ChatSummary,
   SaveChatRequest,
+  TaskSuggestion,
 } from "../../chat-contract";
 import type { Project } from "../projects-data";
+import { Switch } from "../switch";
 import { useChatAttachments } from "./use-chat-attachments";
 import { maxAttachments } from "../../chat-attachments.mjs";
 import styles from "./chat.module.css";
 import shared from "../workspace.module.css";
 import { ChatComposer } from "./chat-composer";
 import { flyTaskToBoard, pointAtTask } from "./task-flight";
+import { optimisticNewTask, optimisticPatch, type TaskChange } from "./optimistic-suggestion";
 import { ChatPicker, type ChatPickerOption } from "./chat-picker";
 import { ChatActionDialog, type ChatAction } from "./chat-action-dialog";
 import { ChatErrors, ChatNotices } from "./chat-notices";
@@ -26,7 +29,11 @@ import { ChatSettings } from "./chat-settings";
 import { ChatTranscript } from "./chat-transcript";
 import { createChat, errorForStatus, readChat, validConversation, validMessages, validSummary } from "./chat-api.mjs";
 import { maxMessages, maxTotalCharacters, protocols, providers, regions } from "./chat-data.mjs";
+import type { TaskCatalogsDto, TaskDto } from "../../api/tasks/route";
 import type { SuggestionTargetTask, TaskSuggestionDraft, TaskSuggestionView } from "./task-suggestion-card";
+import { useWorkspaceRequest } from "./workspace-query-provider";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateWorkspaceQueries } from "./workspace-query.mjs";
 
 function toTargetTask(task: Record<string, unknown>): SuggestionTargetTask {
   const list = (value: unknown) => (Array.isArray(value) ? value : []) as Record<string, unknown>[];
@@ -45,10 +52,81 @@ function toTargetTask(task: Record<string, unknown>): SuggestionTargetTask {
   };
 }
 
+const AUTO_APPLY_KEY = "modus-chat-auto-apply";
+const CONTEXT_BUDGET_BYTES = 100 * 1024;
+
+function fitContextWindow<T extends { role: string; content: string }>(all: T[]): T[] {
+  let start = all.length - 1;
+  while (start - 2 >= 0) {
+    const candidate = all.slice(start - 2);
+    const characters = candidate.reduce((total, item) => total + item.content.length, 0);
+    if (
+      candidate.length > maxMessages - 1 ||
+      characters > maxTotalCharacters ||
+      new TextEncoder().encode(JSON.stringify(candidate)).byteLength > CONTEXT_BUDGET_BYTES
+    ) break;
+    start -= 2;
+  }
+  return all.slice(start);
+}
+
+type UndoSnapshot = {
+  taskId: number;
+  title: string;
+  description: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  attachments: string | null;
+  priorityId: number | null;
+  column: number;
+  tagIds: number[];
+  subtasks: { id: number; title: string; completed: boolean }[];
+};
+
+function draftForSuggestion(item: TaskSuggestionView): TaskSuggestionDraft {
+  const kind = item.kind ?? "create";
+  if (kind === "add-tags") return { tags: item.tags ?? [] };
+  if (kind === "add-subtasks") return { subtasks: item.subtasks };
+  if (kind === "edit") return { changes: item.changes ?? {} };
+  return { title: item.title, description: item.description, priority: item.priority, subtasks: item.subtasks, ...(item.tags?.length ? { tags: item.tags } : {}) };
+}
+
+function isAutoApplicable(item: TaskSuggestionView) {
+  if (item.status !== "pending" || !item.targetTaskId) return false;
+  if (item.kind === "add-tags" || item.kind === "add-subtasks") return true;
+  if (item.kind !== "edit" || !item.changes) return false;
+  return !item.changes.removeTags && !item.changes.removeSubtasks && !item.changes.renameSubtasks;
+}
+
+async function loadUndoSnapshot(projectId: number, taskId: number, request: (input: string, init?: RequestInit) => Promise<Response>): Promise<UndoSnapshot | null> {
+  try {
+    const response = await request(`/api/tasks?projectId=${projectId}&catalogs=1`, { cache: "no-store" });
+    const data = (await response.json()) as { tasks?: TaskDto[]; catalogs?: TaskCatalogsDto };
+    const task = data.tasks?.find((item) => item.id === taskId);
+    if (!response.ok || !task) return null;
+    const priority = data.catalogs?.priorities.find((item) => item.name.toLowerCase() === task.priority.toLowerCase());
+    return {
+      taskId,
+      title: task.title,
+      description: task.description,
+      startDate: task.startDate,
+      endDate: task.endDate,
+      attachments: task.attachments,
+      priorityId: priority?.id ?? null,
+      column: task.column,
+      tagIds: task.tags.map((tag) => tag.id),
+      subtasks: task.subtasks.map(({ id, title, completed }) => ({ id, title, completed })),
+    };
+  } catch {
+    return null;
+  }
+}
+
 type SuggestionTaskData = {
   projectId: number;
   tasks: Map<number, string>;
   details: Map<number, SuggestionTargetTask>;
+  catalogs: TaskCatalogsDto | null;
   tags: { name: string; color: string | null }[];
 };
 
@@ -61,14 +139,18 @@ export function WorkspaceChat({
   project: Project | null;
   onClose: () => void;
   closeButtonRef: RefObject<HTMLButtonElement | null>;
-  onTaskCreated: (projectId: number) => void;
+  onTaskCreated: (projectId: number, change?: TaskChange) => void;
 }) {
+  const requestFn = useWorkspaceRequest();
+  const queryClient = useQueryClient();
   const [configured, setConfigured] = useState<ChatProviderId[]>([]);
+  const chatGPTConfigured = configured.includes("chatgpt");
   const [provider, setProvider] = useState<ChatProviderId | "">("");
   const [providersLoading, setProvidersLoading] = useState(true);
   const [providersError, setProvidersError] = useState("");
   const [storageAvailable, setStorageAvailable] = useState(true);
   const [providersReload, setProvidersReload] = useState(0);
+  const [providerRevision, setProviderRevision] = useState(0);
   const [region, setRegion] = useState(regions[1]);
   const [models, setModels] = useState<ChatModel[]>([]);
   const [model, setModel] = useState("");
@@ -86,6 +168,12 @@ export function WorkspaceChat({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
+  const [streamingSuggestions, setStreamingSuggestions] = useState<TaskSuggestion[]>([]);
+  const clearStreaming = () => {
+    setStreamingText("");
+    setStreamingSuggestions([]);
+  };
   const [saving, setSaving] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<ChatMessage | null>(null);
   const [sendError, setSendError] = useState("");
@@ -101,6 +189,12 @@ export function WorkspaceChat({
   const [bulkAccepting, setBulkAccepting] = useState(false);
   const [suggestionTaskData, setSuggestionTaskData] = useState<SuggestionTaskData | null>(null);
   const attachments = useChatAttachments(project?.id);
+  const [autoApply, setAutoApply] = useState(false);
+  const [autoNotice, setAutoNotice] = useState<{ text: string; snapshot: UndoSnapshot | null; busy?: boolean } | null>(null);
+  const liveSuggestionIds = useRef<Set<string>>(new Set());
+  const [taskRefs, setTaskRefs] = useState<{ id: number; title: string }[]>([]);
+  const [taskDragOver, setTaskDragOver] = useState(false);
+  const taskDragDepth = useRef(0);
   const draftRef = useRef("");
   const drafts = useRef(new Map<string, string>());
   const newDraftKey = useRef("new");
@@ -128,23 +222,47 @@ export function WorkspaceChat({
   const actionTitleId = useId();
   const messagesRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottom = useRef(true);
-  const reloadProviders = useCallback(() => setProvidersReload((value) => value + 1), []);
+  const reloadProviders = useCallback(() => {
+    void invalidateWorkspaceQueries(queryClient, "/api/providers");
+    setProvidersReload((value) => value + 1);
+  }, [queryClient]);
+  const silentProvidersReload = useRef(false);
+  const lastModelsKey = useRef("");
+  const modelsCount = useRef(0);
+  modelsCount.current = models.length;
 
   useEffect(() => {
-    const onFocus = () => { if (!sendingRef.current) reloadProviders(); };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [reloadProviders]);
+    const onChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ provider?: string; disconnected?: boolean }>).detail;
+      if (detail?.provider === "chatgpt" && detail.disconnected && settingsRef.current.provider === "chatgpt") {
+        sendRequest.current?.abort();
+        setConfigured((current) => current.filter((item) => item !== "chatgpt"));
+        setModels([]);
+        setSendError("ChatGPT se desconectó. Reconecta la cuenta o elige otro proveedor.");
+      }
+      void invalidateWorkspaceQueries(queryClient, "/api/chat/models");
+      reloadProviders();
+      setProviderRevision((revision) => revision + 1);
+    };
+    window.addEventListener("modus:providers-changed", onChanged);
+    return () => {
+      window.removeEventListener("modus:providers-changed", onChanged);
+    };
+  }, [reloadProviders, queryClient]);
 
   useEffect(() => {
     const controller = new AbortController();
     providerRequest.current?.abort();
     providerRequest.current = controller;
-    setProvidersLoading(true);
-    setProvidersError("");
+    const silent = silentProvidersReload.current;
+    silentProvidersReload.current = false;
+    if (!silent) {
+      setProvidersLoading(true);
+      setProvidersError("");
+    }
     void (async () => {
       try {
-        const response = await fetch("/api/providers", { cache: "no-store", signal: controller.signal });
+        const response = await requestFn("/api/providers", { cache: "no-store", signal: controller.signal });
         if (!response.ok) throw new Error(errorForStatus(response.status));
         const data: unknown = await response.json();
         if (
@@ -163,6 +281,10 @@ export function WorkspaceChat({
           typeof item === "object" && item !== null && "id" in item && item.id === id &&
           "configured" in item && item.configured === true) ? [id] : []);
         setConfigured(available);
+        if (settingsRef.current.provider === "chatgpt" && !available.includes("chatgpt") && sendingRef.current) {
+          sendRequest.current?.abort();
+          setSendError("La conexión de ChatGPT ya no está disponible. Reconecta la cuenta para continuar.");
+        }
         setProvider((current) => {
           if (current) return current;
           const fallback = available.includes("opencode") ? "opencode" : available[0] ?? "";
@@ -170,13 +292,13 @@ export function WorkspaceChat({
           return fallback;
         });
       } catch {
-        if (!controller.signal.aborted) setProvidersError("No se pudieron cargar los proveedores.");
+        if (!controller.signal.aborted && !silent) setProvidersError("No se pudieron cargar los proveedores.");
       } finally {
         if (!controller.signal.aborted) setProvidersLoading(false);
       }
     })();
     return () => controller.abort();
-  }, [providersReload]);
+  }, [providersReload, requestFn]);
 
   useEffect(() => {
     projectGeneration.current += 1;
@@ -187,6 +309,7 @@ export function WorkspaceChat({
     sendingRef.current = false;
     setSending(false);
     setSearching(false);
+    clearStreaming();
     setPendingMessage(null);
     setSaving(false);
     mutationRequest.current?.abort();
@@ -217,7 +340,7 @@ export function WorkspaceChat({
     void (async () => {
       try {
         const query = new URLSearchParams({ projectId: String(project.id) });
-        const response = await fetch(`/api/chats?${query}`, { cache: "no-store", signal: controller.signal });
+        const response = await requestFn(`/api/chats?${query}`, { cache: "no-store", signal: controller.signal });
         if (!response.ok) throw new Error(errorForStatus(response.status));
         const data: unknown = await response.json();
         if (typeof data !== "object" || data === null || !("chats" in data) || !Array.isArray(data.chats) ||
@@ -244,11 +367,11 @@ export function WorkspaceChat({
       mutationRequest.current?.abort();
       suggestionRequest.current?.abort();
     };
-  }, [project?.id]);
+  }, [project?.id, requestFn]);
 
   async function fetchConversation(chatId: number, projectId: number, signal?: AbortSignal) {
     const query = new URLSearchParams({ projectId: String(projectId) });
-    const chat = await readChat(await fetch(`/api/chats/${chatId}?${query}`, { cache: "no-store", signal }));
+    const chat = await readChat(await requestFn(`/api/chats/${chatId}?${query}`, { cache: "no-store", signal }));
     if (chat.projectId !== projectId || chat.id !== chatId) {
       throw new Error("El chat no pertenece a este proyecto.");
     }
@@ -283,25 +406,36 @@ export function WorkspaceChat({
   }
 
   useEffect(() => {
-    setModels([]);
-    setModelsError("");
-    setModelsWarning("");
-    if (!provider) {
+    const key = `${provider}|${provider === "bedrock" ? region : ""}`;
+    const silent = lastModelsKey.current === key && modelsCount.current > 0;
+    lastModelsKey.current = key;
+    if (!silent) {
+      setModels([]);
+      setModelsError("");
+      setModelsWarning("");
+    }
+    if (!provider || (provider === "chatgpt" && !chatGPTConfigured)) {
       setModelsLoading(false);
       setModel("");
       return;
     }
     const controller = new AbortController();
-    setModelsLoading(true);
+    if (!silent) setModelsLoading(true);
     const query = new URLSearchParams({ provider });
     if (provider === "bedrock") query.set("region", region);
     void (async () => {
       try {
-        const response = await fetch(`/api/chat/models?${query}`, {
+        const response = await requestFn(`/api/chat/models?${query}`, {
           cache: "no-store",
           signal: controller.signal,
         });
-        if (!response.ok) throw new Error(errorForStatus(response.status));
+        if (!response.ok) {
+          let message = errorForStatus(response.status);
+          const failure: unknown = await response.json().catch(() => null);
+          if (typeof failure === "object" && failure !== null && "error" in failure && typeof failure.error === "string") message = failure.error.slice(0, 600);
+          if (provider === "chatgpt" && (response.status === 401 || response.status === 403 || response.status === 409)) reloadProviders();
+          throw new Error(message);
+        }
         const data: unknown = await response.json();
         if (typeof data !== "object" || data === null || !("models" in data) || !Array.isArray(data.models)) {
           throw new Error("No se pudieron cargar los modelos.");
@@ -322,14 +456,14 @@ export function WorkspaceChat({
           saved || available.find((item) => item.protocol !== null)?.id || available[0]?.id || "";
         setModel(chosen);
         settingsRef.current.model = chosen;
-      } catch {
-        if (!controller.signal.aborted) setModelsError("No se pudieron cargar los modelos.");
+      } catch (reason) {
+        if (!controller.signal.aborted && !silent) setModelsError(reason instanceof Error ? reason.message : "No se pudieron cargar los modelos.");
       } finally {
         if (!controller.signal.aborted) setModelsLoading(false);
       }
     })();
     return () => controller.abort();
-  }, [provider, region, modelsReload]);
+  }, [provider, region, modelsReload, providerRevision, chatGPTConfigured, reloadProviders, requestFn]);
 
   useEffect(() => () => {
     providerRequest.current?.abort();
@@ -362,6 +496,15 @@ export function WorkspaceChat({
   const hasTagSuggestions = history.some((message) => message.role === "assistant" &&
     (!!message.suggestions?.length || message.content.includes("[tarea:")));
 
+  useEffect(() => queryClient.getQueryCache().subscribe((event) => {
+    if (event.type !== "updated" || event.action.type !== "invalidate") return;
+    const [scope, pathname, search] = event.query.queryKey;
+    if (scope === "workspace" && pathname === "/api/tasks" && typeof search === "string" &&
+      new URLSearchParams(search).get("projectId") === String(project?.id)) {
+      setSuggestionTaskData(null);
+    }
+  }), [queryClient, project?.id]);
+
   useEffect(() => {
     const projectId = project?.id;
     if (!projectId || !hasTagSuggestions || suggestionTaskData?.projectId === projectId) return;
@@ -369,7 +512,7 @@ export function WorkspaceChat({
     void (async () => {
       try {
         const query = new URLSearchParams({ projectId: String(projectId), catalogs: "1" });
-        const response = await fetch(`/api/tasks?${query}`, { cache: "no-store", signal: controller.signal });
+        const response = await requestFn(`/api/tasks?${query}`, { cache: "no-store", signal: controller.signal });
         const data: unknown = await response.json();
         if (!response.ok || typeof data !== "object" || data === null || !("tasks" in data) || !Array.isArray(data.tasks) ||
           !("catalogs" in data) || typeof data.catalogs !== "object" || data.catalogs === null ||
@@ -389,13 +532,13 @@ export function WorkspaceChat({
           "color" in tag && (tag.color === null || typeof tag.color === "string")
             ? [{ name: tag.name, color: typeof tag.color === "string" && /^#[0-9a-f]{6}$/i.test(tag.color) ? tag.color : null }]
             : []);
-        setSuggestionTaskData({ projectId, tasks, details, tags });
+        setSuggestionTaskData({ projectId, tasks, details, tags, catalogs: data.catalogs as unknown as TaskCatalogsDto });
       } catch {
-        if (!controller.signal.aborted) setSuggestionTaskData({ projectId, tasks: new Map(), details: new Map(), tags: [] });
+        if (!controller.signal.aborted) setSuggestionTaskData({ projectId, tasks: new Map(), details: new Map(), tags: [], catalogs: null });
       }
     })();
     return () => controller.abort();
-  }, [project?.id, hasTagSuggestions, suggestionTaskData]);
+  }, [project?.id, hasTagSuggestions, suggestionTaskData, requestFn]);
 
   const selectedModel = models.find((item) => item.id === model);
   const needsProtocol = selectedModel?.protocol === null;
@@ -418,6 +561,7 @@ export function WorkspaceChat({
       return;
     }
     if (retryChatId.current) {
+      await invalidateWorkspaceQueries(queryClient, `/api/chats/${retryChatId.current}`, project.id);
       await selectChat(retryChatId.current);
       return;
     }
@@ -432,7 +576,8 @@ export function WorkspaceChat({
     setHistoryError("");
     try {
       const query = new URLSearchParams({ projectId: String(project.id) });
-      const response = await fetch(`/api/chats?${query}`, { cache: "no-store", signal: controller.signal });
+      await invalidateWorkspaceQueries(queryClient, "/api/chats", project.id);
+      const response = await requestFn(`/api/chats?${query}`, { cache: "no-store", signal: controller.signal });
       if (!response.ok) throw new Error();
       const data: unknown = await response.json();
       if (typeof data !== "object" || data === null || !("chats" in data) || !Array.isArray(data.chats) ||
@@ -481,7 +626,7 @@ export function WorkspaceChat({
     setHistoryError("");
     setConversationLoading(true);
     try {
-      const chat = await createChat(project.id);
+      const chat = await createChat(project.id, undefined, requestFn);
       drafts.current.set(activeChat ? String(activeChat.id) : newDraftKey.current, draftRef.current);
       drafts.current.set(String(chat.id), "");
       setChats((current) => [chat, ...current.filter((item) => item.id !== chat.id)]);
@@ -516,7 +661,8 @@ export function WorkspaceChat({
   ) {
     try {
       const query = new URLSearchParams({ projectId: String(projectId) });
-      const response = await fetch(`/api/chats?${query}`, { cache: "no-store", signal });
+      await invalidateWorkspaceQueries(queryClient, "/api/chats", projectId);
+      const response = await requestFn(`/api/chats?${query}`, { cache: "no-store", signal });
       if (!response.ok) return;
       const data: unknown = await response.json();
       if (signal.aborted || projectGeneration.current !== generation ||
@@ -525,11 +671,11 @@ export function WorkspaceChat({
       setChats(data.chats);
       const latest = data.chats.find((chat) => chat.id === chatId);
       if (latest && activeChat?.id === chatId) {
+        await invalidateWorkspaceQueries(queryClient, `/api/chats/${chatId}`, projectId);
         const current = await fetchConversation(chatId, projectId, signal);
         if (!signal.aborted && projectGeneration.current === generation) activateConversation(current);
       }
     } catch {
-      // Keep the current chat and draft intact if the refresh itself fails.
     }
   }
 
@@ -556,7 +702,7 @@ export function WorkspaceChat({
       const query = new URLSearchParams({ projectId: String(projectId) });
       const url = `/api/chats/${actionChatId}?${query}`;
       if (chatAction === "rename") {
-        const response = await fetch(url, {
+        const response = await requestFn(url, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title, revision: summary.revision }),
@@ -581,7 +727,7 @@ export function WorkspaceChat({
         setActionChatId(null);
       } else {
         query.set("revision", String(summary.revision));
-        const response = await fetch(`/api/chats/${actionChatId}?${query}`, {
+        const response = await requestFn(`/api/chats/${actionChatId}?${query}`, {
           method: "DELETE",
           signal: controller.signal,
         });
@@ -597,6 +743,7 @@ export function WorkspaceChat({
           return;
         }
         if (!current()) return;
+        queryClient.removeQueries({ queryKey: ["workspace", `/api/chats/${actionChatId}`] });
         const remaining = chats.filter((chat) => chat.id !== actionChatId);
         setChats(remaining);
         setChatAction(null);
@@ -648,7 +795,7 @@ export function WorkspaceChat({
     setSaveConflict(false);
     try {
       const query = new URLSearchParams({ projectId: String(project!.id) });
-      const response = await fetch(`/api/chats/${chatId}?${query}`, {
+      const response = await requestFn(`/api/chats/${chatId}?${query}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
@@ -684,7 +831,7 @@ export function WorkspaceChat({
     setSaving(true);
     setSaveError("");
     try {
-      const chat = await createChat(project.id);
+      const chat = await createChat(project.id, undefined, requestFn);
       if (projectGeneration.current !== generation || !pendingSave.current) return;
       const request = { ...pendingSave.current.request, revision: 0 };
       pendingSave.current = { chatId: chat.id, request };
@@ -699,7 +846,7 @@ export function WorkspaceChat({
     }
   }
 
-  async function acceptSuggestion(suggestion: TaskSuggestionView, draft: TaskSuggestionDraft): Promise<string | null> {
+  async function acceptSuggestion(suggestion: TaskSuggestionView, draft: TaskSuggestionDraft, prepared?: { tempId: number; created: ReturnType<typeof optimisticNewTask> | null }): Promise<string | null> {
     const chat = activeChatRef.current;
     if (!project || !chat || chat.projectId !== project.id || suggestion.status !== "pending" ||
       !chat.messages.some((message) => message.role === "assistant" &&
@@ -717,8 +864,25 @@ export function WorkspaceChat({
     const isCurrent = () => !controller.signal.aborted && projectGeneration.current === generation &&
       activeChatRef.current?.id === chatId && project?.id === projectId;
     const fromRect = document.querySelector(`[data-suggestion-id="${suggestion.id}"]`)?.getBoundingClientRect();
+    if (!prepared && fromRect && suggestion.kind && suggestion.kind !== "create" && suggestion.targetTaskId) {
+      pointAtTask(suggestion.targetTaskId, fromRect);
+    }
+    const tempId = prepared?.tempId ?? -Date.now();
+    const created = prepared ? prepared.created : ((suggestion.kind ?? "create") === "create" ? optimisticNewTask(draft, tempId) : null);
+    const patch = created ? null : optimisticPatch(suggestion, draft);
+    if (created && !prepared) {
+      onTaskCreated(projectId, { task: created, refresh: false });
+      if (fromRect) flyTaskToBoard(tempId, fromRect);
+    } else if (created) {
+      // ya mostrada de forma optimista por acceptAllSuggestions
+    } else if (patch && suggestion.targetTaskId && !prepared) {
+      onTaskCreated(projectId, { patch: { taskId: suggestion.targetTaskId, apply: patch }, refresh: false });
+    }
+    const discardOptimistic = () => {
+      if (created || patch) onTaskCreated(projectId, {});
+    };
     try {
-      const response = await fetch(`/api/chats/${chatId}/suggestions/${encodeURIComponent(suggestion.id)}/accept`, {
+      const response = await requestFn(`/api/chats/${chatId}/suggestions/${encodeURIComponent(suggestion.id)}/accept`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
@@ -750,24 +914,20 @@ export function WorkspaceChat({
         !("alreadyAccepted" in result) || typeof result.alreadyAccepted !== "boolean") {
         throw new Error("El servidor devolvió una respuesta de aceptación no válida.");
       }
-      if (!isCurrent()) return "El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.";
+      if (!isCurrent()) {
+        discardOptimistic();
+        return "El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.";
+      }
       const canonical = result.conversation;
       setActiveChat(canonical);
       activeChatRef.current = canonical;
       setHistory(canonical.messages);
       setChats((current) => [canonical, ...current.filter((item) => item.id !== canonical.id)]);
       setSuggestionTaskData(null);
-      onTaskCreated(projectId);
-      const createdId = (result.task as { id?: unknown } | null)?.id;
-      if (fromRect && !result.alreadyAccepted) {
-        if ((suggestion.kind ?? "create") === "create") {
-          if (typeof createdId === "number") flyTaskToBoard(createdId, fromRect);
-        } else if (suggestion.targetTaskId) {
-          pointAtTask(suggestion.targetTaskId, fromRect);
-        }
-      }
+      onTaskCreated(projectId, { task: (result.task ?? undefined) as TaskDto | undefined, replaceId: created ? tempId : undefined });
       return null;
     } catch (reason) {
+      discardOptimistic();
       return isCurrent()
         ? reason instanceof Error ? reason.message : "No se pudo aplicar la propuesta. Inténtalo de nuevo."
         : "El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.";
@@ -784,21 +944,105 @@ export function WorkspaceChat({
     const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setBulkAccepting(true);
     try {
+    const projectId = project?.id;
+    const prepared = new Map<string, { tempId: number; created: ReturnType<typeof optimisticNewTask> | null }>();
+    if (projectId) {
+      const base = -Date.now();
+      items.forEach((item, index) => {
+        const fromRect = document.querySelector(`[data-suggestion-id="${item.id}"]`)?.getBoundingClientRect();
+        if ((item.kind ?? "create") !== "create") {
+          if (!item.targetTaskId) return;
+          const patch = optimisticPatch(item, draftForSuggestion(item));
+          prepared.set(item.id, { tempId: 0, created: null });
+          if (patch) onTaskCreated(projectId, { patch: { taskId: item.targetTaskId, apply: patch }, refresh: false });
+          if (fromRect && smooth) pointAtTask(item.targetTaskId, fromRect);
+          return;
+        }
+        const tempId = base - index;
+        const created = optimisticNewTask(draftForSuggestion(item), tempId);
+        if (!created) return;
+        prepared.set(item.id, { tempId, created });
+        onTaskCreated(projectId, { task: created, refresh: false });
+        if (fromRect && smooth) flyTaskToBoard(tempId, fromRect);
+      });
+    }
     for (const [index, item] of items.entries()) {
-      const kind = item.kind ?? "create";
-      const draft: TaskSuggestionDraft = kind === "add-tags" ? { tags: item.tags ?? [] }
-        : kind === "add-subtasks" ? { subtasks: item.subtasks }
-          : kind === "edit" ? { changes: item.changes ?? {} }
-            : { title: item.title, description: item.description, priority: item.priority, subtasks: item.subtasks, ...(item.tags?.length ? { tags: item.tags } : {}) };
-      const failure = await acceptSuggestion(item, draft);
+      const failure = await acceptSuggestion(item, draftForSuggestion(item), prepared.get(item.id));
       if (failure) return `${index} de ${items.length} aplicadas. ${failure}`;
-      if (smooth && index < items.length - 1) await new Promise((resolve) => setTimeout(resolve, 260));
     }
     return null;
     } finally {
       setBulkAccepting(false);
     }
   }
+
+  async function autoApplySuggestion(suggestion: TaskSuggestionView) {
+    if (!project || !suggestion.targetTaskId) return;
+    const snapshot = await loadUndoSnapshot(project.id, suggestion.targetTaskId, requestFn);
+    const failure = await acceptSuggestion(suggestion, draftForSuggestion(suggestion));
+    setAutoNotice(failure ? { text: `No se pudo aplicar automáticamente. ${failure}`, snapshot: null } : { text: "La IA aplicó los cambios", snapshot });
+  }
+
+  async function undoAutoApply() {
+    const notice = autoNotice;
+    const snapshot = notice?.snapshot;
+    if (!notice || !snapshot || !project || notice.busy) return;
+    setAutoNotice({ ...notice, busy: true });
+    const patch = (body: Record<string, unknown>) => requestFn("/api/tasks", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ projectId: project.id, taskId: snapshot.taskId, ...body }),
+    }).then((response) => { if (!response.ok) throw new Error(); });
+    try {
+      await patch({
+        title: snapshot.title,
+        description: snapshot.description,
+        startDate: snapshot.startDate,
+        endDate: snapshot.endDate,
+        attachments: snapshot.attachments,
+        priorityId: snapshot.priorityId,
+        tags: snapshot.tagIds,
+        subtasks: snapshot.subtasks,
+      });
+      await patch({ column: snapshot.column, beforeTaskId: null });
+      onTaskCreated(project.id);
+      setAutoNotice({ text: "Cambios revertidos", snapshot: null });
+    } catch {
+      setAutoNotice({ text: "No se pudo deshacer. Revisa la tarea en el tablero.", snapshot: null });
+    }
+  }
+
+  function toggleAutoApply() {
+    const next = !autoApply;
+    setAutoApply(next);
+    try {
+      localStorage.setItem(AUTO_APPLY_KEY, next ? "1" : "0");
+    } catch {}
+  }
+
+  useEffect(() => {
+    try {
+      setAutoApply(localStorage.getItem(AUTO_APPLY_KEY) === "1");
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!autoNotice || autoNotice.busy) return;
+    const timer = window.setTimeout(() => setAutoNotice(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [autoNotice]);
+
+  useEffect(() => {
+    if (!autoApply || saving || sending || pendingSave.current || !activeChat || !liveSuggestionIds.current.size) return;
+    const last = [...history].reverse().find((message) => message.role === "assistant" &&
+      message.suggestions?.some((item) => liveSuggestionIds.current.has(item.id)));
+    if (!last) return;
+    liveSuggestionIds.current.clear();
+    const pending = (last.suggestions ?? []).filter((item) => item.status === "pending") as TaskSuggestionView[];
+    if (pending.length === 1 && isAutoApplicable(pending[0])) void autoApplySuggestion(pending[0]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history, saving, sending, activeChat, autoApply]);
 
   function setSuggestionDiscarded(suggestion: TaskSuggestionView, discarded: boolean) {
     const chat = activeChatRef.current;
@@ -835,22 +1079,53 @@ export function WorkspaceChat({
     });
   }
 
+  const isTaskDrag = (event: DragEvent) => Array.from(event.dataTransfer.types).includes("application/x-modus-task");
+
+  function dropTask(event: DragEvent) {
+    taskDragDepth.current = 0;
+    setTaskDragOver(false);
+    try {
+      const payload = JSON.parse(event.dataTransfer.getData("application/x-modus-task")) as { taskId?: unknown; projectId?: unknown; title?: unknown };
+      if (!project || payload.projectId !== project.id || !Number.isSafeInteger(payload.taskId) || (payload.taskId as number) <= 0) return;
+      const id = payload.taskId as number;
+      const title = typeof payload.title === "string" ? payload.title.slice(0, 255) : `Tarea ${id}`;
+      setTaskRefs((current) => current.some((item) => item.id === id) || current.length >= 10 ? current : [...current, { id, title }]);
+    } catch {}
+  }
+
+  async function generateChatTitle(chatId: number, projectId: number, settings: Record<string, unknown>) {
+    try {
+      const response = await requestFn(`/api/chats/${chatId}/title?projectId=${projectId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      if (!response.ok) return;
+      const result = (await response.json()) as { title?: unknown };
+      if (typeof result.title !== "string" || !result.title) return;
+      const title = result.title;
+      setActiveChat((current) => (current && current.id === chatId ? { ...current, title } : current));
+      setChats((current) => current.map((item) => (item.id === chatId ? { ...item, title } : item)));
+    } catch {}
+  }
+
   async function sendMessage() {
-    const content = draft.trim() || (attachments.items.some((item) => item.status === "ready") ? "Archivos adjuntos." : "");
+    const content = draft.trim() || (attachments.items.some((item) => item.status === "ready") ? "Archivos adjuntos." : taskRefs.length ? "Tareas adjuntas." : "");
     if (!content || !ready || sendingRef.current || !project || !provider || !selectedModel || attachments.items.some((item) => item.status !== "ready")) return;
     const attached = attachments.items.flatMap((item) => item.attachment ? [item.attachment] : []);
     if (attached.length !== attachments.items.length || attached.length > maxAttachments) return;
     const outgoing = [
-      ...history.map(({ role, content: messageContent, attachments: files }) => ({
-        role, content: messageContent, ...(role === "user" && files?.length ? { attachmentIds: files.map((file) => file.id) } : {}),
+      ...history.map(({ role, content: messageContent, attachments: files, tasks }) => ({
+        role, content: messageContent,
+        ...(role === "user" && files?.length ? { attachmentIds: files.map((file) => file.id) } : {}),
+        ...(role === "user" && tasks?.length ? { taskIds: tasks.map((task) => task.id) } : {}),
       })),
-      { role: "user" as const, content, ...(attached.length ? { attachmentIds: attached.map((file) => file.id) } : {}) },
+      {
+        role: "user" as const, content,
+        ...(attached.length ? { attachmentIds: attached.map((file) => file.id) } : {}),
+        ...(taskRefs.length ? { taskIds: taskRefs.map((task) => task.id) } : {}),
+      },
     ];
-    const characters = outgoing.reduce((total, item) => total + item.content.length, 0);
-    if (outgoing.length > maxMessages || characters > maxTotalCharacters) {
-      setLimitError("Se alcanzó el límite de esta conversación. Crea un chat nuevo para continuar.");
-      return;
-    }
     const chosenProtocol = selectedModel.protocol ?? (protocol || undefined);
     const request: ChatRequest = {
       projectId: project.id,
@@ -858,7 +1133,7 @@ export function WorkspaceChat({
       model,
       ...(chosenProtocol ? { protocol: chosenProtocol } : {}),
       ...(provider === "bedrock" ? { region } : {}),
-      messages: outgoing,
+      messages: fitContextWindow(outgoing),
     };
     const requestBody = JSON.stringify(request);
     if (new TextEncoder().encode(requestBody).byteLength > 128 * 1024) {
@@ -868,13 +1143,20 @@ export function WorkspaceChat({
     setLimitError("");
     setSendError("");
     setSearching(false);
+    clearStreaming();
     sendingRef.current = true;
     const controller = new AbortController();
     sendRequest.current = controller;
     draftRef.current = "";
     setDraft("");
     drafts.current.set(activeChat ? String(activeChat.id) : newDraftKey.current, "");
-    const userMessage: ChatMessage = { role: "user", content, ...(attached.length ? { attachments: attached } : {}) };
+    const sentTasks = taskRefs;
+    setTaskRefs([]);
+    const userMessage: ChatMessage = {
+      role: "user", content,
+      ...(attached.length ? { attachments: attached } : {}),
+      ...(sentTasks.length ? { tasks: sentTasks } : {}),
+    };
     setPendingMessage(userMessage);
     setSending(true);
     const detached = attachments.detach(attached.map((item) => item.id));
@@ -882,7 +1164,7 @@ export function WorkspaceChat({
     try {
       let chat = activeChat;
       if (!chat) {
-        chat = await createChat(project.id, controller.signal);
+          chat = await createChat(project.id, controller.signal, requestFn);
         if (controller.signal.aborted) return;
         setActiveChat(chat);
         setChats((current) => [chat!, ...current.filter((item) => item.id !== chat!.id)]);
@@ -896,6 +1178,7 @@ export function WorkspaceChat({
       });
       if (!response.ok) {
         let errorMessage = errorForStatus(response.status);
+        if (provider === "chatgpt" && (response.status === 401 || response.status === 403 || response.status === 409)) reloadProviders();
         try {
           const data: unknown = await response.json();
           if (typeof data === "object" && data !== null && "error" in data && typeof data.error === "string") {
@@ -930,6 +1213,10 @@ export function WorkspaceChat({
             setSearching(true);
           } else if (event.type === "thinking") {
             setSearching(false);
+          } else if (event.type === "delta" && "text" in event && typeof event.text === "string") {
+            setStreamingText(event.text);
+          } else if (event.type === "suggestion" && "suggestion" in event && validMessages([{ role: "assistant", content: "", suggestions: [event.suggestion] }])) {
+            setStreamingSuggestions((current) => [...current, event.suggestion as TaskSuggestion]);
           } else if (event.type === "error") {
             throw new Error("error" in event && typeof event.error === "string"
               ? event.error : "No se pudo completar el chat.");
@@ -975,7 +1262,9 @@ export function WorkspaceChat({
         throw new Error("La respuesta del chat no es válida.");
       }
       const completed = [...history, userMessage, message];
+      liveSuggestionIds.current = new Set((message.suggestions ?? []).map((item) => item.id));
       setPendingMessage(null);
+      clearStreaming();
       setHistory(completed);
       delivered = true;
       attachments.release(detached);
@@ -989,6 +1278,9 @@ export function WorkspaceChat({
           region: provider === "bedrock" ? region : null,
         };
         await saveCompleted(chat.id, saveRequest);
+        if (completed.length === 2) {
+          void generateChatTitle(chat.id, project.id, { provider, model, ...(chosenProtocol ? { protocol: chosenProtocol } : {}), ...(provider === "bedrock" ? { region } : {}) });
+        }
       }
     } catch (reason) {
       if (!controller.signal.aborted) {
@@ -1002,7 +1294,10 @@ export function WorkspaceChat({
         );
       }
     } finally {
-      if (!delivered) attachments.restore(detached);
+      if (!delivered) {
+        attachments.restore(detached);
+        setTaskRefs((current) => (current.length ? current : sentTasks));
+      }
       if (sendRequest.current === controller) {
         sendingRef.current = false;
         sendRequest.current = null;
@@ -1010,6 +1305,7 @@ export function WorkspaceChat({
       if (!controller.signal.aborted) {
         setSending(false);
         setSearching(false);
+        clearStreaming();
         setPendingMessage(null);
       }
     }
@@ -1047,7 +1343,7 @@ export function WorkspaceChat({
   const providerOptions: ChatPickerOption[] = providers.map(({ id, name, logo, invertInDark }) => ({
     value: id,
     label: name,
-    icon: `/providers/${logo}`,
+    icon: logo ? `/providers/${logo}` : undefined,
     invertInDark,
     detail: configured.includes(id) ? "Configurado" : "No configurado",
     disabled: !configured.includes(id),
@@ -1064,7 +1360,7 @@ export function WorkspaceChat({
     ...models.map(({ id, name, source, badge }) => ({
       value: id,
       label: name,
-      icon: activeProvider ? `/providers/${activeProvider.logo}` : undefined,
+      icon: activeProvider?.logo ? `/providers/${activeProvider.logo}` : undefined,
       invertInDark: activeProvider?.invertInDark,
       detail: source === "zen" ? "OpenCode Zen" : source === "go" ? "OpenCode Go" : undefined,
       ...(badge === "FREE" || (provider === "opencode" && /(?:^|[-:])free$/i.test(id))
@@ -1075,7 +1371,7 @@ export function WorkspaceChat({
       ? [{
           value: model,
           label: `${model} (no disponible)`,
-          icon: activeProvider ? `/providers/${activeProvider.logo}` : undefined,
+          icon: activeProvider?.logo ? `/providers/${activeProvider.logo}` : undefined,
           invertInDark: activeProvider?.invertInDark,
           disabled: true,
         }]
@@ -1089,8 +1385,45 @@ export function WorkspaceChat({
   const busy = providersLoading || historyLoading || conversationLoading || sending || saving || chatActionPending;
   const currentSuggestionTaskData = suggestionTaskData?.projectId === project?.id ? suggestionTaskData : null;
 
+  const attachmentsDisabled = sending || chatActionPending || !project || !storageAvailable;
+  const isFileDrag = (event: DragEvent) => Array.from(event.dataTransfer.types).includes("Files");
+  const acceptsDrag = (event: DragEvent) => (isTaskDrag(event) && !!project) || (isFileDrag(event) && !attachmentsDisabled);
+
   return (
-    <section className={styles.chat} aria-labelledby="chat-title">
+    <section
+      className={`${styles.chat} ${taskDragOver ? styles.taskDropActive : ""}`}
+      aria-labelledby="chat-title"
+      onDragEnter={(event) => {
+        if (isFileDrag(event)) event.preventDefault();
+        if (!acceptsDrag(event)) return;
+        event.preventDefault();
+        taskDragDepth.current += 1;
+        setTaskDragOver(true);
+      }}
+      onDragOver={(event) => {
+        if (isFileDrag(event)) event.preventDefault();
+        if (!acceptsDrag(event)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      }}
+      onDragLeave={(event) => {
+        if (!isTaskDrag(event) && !isFileDrag(event)) return;
+        taskDragDepth.current = Math.max(0, taskDragDepth.current - 1);
+        if (!taskDragDepth.current) setTaskDragOver(false);
+      }}
+      onDrop={(event) => {
+        if (isFileDrag(event)) {
+          event.preventDefault();
+          taskDragDepth.current = 0;
+          setTaskDragOver(false);
+          if (!attachmentsDisabled && event.dataTransfer.files.length) attachments.add(Array.from(event.dataTransfer.files));
+          return;
+        }
+        if (!isTaskDrag(event)) return;
+        event.preventDefault();
+        dropTask(event);
+      }}
+    >
       <header className={`${shared.panelHeader} ${styles.chatHeader}`}>
         <span className={styles.aiHeaderAvatar}>
           <i aria-hidden="true" className="bi bi-stars" />
@@ -1111,7 +1444,7 @@ export function WorkspaceChat({
             }}
             optionActions={{ disabled: !canMutateChats, onSelect: openChatAction }}
           />
-          <p>{project ? "Chats de este proyecto" : "Selecciona un proyecto para chatear."}</p>
+          <p>{provider === "chatgpt" && configured.includes("chatgpt") ? <>Usando tu plan de ChatGPT · <a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">Gestionar uso</a></> : provider === "chatgpt" ? "Conecta ChatGPT en Proveedores para usar tu plan." : project ? "Chats de este proyecto" : "Selecciona un proyecto para chatear."}</p>
         </div>
         <button
           ref={closeButtonRef}
@@ -1141,11 +1474,14 @@ export function WorkspaceChat({
           saving={saving}
           pendingMessage={pendingMessage}
           searching={searching}
+          streamingText={streamingText}
+          streamingSuggestions={streamingSuggestions}
           hasProject={!!project}
           suggestionsDisabled={suggestionsDisabled}
           pendingSuggestionId={pendingSuggestionId}
           taskTitles={currentSuggestionTaskData?.tasks ?? new Map()}
           taskDetails={currentSuggestionTaskData?.details ?? new Map()}
+          catalogs={currentSuggestionTaskData?.catalogs ?? null}
           catalogTags={currentSuggestionTaskData?.tags ?? []}
           onAcceptSuggestion={acceptSuggestion}
           onAcceptAllSuggestions={acceptAllSuggestions}
@@ -1188,7 +1524,10 @@ export function WorkspaceChat({
           model={model}
           hasSelectedModel={!!selectedModel}
           onReloadProviders={reloadProviders}
-          onReloadModels={() => setModelsReload((value) => value + 1)}
+          onReloadModels={() => {
+            void invalidateWorkspaceQueries(queryClient, "/api/chat/models");
+            setModelsReload((value) => value + 1);
+          }}
         />
       </div>
 
@@ -1208,6 +1547,20 @@ export function WorkspaceChat({
         onSaveAsNew={() => void saveAsNewChat()}
         limitError={limitError}
       />
+      {autoNotice && (
+        <div className={styles.autoNotice} role="status">
+          <span>{autoNotice.text}</span>
+          {autoNotice.snapshot && (
+            <button type="button" disabled={autoNotice.busy} onClick={() => void undoAutoApply()}>
+              {autoNotice.busy ? "Deshaciendo…" : "Deshacer"}
+            </button>
+          )}
+        </div>
+      )}
+      <div className={styles.autoApply}>
+        <Switch checked={autoApply} onChange={toggleAutoApply} labelledBy="auto-apply-label" />
+        <span id="auto-apply-label">Aplicar cambios de la IA automáticamente</span>
+      </div>
       <ChatComposer
         draft={draft}
         onDraftChange={(value) => {
@@ -1219,7 +1572,7 @@ export function WorkspaceChat({
         onSend={() => void sendMessage()}
         sending={sending}
         canSend={ready}
-        attachmentsDisabled={busy || !!pendingSave.current || !project || !storageAvailable}
+        attachmentsDisabled={attachmentsDisabled}
         attachments={attachments.items}
         attachmentError={attachments.error}
         projectId={project?.id}
@@ -1227,6 +1580,8 @@ export function WorkspaceChat({
         onRetryAttachment={attachments.retry}
         onCancelAttachment={attachments.cancel}
         onRemoveAttachment={(key) => void attachments.remove(key)}
+        taskRefs={taskRefs}
+        onRemoveTask={(id) => setTaskRefs((current) => current.filter((item) => item.id !== id))}
       />
       <ChatActionDialog
         dialogRef={actionDialog}

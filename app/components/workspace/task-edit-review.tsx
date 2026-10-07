@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { TaskSuggestionChanges } from "../../chat-contract";
+import type { TaskCatalogsDto } from "../../api/tasks/route";
 import { Modal } from "../shell/modal";
-import styles from "./task-suggestion-card.module.css";
+import { ChatPicker } from "./chat-picker";
+import { DatePicker } from "./date-picker";
+import { fallbackPriorityColor } from "./task-card";
+import { TaskSubtasksSection, TaskTagsSection, type EditableSubtask } from "./task-detail-sections";
+import styles from "./task-editor.module.css";
+import cardStyles from "./task-suggestion-card.module.css";
 
 type Tag = { name: string; color?: string };
-type SubtaskRow = { title: string; completed: boolean; existing: boolean };
 type Priority = NonNullable<TaskSuggestionChanges["priority"]>;
 
 export type SuggestionTargetTask = {
@@ -23,7 +28,7 @@ export type SuggestionTargetTask = {
 export const columnNames = ["Por hacer", "En progreso", "Terminado"];
 const priorityNames: Record<Priority, string> = { alta: "Alta", media: "Media", baja: "Baja", "sin prioridad": "Sin prioridad" };
 
-const same = (a: string, b: string) => a.trim().toLocaleLowerCase("es") === b.trim().toLocaleLowerCase("es");
+const norm = (value: string) => value.trim().toLocaleLowerCase("es");
 
 export function describeChanges(changes: TaskSuggestionChanges): [string, string][] {
   const rows: [string, string][] = [];
@@ -39,35 +44,74 @@ export function describeChanges(changes: TaskSuggestionChanges): [string, string
   if (changes.removeSubtasks?.length) rows.push(["Quitar subtareas", changes.removeSubtasks.join(" · ")]);
   if (changes.completeSubtasks?.length) rows.push(["Completar subtareas", changes.completeSubtasks.join(" · ")]);
   if (changes.reopenSubtasks?.length) rows.push(["Reabrir subtareas", changes.reopenSubtasks.join(" · ")]);
+  if (changes.renameSubtasks?.length) rows.push(["Renombrar subtareas", changes.renameSubtasks.map(({ from, to }) => `${from} → ${to}`).join(" · ")]);
   return rows;
 }
 
-function initialState(target: SuggestionTargetTask, changes: TaskSuggestionChanges) {
-  const removedTags = new Set((changes.removeTags ?? []).map((name) => name.trim().toLocaleLowerCase("es")));
-  const tags: Tag[] = target.tags.filter(({ name }) => !removedTags.has(name.trim().toLocaleLowerCase("es")));
-  for (const tag of changes.addTags ?? []) if (!tags.some(({ name }) => same(name, tag.name))) tags.push({ ...tag });
+type FormState = {
+  title: string;
+  description: string;
+  priorityKey: string;
+  column: string;
+  startDate: string;
+  endDate: string;
+  tagKeys: string[];
+  newTagColors: Record<string, string>;
+  subtasks: EditableSubtask[];
+};
 
-  const removed = new Set((changes.removeSubtasks ?? []).map((title) => title.trim().toLocaleLowerCase("es")));
-  const completed = new Set((changes.completeSubtasks ?? []).map((title) => title.trim().toLocaleLowerCase("es")));
-  const reopened = new Set((changes.reopenSubtasks ?? []).map((title) => title.trim().toLocaleLowerCase("es")));
-  const subtasks: SubtaskRow[] = target.subtasks
-    .filter(({ title }) => !removed.has(title.trim().toLocaleLowerCase("es")))
-    .map(({ title, completed: done }) => {
-      const key = title.trim().toLocaleLowerCase("es");
-      return { title, completed: completed.has(key) ? true : reopened.has(key) ? false : done, existing: true };
+function tagKeyFor(name: string, catalogs: TaskCatalogsDto) {
+  const found = catalogs.tags.find((tag) => norm(tag.name) === norm(name));
+  return found ? `id:${found.id}` : `name:${name.trim()}`;
+}
+
+function initialState(target: SuggestionTargetTask, catalogs: TaskCatalogsDto, changes: TaskSuggestionChanges) {
+  const priorityName = norm(changes.priority ?? target.priority);
+  const priority = catalogs.priorities.find((item) => norm(item.name) === priorityName);
+
+  const removedTags = new Set((changes.removeTags ?? []).map(norm));
+  const tagKeys: string[] = [];
+  const newTagColors: Record<string, string> = {};
+  for (const tag of target.tags) {
+    if (!removedTags.has(norm(tag.name))) tagKeys.push(tagKeyFor(tag.name, catalogs));
+  }
+  for (const tag of changes.addTags ?? []) {
+    const key = tagKeyFor(tag.name, catalogs);
+    if (tagKeys.includes(key)) continue;
+    tagKeys.push(key);
+    if (key.startsWith("name:") && tag.color) newTagColors[key] = tag.color;
+  }
+
+  const removed = new Set((changes.removeSubtasks ?? []).map(norm));
+  const completed = new Set((changes.completeSubtasks ?? []).map(norm));
+  const reopened = new Set((changes.reopenSubtasks ?? []).map(norm));
+  const renamed = new Map((changes.renameSubtasks ?? []).map((item) => [norm(item.from), item.to]));
+  const subtasks: EditableSubtask[] = [];
+  target.subtasks.forEach((item, index) => {
+    const key = norm(item.title);
+    if (removed.has(key)) return;
+    subtasks.push({
+      id: index + 1,
+      localKey: `db:${index}`,
+      title: renamed.get(key) ?? item.title,
+      completed: completed.has(key) ? true : reopened.has(key) ? false : item.completed,
     });
-  for (const { title } of changes.addSubtasks ?? []) subtasks.push({ title, completed: false, existing: false });
+  });
+  (changes.addSubtasks ?? []).forEach((item, index) => {
+    subtasks.push({ localKey: `new:${index}`, title: item.title, completed: false });
+  });
 
   return {
     title: changes.title ?? target.title,
     description: changes.description ?? target.description,
-    priority: (changes.priority ?? target.priority) as Priority,
+    priorityKey: priority ? String(priority.id) : "",
+    column: String(changes.column ?? target.column),
     startDate: (changes.startDate !== undefined ? changes.startDate : target.startDate) ?? "",
     endDate: (changes.endDate !== undefined ? changes.endDate : target.endDate) ?? "",
-    column: changes.column ?? target.column,
-    tags,
+    tagKeys,
+    newTagColors,
     subtasks,
-  };
+  } satisfies FormState;
 }
 
 export function TaskEditReview({
@@ -75,8 +119,8 @@ export function TaskEditReview({
   onClose,
   changes,
   target,
+  catalogs,
   targetLabel,
-  catalogTags,
   pending,
   onSubmit,
 }: {
@@ -84,84 +128,111 @@ export function TaskEditReview({
   onClose: () => void;
   changes: TaskSuggestionChanges;
   target?: SuggestionTargetTask;
+  catalogs: TaskCatalogsDto | null;
   targetLabel: string;
-  catalogTags: { name: string; color: string | null }[];
   pending: boolean;
   onSubmit: (changes: TaskSuggestionChanges) => Promise<string | null>;
 }) {
-  const [form, setForm] = useState(() => target ? initialState(target, changes) : null);
-  const [newTagName, setNewTagName] = useState("");
-  const [newTagColor, setNewTagColor] = useState("#007aff");
+  const [form, setForm] = useState<FormState | null>(null);
+  const [newTag, setNewTag] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#007AFF");
+  const [subtaskDraft, setSubtaskDraft] = useState("");
   const [error, setError] = useState("");
+  const nextKey = useRef(100);
+  const draftInput = useRef<HTMLInputElement>(null);
+  const draftRef = useRef("");
 
   useEffect(() => {
     if (!open) return;
-    setForm(target ? initialState(target, changes) : null);
-    setNewTagName("");
+    setForm(target && catalogs ? initialState(target, catalogs, changes) : null);
+    setNewTag("");
+    setSubtaskDraft("");
+    draftRef.current = "";
     setError("");
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
-  function patch(next: Partial<NonNullable<typeof form>>) {
+  function patch(next: Partial<FormState>) {
     setForm((current) => current && { ...current, ...next });
     setError("");
   }
 
   function addTag() {
-    if (!form) return;
-    const name = newTagName.trim();
-    if (!name || name.length > 80) return;
-    if (form.tags.some((tag) => same(tag.name, name))) {
-      setError("Cada etiqueta debe tener un nombre distinto.");
-      return;
+    if (!form || !catalogs) return;
+    const name = newTag.trim();
+    if (!name) return;
+    const key = tagKeyFor(name, catalogs);
+    if (!form.tagKeys.includes(key)) {
+      patch({
+        tagKeys: [...form.tagKeys, key],
+        newTagColors: key.startsWith("name:") ? { ...form.newTagColors, [key]: newTagColor } : form.newTagColors,
+      });
     }
-    patch({ tags: [...form.tags, { name, color: newTagColor }] });
-    setNewTagName("");
+    setNewTag("");
+  }
+
+  function addSubtask() {
+    const title = draftRef.current.trim();
+    if (!form || !title) return;
+    patch({ subtasks: [...form.subtasks, { localKey: `new:${++nextKey.current}`, title, completed: false }] });
+    draftRef.current = "";
+    setSubtaskDraft("");
+    requestAnimationFrame(() => draftInput.current?.focus());
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!target || !form) {
+    if (!target || !catalogs || !form) {
       const failure = await onSubmit(changes);
       if (failure) setError(failure);
       return;
     }
-    const diff: TaskSuggestionChanges = {};
     const title = form.title.trim();
     if (!title || title.length > 255) return setError("El nombre debe tener entre 1 y 255 caracteres.");
     if (form.description.length > 2000) return setError("La descripción no puede superar 2000 caracteres.");
     if (form.startDate && form.endDate && form.startDate > form.endDate) {
       return setError("La fecha de inicio no puede ser posterior a la de fin.");
     }
+
+    const diff: TaskSuggestionChanges = {};
     if (title !== target.title) diff.title = title;
     if (form.description.trim() !== target.description.trim()) diff.description = form.description.trim();
-    if (form.priority !== target.priority) diff.priority = form.priority;
+    const priorityName = catalogs.priorities.find((item) => String(item.id) === form.priorityKey)?.name ?? "sin prioridad";
+    if (norm(priorityName) !== norm(target.priority)) diff.priority = norm(priorityName) as Priority;
     if (form.startDate !== (target.startDate ?? "")) diff.startDate = form.startDate || null;
     if (form.endDate !== (target.endDate ?? "")) diff.endDate = form.endDate || null;
-    if (form.column !== target.column) diff.column = form.column as 0 | 1 | 2;
+    if (Number(form.column) !== target.column) diff.column = Number(form.column) as 0 | 1 | 2;
 
-    const finalTags = form.tags.map(({ name, color }) => ({ name: name.trim(), color })).filter(({ name }) => name);
-    if (finalTags.some(({ name }) => name.length > 80)) return setError("Los nombres de etiqueta deben tener entre 1 y 80 caracteres.");
+    const finalTags = form.tagKeys.map((key) => {
+      const catalogTag = key.startsWith("id:") ? catalogs.tags.find((item) => key === `id:${item.id}`) : undefined;
+      return { name: catalogTag?.name ?? key.slice(5), color: form.newTagColors[key] };
+    });
     const addTags = finalTags
-      .filter(({ name }) => !target.tags.some((tag) => same(tag.name, name)))
-      .map(({ name, color }) => catalogTags.some((item) => same(item.name, name)) || !color ? { name } : { name, color });
-    const removeTags = target.tags.filter(({ name }) => !finalTags.some((tag) => same(tag.name, name))).map(({ name }) => name);
+      .filter(({ name }) => !target.tags.some((tag) => norm(tag.name) === norm(name)))
+      .map(({ name, color }) => (color ? { name, color } : { name }));
+    const removeTags = target.tags.filter(({ name }) => !finalTags.some((tag) => norm(tag.name) === norm(name))).map(({ name }) => name);
     if (addTags.length > 10 || removeTags.length > 10) return setError("Se admiten hasta 10 cambios de etiquetas por propuesta.");
     if (addTags.length) diff.addTags = addTags;
     if (removeTags.length) diff.removeTags = removeTags;
 
-    const kept = form.subtasks.filter((row) => row.existing);
-    const added = form.subtasks.filter((row) => !row.existing).map((row) => row.title.trim()).filter(Boolean);
-    if (added.length > 20 || added.some((item) => item.length > 255)) {
+    const draft = draftRef.current.trim();
+    const rows = draft ? [...form.subtasks, { localKey: "draft:input", title: draft, completed: false }] : form.subtasks;
+    const kept = rows.filter((row) => row.localKey.startsWith("db:"));
+    const added = rows.filter((row) => !row.localKey.startsWith("db:")).map((row) => row.title.trim()).filter(Boolean);
+    if (kept.some((row) => !row.title.trim())) return setError("Las subtareas existentes no pueden quedar sin nombre.");
+    if (added.length > 20 || rows.some((row) => row.title.length > 255)) {
       return setError("Se admiten hasta 20 subtareas nuevas de máximo 255 caracteres.");
     }
-    const removeSubtasks = target.subtasks.filter(({ title: item }) => !kept.some((row) => row.title === item)).map(({ title: item }) => item);
-    const completeSubtasks = kept.filter((row) => row.completed && !target.subtasks.find((st) => st.title === row.title)?.completed).map((row) => row.title);
-    const reopenSubtasks = kept.filter((row) => !row.completed && target.subtasks.find((st) => st.title === row.title)?.completed).map((row) => row.title);
-    if ([removeSubtasks, completeSubtasks, reopenSubtasks].some((list) => list.length > 20)) {
+    const original = (row: EditableSubtask) => target.subtasks[Number(row.localKey.slice(3))];
+    const removeSubtasks = target.subtasks.filter((_, index) => !kept.some((row) => row.localKey === `db:${index}`)).map((item) => item.title);
+    const renameSubtasks = kept.filter((row) => row.title.trim() !== original(row).title).map((row) => ({ from: original(row).title, to: row.title.trim() }));
+    const completeSubtasks = kept.filter((row) => row.completed && !original(row).completed).map((row) => original(row).title);
+    const reopenSubtasks = kept.filter((row) => !row.completed && original(row).completed).map((row) => original(row).title);
+    if ([removeSubtasks, renameSubtasks, completeSubtasks, reopenSubtasks].some((list) => list.length > 20)) {
       return setError("Se admiten hasta 20 cambios por lista de subtareas.");
     }
     if (added.length) diff.addSubtasks = added.map((item) => ({ title: item }));
     if (removeSubtasks.length) diff.removeSubtasks = removeSubtasks;
+    if (renameSubtasks.length) diff.renameSubtasks = renameSubtasks;
     if (completeSubtasks.length) diff.completeSubtasks = completeSubtasks;
     if (reopenSubtasks.length) diff.reopenSubtasks = reopenSubtasks;
 
@@ -175,129 +246,106 @@ export function TaskEditReview({
       open={open}
       onClose={onClose}
       title="Revisar cambios"
+      className={styles.taskEditorDialog}
       submitLabel={pending ? "Aplicando…" : "Aplicar cambios"}
       pending={pending}
       submitDisabled={!!form && !form.title.trim()}
       onSubmit={(event) => void submit(event)}
-      className={styles.reviewModal}
     >
-      <div className={styles.fields}>
-        <label>
-          <span>Tarea</span>
-          <input value={targetLabel} readOnly />
-        </label>
-        {!form ? (
-          <>
-            <p className={styles.notice}>No se pudo cargar la tarea actual; se aplicarán los cambios propuestos tal cual.</p>
-            <dl className={styles.changes} aria-label="Cambios propuestos">
+      <div className={styles.taskEditor}>
+        {error && <p className={styles.editorError} role="alert">{error}</p>}
+        {!form || !catalogs ? (
+          <div className={cardStyles.fields}>
+            <p className={cardStyles.notice}>
+              No se pudo cargar la tarea actual ({targetLabel}); se aplicarán los cambios propuestos tal cual.
+            </p>
+            <dl className={cardStyles.changes} aria-label="Cambios propuestos">
               {describeChanges(changes).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
             </dl>
-          </>
+          </div>
         ) : (
-          <>
-            <label>
-              <span>Nombre</span>
-              <input value={form.title} maxLength={255} required disabled={pending} onChange={(event) => patch({ title: event.target.value })} />
-            </label>
-            <label>
-              <span>Descripción</span>
-              <textarea value={form.description} maxLength={2000} rows={3} disabled={pending} onChange={(event) => patch({ description: event.target.value })} />
-            </label>
-            <label>
-              <span>Prioridad</span>
-              <select value={form.priority} disabled={pending} onChange={(event) => patch({ priority: event.target.value as Priority })}>
-                {(Object.keys(priorityNames) as Priority[]).map((key) => <option key={key} value={key}>{priorityNames[key]}</option>)}
-              </select>
-            </label>
-            <div className={styles.twoCols}>
-              <label>
-                <span>Inicio</span>
-                <input type="date" value={form.startDate} disabled={pending} onChange={(event) => patch({ startDate: event.target.value })} />
+          <fieldset className={styles.editorFormFields} disabled={pending}>
+            <div className={styles.editorGrid}>
+              <label className={`${styles.editorField} ${styles.editorWide}`}>
+                <span>Nombre <i aria-hidden="true">*</i></span>
+                <input required maxLength={255} value={form.title} onChange={(event) => patch({ title: event.target.value })} />
               </label>
-              <label>
-                <span>Fin</span>
-                <input type="date" value={form.endDate} disabled={pending} onChange={(event) => patch({ endDate: event.target.value })} />
+              <label className={`${styles.editorField} ${styles.editorWide}`}>
+                <span>Descripción</span>
+                <textarea rows={3} maxLength={2000} value={form.description} onChange={(event) => patch({ description: event.target.value })} />
               </label>
-            </div>
-            <label>
-              <span>Columna</span>
-              <select value={form.column} disabled={pending} onChange={(event) => patch({ column: Number(event.target.value) })}>
-                {columnNames.map((name, index) => <option key={name} value={index}>{name}</option>)}
-              </select>
-            </label>
-            <fieldset className={styles.subtasks}>
-              <legend>Subtareas</legend>
-              {form.subtasks.map((row, index) => (
-                <div className={styles.subtaskRow} key={index}>
-                  <input
-                    type="checkbox"
-                    aria-label={`Completada: ${row.title || `subtarea ${index + 1}`}`}
-                    checked={row.completed}
-                    disabled={pending}
-                    onChange={(event) => patch({ subtasks: form.subtasks.map((item, i) => i === index ? { ...item, completed: event.target.checked } : item) })}
-                  />
-                  {row.existing ? (
-                    <span className={`${styles.subtaskTitle} ${row.completed ? styles.subtaskDone : ""}`}>{row.title}</span>
-                  ) : (
-                    <input
-                      aria-label={`Subtarea nueva ${index + 1}`}
-                      value={row.title}
-                      maxLength={255}
-                      disabled={pending}
-                      onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) event.preventDefault(); }}
-                      onChange={(event) => patch({ subtasks: form.subtasks.map((item, i) => i === index ? { ...item, title: event.target.value } : item) })}
-                    />
-                  )}
-                  <button type="button" aria-label={`Quitar subtarea ${row.title || index + 1}`} disabled={pending} onClick={() => patch({ subtasks: form.subtasks.filter((_, i) => i !== index) })}>
-                    <i className="bi bi-x-lg" aria-hidden="true" />
-                  </button>
-                </div>
-              ))}
-              <button className={styles.addSubtask} type="button" disabled={pending} onClick={() => patch({ subtasks: [...form.subtasks, { title: "", completed: false, existing: false }] })}>
-                Añadir subtarea
-              </button>
-            </fieldset>
-            <fieldset className={styles.tagsEditor}>
-              <legend>Etiquetas</legend>
-              {form.tags.map((tag, index) => {
-                const existing = catalogTags.find((item) => same(item.name, tag.name));
-                return <div className={styles.tagRow} key={index}>
-                  <input
-                    aria-label={`Nombre de etiqueta ${index + 1}`}
-                    value={tag.name}
-                    maxLength={80}
-                    disabled={pending}
-                    onChange={(event) => patch({ tags: form.tags.map((item, i) => i === index ? { ...item, name: event.target.value } : item) })}
-                  />
-                  <input
-                    type="color"
-                    aria-label={`Color de etiqueta ${tag.name || index + 1}`}
-                    value={existing?.color || tag.color || "#7c8a99"}
-                    disabled={pending || !!existing}
-                    onChange={(event) => patch({ tags: form.tags.map((item, i) => i === index ? { ...item, color: event.target.value } : item) })}
-                  />
-                  <button type="button" aria-label={`Quitar etiqueta ${tag.name || index + 1}`} disabled={pending} onClick={() => patch({ tags: form.tags.filter((_, i) => i !== index) })}>
-                    <i className="bi bi-x-lg" aria-hidden="true" />
-                  </button>
-                </div>;
-              })}
-              <div className={styles.newTagRow}>
-                <input
-                  aria-label="Nombre de nueva etiqueta"
-                  placeholder="Nueva etiqueta"
-                  value={newTagName}
-                  maxLength={80}
-                  disabled={pending}
-                  onChange={(event) => { setNewTagName(event.target.value); setError(""); }}
-                  onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); addTag(); } }}
+              <div className={styles.editorField}>
+                <span>Prioridad</span>
+                <ChatPicker
+                  label="Prioridad"
+                  value={form.priorityKey}
+                  options={[
+                    { value: "", label: "Sin prioridad" },
+                    ...catalogs.priorities
+                      .filter((item) => norm(item.name) !== "sin prioridad")
+                      .map((item) => ({ value: String(item.id), label: item.name, color: item.color || fallbackPriorityColor(norm(item.name)) })),
+                  ]}
+                  onChange={(value) => patch({ priorityKey: value })}
+                  size="form"
                 />
-                <input type="color" aria-label="Color de nueva etiqueta" value={newTagColor} disabled={pending} onChange={(event) => setNewTagColor(event.target.value)} />
-                <button className={styles.addSubtask} type="button" disabled={pending || !newTagName.trim()} onClick={addTag}>Añadir</button>
               </div>
-            </fieldset>
-          </>
+              <TaskTagsSection
+                catalogs={catalogs}
+                tagKeys={form.tagKeys}
+                exitingTagKeys={new Set()}
+                newTag={newTag}
+                newTagColor={newTagColor}
+                newTagColors={form.newTagColors}
+                tagError=""
+                tagActionNotice=""
+                saving={false}
+                savePending={pending}
+                suspended={!open}
+                onNewTagChange={setNewTag}
+                onNewTagColorChange={setNewTagColor}
+                onAddTag={addTag}
+                onAppendTagKey={(key) => patch({ tagKeys: form.tagKeys.includes(key) ? form.tagKeys : [...form.tagKeys, key] })}
+                onStartRemoval={(key) => patch({ tagKeys: form.tagKeys.filter((item) => item !== key) })}
+                onCancelRemoval={() => {}}
+                onFinishRemoval={() => {}}
+              />
+              <div className={styles.editorField}>
+                <span>Fecha de inicio</span>
+                <DatePicker label="Fecha de inicio" value={form.startDate} max={form.endDate || undefined} invalid={Boolean(error && form.startDate && form.endDate && form.startDate > form.endDate)} onChange={(value) => patch({ startDate: value })} disabled={pending} suspended={!open || pending} />
+              </div>
+              <div className={styles.editorField}>
+                <span>Fecha de fin</span>
+                <DatePicker label="Fecha de fin" value={form.endDate} min={form.startDate || undefined} invalid={Boolean(error && form.startDate && form.endDate && form.startDate > form.endDate)} onChange={(value) => patch({ endDate: value })} disabled={pending} suspended={!open || pending} />
+              </div>
+              <div className={`${styles.editorField} ${styles.editorWide}`}>
+                <span>Columna</span>
+                <ChatPicker
+                  label="Columna"
+                  value={form.column}
+                  options={columnNames.map((name, index) => ({ value: String(index), label: name }))}
+                  onChange={(value) => patch({ column: value })}
+                  size="form"
+                />
+              </div>
+            </div>
+
+            <TaskSubtasksSection
+              subtasks={form.subtasks}
+              draft={subtaskDraft}
+              exitingKeys={new Set()}
+              saving={false}
+              savePending={pending}
+              draftInputRef={draftInput}
+              onDraftChange={(value) => { draftRef.current = value; setSubtaskDraft(value); }}
+              onAdd={addSubtask}
+              onSetTitle={(key, title) => patch({ subtasks: form.subtasks.map((item) => item.localKey === key ? { ...item, title } : item) })}
+              onSetCompleted={(key, completed) => patch({ subtasks: form.subtasks.map((item) => item.localKey === key ? { ...item, completed } : item) })}
+              onSetAllCompleted={(completed) => patch({ subtasks: form.subtasks.map((item) => ({ ...item, completed })) })}
+              onStartRemoval={(key) => patch({ subtasks: form.subtasks.filter((item) => item.localKey !== key) })}
+              onFinishRemoval={() => {}}
+            />
+          </fieldset>
         )}
-        {error && <p className={styles.error} role="alert">{error}</p>}
       </div>
     </Modal>
   );

@@ -1,8 +1,7 @@
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id INTEGER PRIMARY KEY,
-  nombre TEXT NOT NULL,
-  correo TEXT NOT NULL UNIQUE,
+  usuario TEXT NOT NULL UNIQUE COLLATE NOCASE,
   contrasena TEXT NOT NULL CHECK (contrasena LIKE 'scrypt$%'),
   fecha_creacion TEXT,
   ultimo_acceso TEXT

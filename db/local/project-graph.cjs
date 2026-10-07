@@ -1,8 +1,3 @@
-/**
- * db/local/project-graph.cjs
- * Sistema de grafo proyectual derivado de registros oficiales,
- * registro atómico de eventos append-only y compilación compacta de contexto para LLM.
- */
 
 "use strict";
 
@@ -18,10 +13,6 @@ class ProjectContextBudgetError extends Error {
   }
 }
 
-/**
- * Helper reutilizable para ejecutar operaciones en un SAVEPOINT.
- * Soporta llamadas anidadas sin romper transacciones externas.
- */
 function withSnapshot(db, fn) {
   const savepointName = `sp_snap_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
   db.exec(`SAVEPOINT ${savepointName};`);
@@ -88,12 +79,10 @@ function isProjectGraphSchemaCurrent(db) {
 }
 
 function ensureProjectGraphSchema(db) {
-  // Fast path sin DDL si el esquema ya está instalado y en la revisión actual
   if (isProjectGraphSchemaCurrent(db)) {
     return;
   }
 
-  // Instalación o actualización atómica bajo SAVEPOINT
   withSnapshot(db, () => {
     db.exec(`
       CREATE TABLE IF NOT EXISTS proyecto_eventos (
@@ -116,7 +105,6 @@ function ensureProjectGraphSchema(db) {
     }
 
     db.exec(`
-      -- Triggers para proyectos
       CREATE TRIGGER trg_ev_proyectos_ai AFTER INSERT ON proyectos
       BEGIN
         ${GRAPH_TRIGGERS_REVISION}
@@ -151,7 +139,6 @@ function ensureProjectGraphSchema(db) {
         );
       END;
 
-      -- Triggers para listas_tareas
       CREATE TRIGGER trg_ev_listas_ai AFTER INSERT ON listas_tareas
       BEGIN
         ${GRAPH_TRIGGERS_REVISION}
@@ -185,7 +172,6 @@ function ensureProjectGraphSchema(db) {
         FROM proyectos p WHERE p.id = OLD.proyecto_id;
       END;
 
-      -- Triggers para tareas
       CREATE TRIGGER trg_ev_tareas_ai AFTER INSERT ON tareas
       BEGIN
         ${GRAPH_TRIGGERS_REVISION}
@@ -239,7 +225,6 @@ function ensureProjectGraphSchema(db) {
         WHERE lt.id = OLD.lista_id;
       END;
 
-      -- Triggers para subtareas
       CREATE TRIGGER trg_ev_subtareas_ai AFTER INSERT ON subtareas
       BEGIN
         ${GRAPH_TRIGGERS_REVISION}
@@ -280,7 +265,6 @@ function ensureProjectGraphSchema(db) {
         WHERE t.id = OLD.tarea_id;
       END;
 
-      -- Triggers para etiquetas del proyecto
       CREATE TRIGGER trg_ev_etiquetas_ai AFTER INSERT ON etiquetas
       BEGIN
         ${GRAPH_TRIGGERS_REVISION}
@@ -312,7 +296,6 @@ function ensureProjectGraphSchema(db) {
         FROM proyectos p WHERE p.id = OLD.proyecto_id;
       END;
 
-      -- Triggers para etiquetas de tareas
       CREATE TRIGGER trg_ev_tarea_etiquetas_ai AFTER INSERT ON tarea_etiquetas
       BEGIN
         ${GRAPH_TRIGGERS_REVISION}
@@ -341,7 +324,6 @@ function ensureProjectGraphSchema(db) {
         WHERE t.id = OLD.tarea_id;
       END;
 
-      -- Triggers para proyecto_contexto
       CREATE TRIGGER trg_ev_contexto_ai AFTER INSERT ON proyecto_contexto
       BEGIN
         ${GRAPH_TRIGGERS_REVISION}
@@ -373,7 +355,6 @@ function ensureProjectGraphSchema(db) {
         FROM proyectos p WHERE p.id = OLD.proyecto_id;
       END;
 
-      -- Triggers para proyecto_archivos
       CREATE TRIGGER trg_ev_archivos_ai AFTER INSERT ON proyecto_archivos
       BEGIN
         ${GRAPH_TRIGGERS_REVISION}
@@ -394,7 +375,6 @@ function ensureProjectGraphSchema(db) {
         FROM proyectos p WHERE p.id = OLD.proyecto_id;
       END;
 
-      -- Triggers para chats
       CREATE TRIGGER trg_ev_chats_ai AFTER INSERT ON chats
       BEGIN
         ${GRAPH_TRIGGERS_REVISION}
@@ -723,7 +703,6 @@ function compileProjectContext(db, projectId, options = {}) {
 
     const version = getProjectVersion(db, projectId);
 
-    // 1. Contexto, Reglas y Recursos base
     const ctxRow = db
       .prepare("SELECT contexto, reglas, recursos FROM proyecto_contexto WHERE proyecto_id = ?")
       .get(projectId);
@@ -742,7 +721,6 @@ function compileProjectContext(db, projectId, options = {}) {
       } catch {}
     }
 
-    // 2. Estructura de listas (obligatoria para mapeo de kanban)
     const lists = db
       .prepare(
         `SELECT lt.id, lt.nombre, lt.estado,
@@ -772,7 +750,6 @@ function compileProjectContext(db, projectId, options = {}) {
       );
     }
 
-    // 3. Tareas en BD
     const allTasks = db
       .prepare(
         `SELECT t.id, t.lista_id, lt.nombre AS lista_nombre, t.nombre,
@@ -791,7 +768,6 @@ function compileProjectContext(db, projectId, options = {}) {
 
     const allTaskMap = new Map(allTasks.map((t) => [t.id, t]));
 
-    // 4. Detalle de tareas explícitas primero
     const explicitDetails = [];
     const missingExplicitIds = [];
     for (const eid of explicitTaskIds) {
@@ -802,7 +778,6 @@ function compileProjectContext(db, projectId, options = {}) {
       }
     }
 
-    // Tareas adicionales que coincidan con palabras clave
     const lowerQuery = queryText.toLowerCase();
     const queryTokens = lowerQuery
       .split(/\s+/)
@@ -822,7 +797,6 @@ function compileProjectContext(db, projectId, options = {}) {
 
     const prioritizedDetailTasks = [...explicitDetails, ...keywordDetails];
 
-    // Helper para formatear detalle acotado
     function formatTaskDetail(taskItem, budgetRemaining) {
       const fullTaskRow = db
         .prepare("SELECT descripcion, fecha_inicio, fecha_fin, archivos_enlaces FROM tareas WHERE id = ?")
@@ -869,7 +843,6 @@ function compileProjectContext(db, projectId, options = {}) {
         return { text: candidate, truncated: isAttachmentsTruncated };
       }
 
-      // Truncar descripción si excede
       const overhead = item.length + subStr.length + 50;
       const descBudget = budgetRemaining - overhead;
       if (descBudget > 40 && descStr) {
@@ -880,7 +853,6 @@ function compileProjectContext(db, projectId, options = {}) {
         }
       }
 
-      // Truncar subtareas si es necesario
       if (item.length + 30 <= budgetRemaining) {
         return { text: item + "... [detalle parcial por presupuesto]\n", truncated: true };
       }
@@ -888,7 +860,6 @@ function compileProjectContext(db, projectId, options = {}) {
       return null;
     }
 
-    // 5. Construir secciones de detalles prioritarios
     let detailsBlock = "";
     let detailedTasksCount = 0;
     let truncatedDetailTasksCount = 0;
@@ -925,7 +896,6 @@ function compileProjectContext(db, projectId, options = {}) {
       }
     }
 
-    // Aviso acotado para IDs explícitos inexistentes
     if (missingExplicitIds.length > 0) {
       const maxSample = 5;
       const sample = missingExplicitIds.slice(0, maxSample).map((id) => `[tarea:${id}]`).join(", ");
@@ -933,7 +903,6 @@ function compileProjectContext(db, projectId, options = {}) {
       detailsBlock += `[Aviso: Tareas citadas no encontradas (${missingExplicitIds.length}): ${sample}${extra}]\n`;
     }
 
-    // 6. Eventos recientes acotados
     const recentEvents = db
       .prepare(
         `SELECT entidad_tipo, entidad_id, accion, creado_en
@@ -953,7 +922,6 @@ function compileProjectContext(db, projectId, options = {}) {
       eventsBlock = tempEvents;
     }
 
-    // 7. Contexto general y Recursos
     let contextBlock = "";
     if (contextDescription) {
       contextBlock = `### CONTEXTO DEL PROYECTO:\n${contextDescription}\n\n`;
@@ -996,7 +964,6 @@ function compileProjectContext(db, projectId, options = {}) {
 
     const fixedHeaderBlock = `${contextBlock}${mandatoryRulesBlock}${listsSummary}${resourcesBlock}`;
 
-    // 8. Resumen Kanban de tareas
     let tasksSummaryBlock = "### RESUMEN DE TAREAS (KANBAN ACTUAL):\n";
     let includedCount = 0;
     let truncatedCount = 0;
@@ -1043,7 +1010,6 @@ function compileProjectContext(db, projectId, options = {}) {
 
     let compiledPrompt = `${fixedHeaderBlock}${tasksSummaryBlock}${coverageNote}${detailsBlock}${eventsBlock}`.trim();
 
-    // Verificación de invariante estricta sin recortes arbitrarios ciegos
     if (compiledPrompt.length > maxBudgetChars) {
       if (eventsBlock) {
         compiledPrompt = `${fixedHeaderBlock}${tasksSummaryBlock}${coverageNote}${detailsBlock}`.trim();

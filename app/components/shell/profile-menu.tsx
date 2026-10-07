@@ -8,11 +8,15 @@ export function ProfileMenu({
   onToggle,
   onOpenProfile,
   onOpenProviders,
+  onOpenTavily,
+  onLogout,
 }: {
   id?: string;
   onToggle?: (open: boolean) => void;
   onOpenProfile?: () => void;
   onOpenProviders?: () => void;
+  onOpenTavily?: () => void;
+  onLogout?: () => void;
 }) {
   const generatedId = useId();
   const menuId = id ?? generatedId;
@@ -53,6 +57,23 @@ export function ProfileMenu({
         <i aria-hidden="true" className="bi bi-key" />
         Proveedores
       </button>
+      <button type="button" onClick={() => { closeMenu(); onOpenTavily?.(); }}>
+        <i aria-hidden="true" className="bi bi-search" />
+        Tavily · Búsqueda web
+      </button>
+      {onLogout && (
+        <button
+          type="button"
+          className={styles.logout}
+          onClick={() => {
+            closeMenu();
+            onLogout();
+          }}
+        >
+          <i aria-hidden="true" className="bi bi-box-arrow-right" />
+          Cerrar sesión
+        </button>
+      )}
     </div>
   );
 }

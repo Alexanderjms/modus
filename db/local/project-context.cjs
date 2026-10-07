@@ -9,7 +9,7 @@ const MAX_RULE_LENGTH = 500;
 const MAX_RESOURCES_COUNT = 50;
 const MAX_RESOURCE_TITLE_LENGTH = 200;
 const MAX_RESOURCE_URL_LENGTH = 2048;
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MiB
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 function ensureProjectContextTable(db) {
   db.exec(`
@@ -93,11 +93,6 @@ function sanitizeMimeType(mimeType) {
   return "application/octet-stream";
 }
 
-/**
- * @param {any} data
- * @param {any} [db]
- * @param {number|null} [projectId]
- */
 function validateContextDocument(data, db = null, projectId = null) {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     return { error: "El cuerpo debe ser un objeto JSON" };

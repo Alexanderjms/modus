@@ -5,15 +5,37 @@ import { useRouter } from "next/navigation";
 
 import { EyeIcon } from "./onboarding/eye-icon";
 
-const TOKEN_PLACEHOLDER = "•".repeat(20);
-
 export function TursoCredentialsForm() {
   const router = useRouter();
   const [showToken, setShowToken] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    router.push("/onboarding/turso/perfil");
+    if (pending) return;
+    const form = new FormData(event.currentTarget);
+    setPending(true);
+    setError("");
+    try {
+      const response = await fetch("/api/onboarding/turso/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          databaseUrl: String(form.get("databaseUrl") ?? ""),
+          authToken: String(form.get("authToken") ?? ""),
+        }),
+      });
+      if (response.ok) {
+        router.push("/onboarding/turso/perfil");
+        return;
+      }
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      setError(result?.error ?? "No se pudo conectar con Turso. Inténtalo de nuevo.");
+    } catch {
+      setError("No se pudo conectar con el servidor. Inténtalo de nuevo.");
+    }
+    setPending(false);
   }
 
   return (
@@ -38,8 +60,9 @@ export function TursoCredentialsForm() {
               required
               autoComplete="url"
               spellCheck={false}
-              defaultValue="libsql://tu-base.turso.io"
-              className="h-full min-w-0 flex-1 bg-transparent p-0 text-[12.5px] font-normal leading-normal text-[var(--muted)] outline-none placeholder:text-[var(--muted)]"
+              disabled={pending}
+              placeholder="libsql://tu-base.turso.io"
+              className="h-full min-w-0 flex-1 bg-transparent p-0 text-[12.5px] font-normal leading-normal text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
             />
           </div>
         </div>
@@ -58,8 +81,9 @@ export function TursoCredentialsForm() {
               type={showToken ? "text" : "password"}
               required
               autoComplete="off"
-              placeholder={TOKEN_PLACEHOLDER}
-              className="h-full min-w-0 flex-1 bg-transparent p-0 text-[12.5px] font-normal leading-normal text-[var(--foreground)] outline-none placeholder:text-[var(--foreground)] placeholder:opacity-100"
+              disabled={pending}
+              placeholder="Pega tu Auth Token"
+              className="h-full min-w-0 flex-1 bg-transparent p-0 text-[12.5px] font-normal leading-normal text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] placeholder:opacity-100"
             />
             <button
               type="button"
@@ -76,11 +100,18 @@ export function TursoCredentialsForm() {
         </div>
       </div>
 
+      {error && (
+        <p role="alert" className="mt-4 w-full text-[12px] leading-[18px] text-[#c2413a]">
+          {error}
+        </p>
+      )}
+
       <button
         type="submit"
-        className="mt-6 inline-flex h-[26px] w-fit items-center justify-center rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-[12px] font-semibold leading-4 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
+        disabled={pending}
+        className="mt-6 inline-flex h-[26px] w-fit items-center justify-center rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-[12px] font-semibold leading-4 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF] disabled:opacity-60"
       >
-        Probar conexión
+        {pending ? "Conectando…" : "Probar conexión"}
       </button>
     </form>
   );

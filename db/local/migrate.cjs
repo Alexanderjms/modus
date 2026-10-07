@@ -16,6 +16,7 @@ function getTableColumns(db, tableName) {
 }
 
 function inspectCompatibility(db) {
+  if (db.kind === "turso") return;
   const existingTables = getTableList(db);
   if (existingTables.includes("usuarios")) {
     const cols = getTableColumns(db, "usuarios").map((c) => c.name);
@@ -102,12 +103,58 @@ function migrateSubtasksSchema(db) {
   }
 }
 
+const CLOUD_USERS_TABLE = `CREATE TABLE IF NOT EXISTS usuarios (
+  id INTEGER PRIMARY KEY,
+  usuario TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  contrasena TEXT NOT NULL CHECK (contrasena LIKE 'scrypt$%'),
+  fecha_creacion TEXT,
+  ultimo_acceso TEXT
+);`;
+
+function migrateCloudUsers(db) {
+  const cols = getTableColumns(db, "usuarios").map((c) => c.name);
+  if (cols.includes("usuario")) return;
+  const rows = db.prepare("SELECT * FROM usuarios ORDER BY id").all();
+  db.exec(CLOUD_USERS_TABLE.replace("usuarios", "usuarios_nueva"));
+  const taken = new Set();
+  const insert = db.prepare("INSERT INTO usuarios_nueva (id, usuario, contrasena, fecha_creacion, ultimo_acceso) VALUES (?, ?, ?, ?, ?)");
+  for (const row of rows) {
+    const fromEmail = typeof row.correo === "string" ? row.correo.split("@")[0] : "";
+    let name = (fromEmail || row.nombre || "usuario").replace(/[^A-Za-z0-9._-]/g, "").slice(0, 32) || "usuario";
+    if (taken.has(name.toLowerCase())) name = `${name.slice(0, 27)}${row.id}`;
+    taken.add(name.toLowerCase());
+    insert.run(row.id, name, row.contrasena, row.fecha_creacion ?? null, row.ultimo_acceso ?? null);
+  }
+  db.exec("DROP TABLE usuarios;");
+  db.exec("ALTER TABLE usuarios_nueva RENAME TO usuarios;");
+  if (db.prepare("PRAGMA foreign_key_check").all().length) {
+    throw new Error("La migración de usuarios no pudo conservar la integridad de las relaciones");
+  }
+}
+
 function applySchema(db, options = {}) {
-  const sqlContent = fs.readFileSync(getSchemaPath(), "utf8");
+  const rebuildUsers = db.kind === "turso" && getTableList(db).includes("usuarios") &&
+    !getTableColumns(db, "usuarios").some((column) => column.name === "usuario");
+  if (rebuildUsers) db.setForeignKeys(false);
+  try {
+    applySchemaInner(db, options);
+  } finally {
+    if (rebuildUsers) db.setForeignKeys(true);
+  }
+}
+
+function applySchemaInner(db, options = {}) {
+  let sqlContent = fs.readFileSync(getSchemaPath(), "utf8");
+  if (db.kind === "turso") {
+    sqlContent = sqlContent.replace(/CREATE TABLE IF NOT EXISTS usuarios \([\s\S]*?\r?\n\);/, CLOUD_USERS_TABLE);
+  }
   inspectCompatibility(db);
   db.exec("BEGIN TRANSACTION;");
   try {
     const existingTables = getTableList(db);
+    if (db.kind === "turso" && existingTables.includes("usuarios")) {
+      migrateCloudUsers(db);
+    }
     if (existingTables.includes("proyectos")) {
       const proyectosCols = getTableColumns(db, "proyectos").map((c) => c.name);
       if (!proyectosCols.includes("descripcion")) {
@@ -159,8 +206,6 @@ function applySchema(db, options = {}) {
       }
 
       if (!etiquetasCols.includes("proyecto_id")) {
-        // Migración segura de etiquetas globales compartidas a etiquetas con ámbito por proyecto.
-        // ponytail: recreación de tabla manteniendo integridad referencial y mapeo atómico de tareas
         db.exec(`
           CREATE TABLE etiquetas_nueva (
             id INTEGER PRIMARY KEY,
@@ -184,10 +229,8 @@ function applySchema(db, options = {}) {
         const insertNewTag = db.prepare(
           "INSERT INTO etiquetas_nueva (proyecto_id, nombre, color, descripcion) VALUES (?, ?, ?, ?)"
         );
-        // Map: `${projectId}:${oldTagId}` -> newTagId
         const tagMap = new Map();
 
-        // 1. Para cada proyecto existente, duplicar el catálogo inicial de etiquetas existentes
         for (const p of allProjects) {
           for (const ot of oldTags) {
             const res = insertNewTag.run(p.id, ot.nombre, ot.color, ot.descripcion);
@@ -196,7 +239,6 @@ function applySchema(db, options = {}) {
           }
         }
 
-        // 2. Recrear tarea_etiquetas apuntando a la nueva etiquetas para no violar la FK al actualizar o borrar
         db.exec(`
           CREATE TABLE tarea_etiquetas_nueva (
             tarea_id INTEGER NOT NULL REFERENCES tareas(id) ON DELETE CASCADE,

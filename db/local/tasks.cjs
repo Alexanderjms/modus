@@ -1181,7 +1181,6 @@ function duplicateProjectTask(db, { projectId, taskId }) {
       );
     const newId = Number(info.lastInsertRowid);
 
-    // Duplicar enlaces de etiquetas respetando el ámbito de proyecto
     const etiquetasCols = db
       .prepare("SELECT name FROM pragma_table_info('etiquetas')")
       .all()
@@ -1225,49 +1224,44 @@ function duplicateProjectTask(db, { projectId, taskId }) {
   }
 }
 
-function getWeeklyActivity(db, userId, clientNow) {
+function getActivity(db, userId, clientNow, weeks = 53) {
   ensureTaskCompletionsTable(db);
 
   const now = clientNow instanceof Date ? clientNow : new Date();
-  const days = [];
-  const dayDateStrings = [];
+  const format = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const mondayOffset = (now.getDay() + 6) % 7;
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - mondayOffset - (weeks - 1) * 7);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    const dateStr = `${yyyy}-${mm}-${dd}`;
-    days.push({ date: dateStr, completed: 0 });
-    dayDateStrings.push(dateStr);
+  const days = [];
+  for (let d = start; d <= today; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+    days.push({ date: format(d), completed: 0 });
   }
+
+  const offsetMinutes = -now.getTimezoneOffset();
+  const zone = db.kind === "turso"
+    ? `${offsetMinutes < 0 ? "-" : "+"}${String(Math.floor(Math.abs(offsetMinutes) / 60)).padStart(2, "0")}:${String(Math.abs(offsetMinutes) % 60).padStart(2, "0")}`
+    : "localtime";
 
   const rows = db
     .prepare(
       `
       SELECT 
-        strftime('%Y-%m-%d', tc.completada_en, 'localtime') AS day_date,
+        strftime('%Y-%m-%d', tc.completada_en, ?) AS day_date,
         COUNT(DISTINCT tc.tarea_id) AS completed_count
       FROM tarea_completaciones tc
       INNER JOIN proyectos p ON p.id = tc.proyecto_id
       WHERE p.usuario_id = ?
-        AND strftime('%Y-%m-%d', tc.completada_en, 'localtime') >= ?
-        AND strftime('%Y-%m-%d', tc.completada_en, 'localtime') <= ?
+        AND strftime('%Y-%m-%d', tc.completada_en, ?) >= ?
+        AND strftime('%Y-%m-%d', tc.completada_en, ?) <= ?
       GROUP BY day_date
     `
     )
-    .all(userId, dayDateStrings[0], dayDateStrings[6]);
+    .all(zone, userId, zone, days[0].date, zone, days[days.length - 1].date);
 
-  const countByDay = new Map();
-  for (const r of rows) {
-    countByDay.set(r.day_date, Number(r.completed_count));
-  }
-
-  for (const day of days) {
-    if (countByDay.has(day.date)) {
-      day.completed = countByDay.get(day.date);
-    }
-  }
+  const countByDay = new Map(rows.map((r) => [r.day_date, Number(r.completed_count)]));
+  for (const day of days) day.completed = countByDay.get(day.date) ?? 0;
 
   return {
     days,
@@ -1309,7 +1303,6 @@ function updateProjectTag(db, { projectId, tagId, name, color }) {
     throw err;
   }
 
-  // Comprobar conflicto de nombre duplicado en el mismo proyecto (case-insensitive)
   const dupRow = hasTagProjectCol
     ? db.prepare("SELECT id FROM etiquetas WHERE proyecto_id = ? AND LOWER(nombre) = LOWER(?) AND id != ?").get(projectId, trimmedName, tagId)
     : db.prepare("SELECT id FROM etiquetas WHERE LOWER(nombre) = LOWER(?) AND id != ?").get(trimmedName, tagId);
@@ -1367,7 +1360,6 @@ function deleteProjectTag(db, { projectId, tagId }) {
 
   db.exec("BEGIN");
   try {
-    // Eliminar asociaciones explícitamente dentro del proyecto para tareas de este proyecto
     db.prepare(`
       DELETE FROM tarea_etiquetas
       WHERE etiqueta_id = ?
@@ -1382,7 +1374,6 @@ function deleteProjectTag(db, { projectId, tagId }) {
     if (hasTagProjectCol) {
       db.prepare("DELETE FROM etiquetas WHERE id = ? AND proyecto_id = ?").run(tagId, projectId);
     } else {
-      // Si la tabla fuera legacy sin proyecto_id, borrar solo si no quedan asociaciones en otros proyectos
       const remainingLinks = db.prepare("SELECT COUNT(*) AS cnt FROM tarea_etiquetas WHERE etiqueta_id = ?").get(tagId);
       if (!remainingLinks || Number(remainingLinks.cnt) === 0) {
         db.prepare("DELETE FROM etiquetas WHERE id = ?").run(tagId);
@@ -1430,7 +1421,7 @@ module.exports = {
   ensureTaskCompletionsTable,
   recordTaskCompletion,
   isTaskCompleted,
-  getWeeklyActivity,
+  getActivity,
   validateLoopbackSecurity,
   resolveUser,
   openProjectDatabase,

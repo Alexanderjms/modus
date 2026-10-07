@@ -1,32 +1,49 @@
-# Base de datos (Turso / libSQL)
+# Base de datos en la nube (Turso / libSQL)
 
-Esquema y utilidades backend. No requiere dependencias: usa la HTTP Pipeline API
-de Turso con `fetch` nativo y `node:crypto`.
+Con el modo **Turso** toda la app (proyectos, tareas, chats, propuestas de la IA, contexto, adjuntos, actividad) usa
+la misma lógica que el modo local, pero sobre una base remota. No añade dependencias: usa la Hrana sobre HTTP de Turso con
+`fetch` nativo.
+
+## Cómo funciona
+
+- `cloud/turso-db.cjs` expone un adaptador con la forma de `node:sqlite` (`prepare().get/all/run`, `exec`, `isTransaction`).
+  Cada llamada espera la respuesta de Turso de forma síncrona gracias a un hilo auxiliar (`cloud/turso-worker.cjs`,
+  `Atomics.wait` + `receiveMessageOnPort`). Las transacciones usan un único stream (`baton`) por conexión.
+- `local/db.cjs` (`getDatabase`) decide el backend según `.local/storage.json` (`{"mode":"turso"}`); el resto del código no cambia.
+- `local/storage.cjs` guarda el modo y las credenciales en `.local/` (ignorado por Git). El token se cifra con Windows DPAPI.
+  Si no hay credenciales guardadas se usan `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN` del entorno.
+- Un modo por instalación: el onboarding de Turso (`/onboarding/turso`) prueba la conexión, aplica el esquema y crea el perfil
+  (usuario y contraseña con scrypt; sin nombre, apellido ni correo). Para volver a local, borra `.local/storage.json`.
+- Al iniciar la app se pide usuario y contraseña (`pin-lock.cjs`, sesiones en memoria, bloqueo progresivo tras 5 fallos).
 
 ## Comandos
 
 ```bash
 node --env-file=.env db/migrate.cjs
-
 ```
 
-Requiere `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN` en `.env` (ignorado por git). La búsqueda web del chat también requiere `TAVILY_API_KEY`.
-`migrate.cjs` inspecciona el esquema antes, aplica solo `CREATE ... IF NOT EXISTS`
-e `INSERT OR IGNORE`, y no borra datos.
+Aplica el esquema completo en Turso (idempotente, no borra datos). El onboarding ya lo hace por ti; el comando sirve para
+actualizar una base existente. Requiere `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`. La búsqueda web del chat utiliza la clave de Tavily configurada desde el menú de usuario, o `TAVILY_API_KEY` como alternativa de servidor.
+
+## Límites conocidos
+
+- Cada consulta bloquea el servidor mientras viaja a Turso (≈50-200 ms), pensado para uso personal de un solo usuario.
+- Las claves de proveedores de IA se cifran con DPAPI (por equipo y usuario de Windows) y se guardan en `proveedor_claves`;
+  solo se pueden descifrar en este equipo.
+- La actividad usa el huso horario de este equipo (Turso corre en UTC).
+- El bloqueo protege la interfaz; las rutas `/api/*` siguen accesibles desde localhost.
 
 ## Archivos
 
-- `schema.sql` — esquema completo (fuente de verdad, en repo).
-- `lib.cjs` — cliente mínimo de la Pipeline API.
-- `migrate.cjs` — aplica `schema.sql`.
+- `schema.sql` — esquema histórico de la nube (referencia). El esquema vigente es `local/schema.sql`, con `usuarios` adaptada (solo `usuario` y `contrasena`) en `local/migrate.cjs`, que también convierte tablas antiguas.
+- `cloud/` — adaptador síncrono y worker de Turso.
+- `migrate.cjs` — aplica el esquema vigente en Turso.
 - `password.cjs` — hash/verificación scrypt server-only.
 
 ## Contraseñas
 
-Se almacenan como `scrypt$N$r$p$<sal-hex>$<hash-hex>` (sal aleatoria de 16 bytes,
-keylen 64, `timingSafeEqual`). La columna `usuarios.contrasena` tiene un `CHECK`
-(`LIKE 'scrypt$%'`) que rechaza texto plano. Usa `hashPassword` / `verifyPassword`
-solo en el servidor.
+Se almacenan como `scrypt$N$r$p$<sal-hex>$<hash-hex>` (sal aleatoria de 16 bytes, keylen 64, `timingSafeEqual`).
+La columna `usuarios.contrasena` tiene un `CHECK` (`LIKE 'scrypt$%'`) que rechaza texto plano.
 
 ---
 
@@ -37,7 +54,7 @@ Implementación local server-only mediante `node:sqlite` nativo (requiere Node.j
 > **Aviso de arquitectura y límites:**
 > En Next.js, `node:sqlite` se ejecuta exclusivamente en el runtime del servidor (Node.js). La base de datos reside en la máquina del host donde corre el proceso de Node.js, **no en el navegador del cliente**. Solo reside en el dispositivo del usuario final cuando la aplicación y su servidor se ejecutan localmente en su propia máquina.
 > El onboarding crea la base de datos y guarda el perfil después de confirmar. No requiere ejecutar la migración por separado.
-> El PIN se guarda como hash scrypt; **no cifra el archivo SQLite**. La pantalla de desbloqueo todavía no está implementada.
+> El PIN se guarda como hash scrypt; **no cifra el archivo SQLite**.
 
 ## Archivo y Ubicación
 
@@ -145,7 +162,7 @@ La aplicación expone los endpoints server-only para interactuar con SQLite loca
 - `db/local/pin.cjs` — Validador y utilidades `hashPin` / `verifyPin` reutilizando scrypt de `db/password.cjs`.
 - `db/local/credentials.cjs` — Adaptador de cifrado Windows DPAPI (`DataProtectionScope.CurrentUser`) mediante subproceso nativo PowerShell (sin dependencias, comunicación exclusiva vía `stdin`/`stdout`, timeout y límites de buffer).
 - `db/local/providers.cjs` — Helper de resolución de estado de proveedores de IA y desencriptado server-only de API keys por usuario.
-- `db/local/chat.cjs` — Conexión con proveedores de IA (discovery, parsing de respuestas de las familias OpenCode, Google Native, Bedrock Mantle y OpenAI-compatible, mitigación SSRF, timeouts y límites de tamaño). El chat devuelve una respuesta JSON completa, sin streaming hacia el navegador.
+- `db/local/chat.cjs` — Conexión con proveedores de IA (discovery, parsing de respuestas de las familias OpenCode, Bedrock Mantle y OpenAI-compatible, mitigación SSRF, timeouts y límites de tamaño). El chat devuelve una respuesta JSON completa, sin streaming hacia el navegador.
 - `db/local/migrate.cjs` — Script de migración transaccional que inspecciona esquemas existentes y evita colisiones destructivas.
 
 ## API de Chat y Modelos Local (`/api/chat`)
@@ -154,11 +171,11 @@ La aplicación expone los endpoints server-only para interactuar con SQLite loca
 - **Seguridad:** Requiere Host/Origin loopback y no cross-site.
 - **Parámetros:** `provider` (obligatorio, id de proveedor válido) y `region` (obligatorio para Bedrock, validado contra lista de regiones permitidas de Mantle).
 - **Respuesta 200:** `Cache-Control: no-store`, `{ "models": [{ "id": string, "name": string, "protocol": "chat-completions" | "responses" | "messages" | null, "source"?: "go" | "zen", "badge"?: "FREE" }], "warning"?: string }`.
-- **Comportamiento:** Realiza discovery directo en el upstream usando la clave descifrada con DPAPI. Mapea familias conocidas de OpenCode Go (`responses`, `messages`, `chat-completions`), modelos desconocidos retornan `protocol: null` para selección explícita en frontend. Para el proveedor `opencode`, combina el catálogo de Go (`https://opencode.ai/zen/go/v1/models`) con los modelos gratuitos y compatibles de OpenCode Zen (`https://opencode.ai/zen/v1/models`), prefijados como `zen:<raw-id>`, `source: "zen"` y `badge: "FREE"` (excluye modelos de pago y Jev `/systemone`; Muse Spark Free usa `responses`). Si Zen falla, devuelve los modelos de Go y un campo `warning` parcial sin bloquear el chat. Google maneja paginación hasta agotar o llegar a 10000 modelos. Presupuesto total de timeout de discovery compartido (~30s).
+- **Comportamiento:** Realiza discovery directo en el upstream usando la clave descifrada con DPAPI. Mapea familias conocidas de OpenCode Go (`responses`, `messages`, `chat-completions`), modelos desconocidos retornan `protocol: null` para selección explícita en frontend. Para el proveedor `opencode`, combina el catálogo de Go (`https://opencode.ai/zen/go/v1/models`) con los modelos gratuitos y compatibles de OpenCode Zen (`https://opencode.ai/zen/v1/models`), prefijados como `zen:<raw-id>`, `source: "zen"` y `badge: "FREE"` (excluye modelos de pago y Jev `/systemone`; Muse Spark Free usa `responses`). Si Zen falla, devuelve los modelos de Go y un campo `warning` parcial sin bloquear el chat. Presupuesto total de timeout de discovery compartido (~30s).
 
 ### `POST /api/chat`
 - **Seguridad:** Requiere Host/Origin loopback, no cross-site, `Content-Type: application/json`, límite de 128KB en body.
-- **Payload:** `ChatRequest` valida pertenencia al perfil local, `model`, `provider` y de 1 a 40 mensajes con roles alternados, comenzando y terminando con `user`. Cada mensaje de usuario admite 4000 caracteres; el historial de asistente y el total admiten 80000. El PIN todavía no constituye un flujo de desbloqueo. Se acepta opcionalmente `webSearch` booleano para compatibilidad retrospectiva, pero la decisión de buscar en la web la toma el propio modelo internamente sin depender de la UI.
+- **Payload:** `ChatRequest` valida pertenencia al perfil local, `model`, `provider` y de 1 a 40 mensajes con roles alternados, comenzando y terminando con `user`. Cada mensaje de usuario admite 4000 caracteres; el historial de asistente y el total admiten 80000. Se acepta opcionalmente `webSearch` booleano para compatibilidad retrospectiva, pero la decisión de buscar en la web la toma el propio modelo internamente sin depender de la UI.
 - **Conversaciones:** El motor de inferencia no guarda historial por sí mismo. La interfaz guarda cada respuesta recibida mediante `/api/chats`, aislada por proyecto, y permite recuperar conversaciones al recargar. La IA no modifica tareas automáticamente. La generación se limita a 4096 tokens de salida; el consumo depende del proveedor y el modelo.
 - **Respuesta (NDJSON streaming):** Formato `Content-Type: application/x-ndjson; charset=utf-8`.
   - Los modelos deben ceñirse estrictamente al formato envelope (`action: "answer"` o `action: "search"`). Si el modelo devuelve un formato inválido o no estructurado, el servidor emite de forma honesta y controlada `{"type":"error","error":"El modelo no emitió una decisión o respuesta estructurada válida.","status":502}` sin exponer envelopes ni texto interno sin validar.
@@ -166,15 +183,14 @@ La aplicación expone los endpoints server-only para interactuar con SQLite loca
     1. `{"type":"thinking"}`: Mientras el modelo evalúa la consulta con el contexto del proyecto, su cobertura declarada y el contenido acotado de los recursos disponibles. La descarga real de enlaces cargados también puede emitir `{"type":"searching"}` antes de esta evaluación.
     2. Si el modelo responde directamente sin requerir web externa: se reutiliza su respuesta y se emite directamente `{"type":"complete","message":{"role":"assistant","content":string}}` (exactamente 1 llamada a inferencia).
     3. Si el modelo solicita búsqueda externa:
-       - Si no está configurado `TAVILY_API_KEY`: emite `{"type":"error","error":string,"status":503}` sin hacer llamadas innecesarias ni simular progreso.
+       - Si no hay una clave guardada para el perfil ni `TAVILY_API_KEY` en el servidor: emite `{"type":"error","error":string,"status":503}` e indica configurar Tavily desde el menú de usuario, sin hacer llamadas innecesarias ni simular progreso.
        - Si está configurado: valida que la consulta sea pública, sin tokens ni secretos y acotada a máx. 120 caracteres. Emite `{"type":"searching"}` de inmediato y ejecuta como máximo 1 búsqueda concisa en Tavily.
        - Seguido de `{"type":"thinking"}` para la inferencia contextualizada final (máximo 2 llamadas a inferencia en total).
        - Finalmente `{"type":"complete","message":{"role":"assistant","content":string}}`.
 - **Mapeo y Protocolos:**
   - `opencode`: Soporta familias `/responses` (`store: false`), `/messages` (`anthropic-version: 2023-06-01`), y `/chat/completions`. Los modelos Go se enrutan a `https://opencode.ai/zen/go/v1`. Los modelos OpenCode Zen (`zen:<raw-id>`) se enrutan automáticamente a `https://opencode.ai/zen/v1` extrayendo el ID nativo sin prefijo. Ambos usan la misma clave con cabeceras `Authorization: Bearer <key>` y `x-opencode-session`. No sondea ni reintenta entre protocolos.
-  - `google`: Endpoint nativo `/models/{model}:generateContent` con `systemInstruction` y filtrado de `thought` y bloqueos de seguridad.
   - `bedrock`: Bedrock Mantle `/responses` con `store: false`.
-  - Otros (`groq`, `cerebras`, `openrouter`, `deepinfra`, `nvidia`): `/chat/completions`.
+  - Otros (`groq`, `openrouter`, `deepinfra`): `/chat/completions`.
 - **Errores:**
   - `400`: Payload inválido, modelo no disponible, o protocolo no coincidente.
   - `403`: Origen no permitido.
@@ -186,6 +202,17 @@ La aplicación expone los endpoints server-only para interactuar con SQLite loca
   - `504`: Timeout con el upstream (30s en discovery, 90s en chat).
 
 
+## Tavily: configuración de búsqueda web (`/api/tavily`)
+
+- **Menú de usuario → Tavily · Búsqueda web:** introducir, validar y guardar una nueva clave; actualizarla; validar la actual; quitarla con confirmación.
+- `GET` devuelve únicamente `{ status: { configured, source, storageAvailable, updatedAt } }`. `source` es `saved`, `environment` o `null`; nunca devuelve la clave, su prefijo ni el texto cifrado.
+- `PUT` recibe `{ apiKey: string }`, valida con `GET https://api.tavily.com/usage` y cabecera Bearer, y solo entonces guarda el reemplazo. Una validación fallida conserva la clave anterior. No realiza búsquedas para validar.
+- `POST` sin cuerpo valida la clave actual; con `{ apiKey: string }` valida una nueva sin guardarla ni sustituir la existente. Nunca devuelve su valor. `DELETE` elimina solo la clave guardada del perfil. Si existe `TAVILY_API_KEY`, seguirá utilizándose y la interfaz lo indica; esa variable debe quitarse en el servidor.
+- Se reutilizan `proveedor_claves` y Windows DPAPI, también cuando los datos del proyecto se guardan en Turso. Las claves cifradas solo se descifran con el usuario de Windows que las guardó. El PIN no cifra la base de datos.
+- Las rutas comprueban origen local y desbloqueo del perfil. No se registran secretos ni respuestas de error del proveedor, y todas las respuestas incluyen `Cache-Control: no-store`.
+- El chat utiliza primero la clave cifrada del perfil, que solo descifra si el modelo solicita una búsqueda; no la envía al modelo ni al navegador. Tavily no aparece como proveedor de inferencia.
+- `tests/tavily.test.cjs` comprueba persistencia tras reabrir SQLite, aislamiento por usuario, sustitución, eliminación, errores y uso desde el helper de búsqueda con transporte y cifrado simulados. No verifica credenciales reales ni hace llamadas externas.
+
 ## API de Proveedores IA Local (`/api/providers`)
 
 ### Almacenamiento seguro y consideraciones criptográficas
@@ -194,7 +221,7 @@ La aplicación expone los endpoints server-only para interactuar con SQLite loca
 - **Secretos:** Nunca se exponen por endpoints HTTP, nunca se devuelven en respuestas GET/PUT, no se imprimen en logs y nunca se escriben en argumentos de línea de comandos ni en ficheros temporales.
 - **Base de datos SQLite:** La columna `clave_cifrada` almacena estrictamente el blob DPAPI codificado en Base64. Copiar o mover el archivo `.sqlite` a otra máquina u otro usuario de Windows **no permite descifrar las claves** debido al ligamiento criptográfico de DPAPI con las credenciales del usuario de Windows.
 - **PIN local:** El PIN del perfil de Modus se almacena como hash scrypt; el flujo de desbloqueo aún no está implementado. **No cifra ni deriva las claves de proveedores**.
-- **Límite de protección:** DPAPI protege las claves en reposo, no frente a procesos con acceso a la misma cuenta de Windows ni frente a un equipo comprometido. La conexión efectiva con proveedores de IA sigue pendiente.
+- **Límite de protección:** DPAPI protege las claves en reposo, no frente a procesos con acceso a la misma cuenta de Windows ni frente a un equipo comprometido.
 
 ### Endpoints
 
@@ -206,11 +233,8 @@ La aplicación expone los endpoints server-only para interactuar con SQLite loca
   {
     "providers": [
       { "id": "bedrock", "configured": false },
-      { "id": "cerebras", "configured": false },
       { "id": "deepinfra", "configured": false },
-      { "id": "google", "configured": false },
       { "id": "groq", "configured": true },
-      { "id": "nvidia", "configured": false },
       { "id": "opencode", "configured": false },
       { "id": "openrouter", "configured": false }
     ],
@@ -237,7 +261,7 @@ La aplicación expone los endpoints server-only para interactuar con SQLite loca
     }
   }
   ```
-  - Cada clave provista debe pertenecer a la allowlist (`bedrock`, `cerebras`, `deepinfra`, `google`, `groq`, `nvidia`, `opencode`, `openrouter`).
+  - Cada clave provista debe pertenecer a la allowlist (`bedrock`, `deepinfra`, `groq`, `opencode`, `openrouter`).
   - Un valor `string` (no vacío, máx. 4096 caracteres) se cifra atómicamente con DPAPI y se inserta o actualiza.
   - Un valor `null` elimina la clave para ese proveedor.
   - Payloads sin campo `keys`, con `keys` vacío, proveedores desconocidos o tipos inválidos son rechazados con `400`.

@@ -69,6 +69,99 @@
   border: 1px solid var(--divider);
 }
 
+.providerCard > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.connectionActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.providerCard :is(button, a[href]) {
+  padding: 10px 16px;
+  border-radius: 7px;
+}
+
+.connectionCard {
+  margin-bottom: 14px;
+}
+
+.connectionCard .providerBadge.active {
+  color: color-mix(in srgb, #34c759 50%, var(--foreground));
+}
+
+.connectionActions .connectionButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border: 1px solid var(--foreground);
+  border-radius: 7px;
+  background: var(--foreground);
+  color: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 140ms ease;
+}
+
+.connectionButton:disabled,
+.connectionActions a[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.connectionButton:focus-visible,
+.connectionWelcome a:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+
+.connectionWelcome {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.connectionWelcome a {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 16px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  color: #007aff;
+  text-decoration: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .connectionActions .connectionButton:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: var(--foreground);
+    opacity: 0.85;
+  }
+}
+
+.providerCard a {
+  color: #007aff;
+  font-size: 11.5px;
+  text-underline-offset: 3px;
+}
+
+.providerCard a:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 .providerHeader {
   display: flex;
   align-items: center;
@@ -166,6 +259,31 @@
   font-weight: 600;
 }
 
+.keyHelp {
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.removeConfirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, #ff3b30 35%, var(--divider));
+  border-radius: 8px;
+  background: color-mix(in srgb, #ff3b30 7%, var(--page));
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.removeConfirm > span {
+  flex: 1 1 100%;
+}
+
 .removeButton {
   align-self: flex-start;
   padding: 6px 9px;
@@ -191,6 +309,11 @@
   outline-offset: 2px;
 }
 
+.tavilyForm :is(.retryButton, .removeButton) {
+  min-height: 34px;
+  padding: 10px 16px;
+}
+
 @media (max-width: 600px) {
   .providerList {
     grid-template-columns: 1fr;
@@ -202,6 +325,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .connectionButton,
   .retryButton,
   .removeButton {
     transition: none;

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Modal } from "./modal";
 import styles from "./profile-modals.module.css";
 import { ProviderCard } from "./provider-card";
+import { ChatGPTConnectionCard } from "./chatgpt-connection-card";
 import {
   providers,
   providerErrorForStatus,
@@ -25,7 +26,7 @@ export function ProfileModal({
   const isLocal = storageType === "local";
 
   const [name, setName] = useState("Alexander");
-  const [lastName, setLastName] = useState("Molina");
+  const [profileError, setProfileError] = useState("");
   const [pin, setPin] = useState("");
   const [currentPin, setCurrentPin] = useState("");
   const [hasPin, setHasPin] = useState(false);
@@ -47,12 +48,57 @@ export function ProfileModal({
     return () => controller.abort();
   }, [open, isLocal]);
 
+  useEffect(() => {
+    if (!open || isLocal) return;
+    setName("");
+    setPassword("");
+    setConfirmPassword("");
+    setProfileError("");
+    const controller = new AbortController();
+    fetch("/api/storage", { cache: "no-store", signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result: { profile?: { username: string } | null } | null) => {
+        if (result?.profile) setName(result.profile.username);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [open, isLocal]);
+
+  async function saveCloudProfile() {
+    if (password && password !== confirmPassword) {
+      setProfileError("Las contraseñas no coinciden.");
+      return;
+    }
+    setPinPending(true);
+    setProfileError("");
+    try {
+      const response = await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario: name, ...(password ? { newPassword: password } : {}) }),
+      });
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as { error?: string; retryAfter?: number } | null;
+        setProfileError(
+          (result?.error ?? "No se pudo guardar el perfil.") +
+            (result?.retryAfter ? ` Reintenta en ${result.retryAfter} s.` : ""),
+        );
+        return;
+      }
+      onClose();
+    } catch {
+      setProfileError("No se pudo conectar. Inténtalo de nuevo.");
+    } finally {
+      setPinPending(false);
+    }
+  }
+
   async function savePin(newPin: string | null) {
     if (hasPin && !currentPin) {
       setPinError("Introduce tu PIN actual.");
       return;
     }
-    if (newPin !== null && !/^d{4,12}$/.test(newPin)) {
+    if (newPin !== null && !/^\d{4,12}$/.test(newPin)) {
       setPinError("El nuevo PIN debe tener entre 4 y 12 dígitos.");
       return;
     }
@@ -90,11 +136,7 @@ export function ProfileModal({
       else onClose();
       return;
     }
-    if (!isLocal && password && password !== confirmPassword) {
-      alert("Las contraseñas no coinciden.");
-      return;
-    }
-    onClose();
+    void saveCloudProfile();
   }
 
   return (
@@ -102,12 +144,14 @@ export function ProfileModal({
       <div className={styles.form}>
         <div className={styles.field}>
           <label htmlFor="profile-name" className={styles.label}>
-            Nombre
+            {isLocal ? "Nombre" : "Usuario"}
           </label>
           <input
             id="profile-name"
             type="text"
             required
+            maxLength={isLocal ? 100 : 32}
+            autoComplete={isLocal ? "off" : "username"}
             value={name}
             onChange={(e) => setName(e.target.value)}
             className={styles.input}
@@ -130,7 +174,7 @@ export function ProfileModal({
                   placeholder="Introduce tu PIN actual"
                   value={currentPin}
                   disabled={pinPending}
-                  onChange={(e) => setCurrentPin(e.target.value.replace(/D/g, ""))}
+                  onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
                   className={styles.input}
                 />
               </div>
@@ -148,7 +192,7 @@ export function ProfileModal({
                 placeholder={hasPin ? "Déjalo vacío para no cambiarlo" : "Entre 4 y 12 dígitos"}
                 value={pin}
                 disabled={pinPending}
-                onChange={(e) => setPin(e.target.value.replace(/D/g, ""))}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                 className={styles.input}
               />
             </div>
@@ -170,19 +214,6 @@ export function ProfileModal({
           </>
         ) : (
           <>
-            <div className={styles.field}>
-              <label htmlFor="profile-last-name" className={styles.label}>
-                Apellido
-              </label>
-              <input
-                id="profile-last-name"
-                type="text"
-                required
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className={styles.input}
-              />
-            </div>
             <div className={styles.field}>
               <label htmlFor="profile-password" className={styles.label}>
                 Nueva contraseña
@@ -214,6 +245,11 @@ export function ProfileModal({
                 className={styles.input}
               />
             </div>
+            {profileError && (
+              <p role="alert" className={styles.errorMessage}>
+                {profileError}
+              </p>
+            )}
           </>
         )}
       </div>
@@ -224,9 +260,11 @@ export function ProfileModal({
 export function ProvidersModal({
   open,
   onClose,
+  callbackError = false,
 }: {
   open: boolean;
   onClose: () => void;
+  callbackError?: boolean;
 }) {
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [removed, setRemoved] = useState<Set<ProviderId>>(() => new Set());
@@ -327,6 +365,7 @@ export function ProvidersModal({
       const result = await readProviderStatus(response);
       setStatus(result.status);
       setStorageAvailable(result.available);
+      window.dispatchEvent(new Event("modus:providers-changed"));
       close();
     } catch (reason: unknown) {
       if (reason instanceof Error && reason.message === providerErrorForStatus(501)) {
@@ -346,7 +385,7 @@ export function ProvidersModal({
     <Modal
       open={open}
       onClose={close}
-      title="Proveedores y API Keys"
+      title="Proveedores y conexiones"
       className={styles.providersDialog}
       onSubmit={handleSubmit}
       submitLabel={saving ? "Guardando…" : loading ? "Cargando…" : "Guardar cambios"}
@@ -354,6 +393,8 @@ export function ProvidersModal({
       submitDisabled={!canEdit || !hasChanges}
       descriptionId="provider-security-note"
     >
+      <ChatGPTConnectionCard open={open} disabled={saving || hasChanges} />
+      {callbackError && <p className={styles.errorMessage} role="alert">La autorización de ChatGPT no se completó. Puedes intentarlo de nuevo sin cambiar tus otras conexiones.</p>}
       <p id="provider-security-note" className={styles.securityNote}>
         Las API keys se guardan cifradas en SQLite con Windows DPAPI, protegidas por el usuario de
         Windows que ejecuta Modus. No se hashean: el servidor debe poder recuperarlas para usarlas.
