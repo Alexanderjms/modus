@@ -1,4 +1,5 @@
 import { protocols, providers } from "./chat-data.mjs";
+import { maxAttachments, validAttachment } from "../../chat-attachments.mjs";
 
 const providerIds = new Set(providers.map(({ id }) => id));
 const protocolIds = new Set(protocols.map(({ id }) => id));
@@ -49,8 +50,9 @@ export function validMessages(value) {
   return Array.isArray(value) && value.every((item) =>
     typeof item === "object" && item !== null &&
     (item.role === "user" || item.role === "assistant") && typeof item.content === "string" &&
+    (!Object.hasOwn(item, "attachments") || (item.role === "user" && Array.isArray(item.attachments) && item.attachments.length > 0 && item.attachments.length <= maxAttachments && item.attachments.every(validAttachment))) &&
     (!Object.hasOwn(item, "suggestions") || (item.role === "assistant" && Array.isArray(item.suggestions) &&
-      item.suggestions.length <= 3 && item.suggestions.every(validSuggestion))),
+      item.suggestions.length <= 12 && item.suggestions.every(validSuggestion))),
   );
 }
 

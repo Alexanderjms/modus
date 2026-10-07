@@ -1,0 +1,62 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 7px 7px 7px 10px;
+  border: 1px solid color-mix(in srgb, #007aff 28%, var(--card-border));
+  border-radius: 9px;
+  background: color-mix(in srgb, #007aff 7%, var(--page));
+}
+
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.label i {
+  color: #007aff;
+}
+
+.bar button {
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid #007aff;
+  border-radius: 6px;
+  background: #007aff;
+  color: white;
+  font-size: 10.5px;
+  font-weight: 600;
+  transition: opacity 140ms var(--ease-drawer);
+}
+
+.bar button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.bar button:focus-visible {
+  outline: 2px solid color-mix(in srgb, #007aff 36%, transparent);
+  outline-offset: 2px;
+}
+
+.bar p {
+  flex-basis: 100%;
+  margin: 0;
+  color: #c2413a;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .bar button:hover:not(:disabled) {
+    opacity: 0.88;
+  }
+}

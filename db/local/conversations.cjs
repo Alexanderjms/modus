@@ -2,6 +2,7 @@
 
 const { applySchema } = require("./migrate.cjs");
 const { validatePersistedSuggestions, ensureSuggestionTasksTable } = require("./task-suggestions.cjs");
+const { validAttachment, MAX_ATTACHMENTS } = require("./chat-attachments.cjs");
 
 const MAX_CHAT_JSON_BODY_BYTES = 512 * 1024;
 const MAX_MESSAGES = 40;
@@ -123,7 +124,11 @@ function validateMessages(messages) {
     }
     const keys = Object.keys(msg);
     const hasSuggestions = Object.hasOwn(msg, "suggestions");
-    if (keys.length > 3 || (keys.length === 3 && !hasSuggestions) || (keys.length < 2) || !("role" in msg) || !("content" in msg)) {
+    const hasAttachments = Object.hasOwn(msg, "attachments");
+    const allowedKeys = new Set(["role", "content"]);
+    if (hasSuggestions) allowedKeys.add("suggestions");
+    if (hasAttachments) allowedKeys.add("attachments");
+    if (keys.length < 2 || !("role" in msg) || !("content" in msg) || keys.some((key) => !allowedKeys.has(key))) {
       return { error: "Mensaje contiene campos no permitidos" };
     }
 
@@ -136,6 +141,10 @@ function validateMessages(messages) {
       return { error: "Solo los mensajes de asistente pueden incluir sugerencias de tareas" };
     }
 
+    if (hasAttachments && expectedRole !== "user") {
+      return { error: "Solo los mensajes de usuario pueden incluir adjuntos" };
+    }
+
     let sanitizedSuggestions = undefined;
     if (hasSuggestions) {
       const suggResult = validatePersistedSuggestions(msg.suggestions);
@@ -143,6 +152,30 @@ function validateMessages(messages) {
         return { error: suggResult.error };
       }
       sanitizedSuggestions = suggResult.data;
+    }
+
+    let sanitizedAttachments = undefined;
+    if (hasAttachments) {
+      const attachments = msg.attachments;
+      if (!Array.isArray(attachments) || attachments.length < 1 || attachments.length > MAX_ATTACHMENTS) {
+        return { error: `Máximo ${MAX_ATTACHMENTS} adjuntos por mensaje` };
+      }
+      const seenAttachmentIds = new Set();
+      for (const attachment of attachments) {
+        if (!validAttachment(attachment)) {
+          return { error: "Los metadatos del adjunto no son válidos" };
+        }
+        if (seenAttachmentIds.has(attachment.id)) {
+          return { error: "Un mensaje no puede repetir el mismo adjunto" };
+        }
+        seenAttachmentIds.add(attachment.id);
+      }
+      sanitizedAttachments = attachments.map((attachment) => ({
+        id: attachment.id,
+        name: attachment.name,
+        type: attachment.type,
+        size: attachment.size,
+      }));
     }
 
     if (typeof msg.content !== "string") {
@@ -170,6 +203,7 @@ function validateMessages(messages) {
     sanitizedMessages.push({
       role: expectedRole,
       content: msg.content,
+      ...(sanitizedAttachments !== undefined ? { attachments: sanitizedAttachments } : {}),
       ...(sanitizedSuggestions !== undefined ? { suggestions: sanitizedSuggestions } : {}),
     });
   }

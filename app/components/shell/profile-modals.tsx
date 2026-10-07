@@ -27,11 +27,69 @@ export function ProfileModal({
   const [name, setName] = useState("Alexander");
   const [lastName, setLastName] = useState("Molina");
   const [pin, setPin] = useState("");
+  const [currentPin, setCurrentPin] = useState("");
+  const [hasPin, setHasPin] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pinPending, setPinPending] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  useEffect(() => {
+    if (!open || !isLocal) return;
+    setPin("");
+    setCurrentPin("");
+    setPinError("");
+    const controller = new AbortController();
+    fetch("/api/pin", { cache: "no-store", signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((result: { hasPin?: boolean } | null) => setHasPin(result?.hasPin === true))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [open, isLocal]);
+
+  async function savePin(newPin: string | null) {
+    if (hasPin && !currentPin) {
+      setPinError("Introduce tu PIN actual.");
+      return;
+    }
+    if (newPin !== null && !/^d{4,12}$/.test(newPin)) {
+      setPinError("El nuevo PIN debe tener entre 4 y 12 dígitos.");
+      return;
+    }
+    setPinPending(true);
+    setPinError("");
+    try {
+      const response = await fetch("/api/pin", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...(hasPin ? { currentPin } : {}), newPin }),
+      });
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as { error?: string; retryAfter?: number } | null;
+        setPinError(
+          (result?.error ?? "No se pudo guardar el PIN.") +
+            (result?.retryAfter ? ` Reintenta en ${result.retryAfter} s.` : ""),
+        );
+        return;
+      }
+      setHasPin(newPin !== null);
+      setPin("");
+      setCurrentPin("");
+      onClose();
+    } catch {
+      setPinError("No se pudo conectar. Inténtalo de nuevo.");
+    } finally {
+      setPinPending(false);
+    }
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isLocal) {
+      if (pin) void savePin(pin);
+      else onClose();
+      return;
+    }
     if (!isLocal && password && password !== confirmPassword) {
       alert("Las contraseñas no coinciden.");
       return;
@@ -40,7 +98,7 @@ export function ProfileModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Perfil" onSubmit={handleSubmit}>
+    <Modal open={open} onClose={onClose} title="Perfil" onSubmit={handleSubmit} pending={pinPending}>
       <div className={styles.form}>
         <div className={styles.field}>
           <label htmlFor="profile-name" className={styles.label}>
@@ -57,21 +115,59 @@ export function ProfileModal({
         </div>
 
         {isLocal ? (
-          <div className={styles.field}>
-            <label htmlFor="profile-pin" className={styles.label}>
-              PIN de acceso
-            </label>
-            <input
-              id="profile-pin"
-              type="password"
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="Introduce nuevo PIN"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              className={styles.input}
-            />
-          </div>
+          <>
+            {hasPin && (
+              <div className={styles.field}>
+                <label htmlFor="profile-current-pin" className={styles.label}>
+                  PIN actual
+                </label>
+                <input
+                  id="profile-current-pin"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={12}
+                  autoComplete="current-password"
+                  placeholder="Introduce tu PIN actual"
+                  value={currentPin}
+                  disabled={pinPending}
+                  onChange={(e) => setCurrentPin(e.target.value.replace(/D/g, ""))}
+                  className={styles.input}
+                />
+              </div>
+            )}
+            <div className={styles.field}>
+              <label htmlFor="profile-pin" className={styles.label}>
+                {hasPin ? "Nuevo PIN" : "PIN de acceso"}
+              </label>
+              <input
+                id="profile-pin"
+                type="password"
+                inputMode="numeric"
+                maxLength={12}
+                autoComplete="new-password"
+                placeholder={hasPin ? "Déjalo vacío para no cambiarlo" : "Entre 4 y 12 dígitos"}
+                value={pin}
+                disabled={pinPending}
+                onChange={(e) => setPin(e.target.value.replace(/D/g, ""))}
+                className={styles.input}
+              />
+            </div>
+            {hasPin && (
+              <button
+                type="button"
+                className={styles.removeButton}
+                disabled={pinPending}
+                onClick={() => void savePin(null)}
+              >
+                Quitar PIN
+              </button>
+            )}
+            {pinError && (
+              <p role="alert" className={styles.errorMessage}>
+                {pinError}
+              </p>
+            )}
+          </>
         ) : (
           <>
             <div className={styles.field}>

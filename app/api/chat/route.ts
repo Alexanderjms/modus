@@ -18,6 +18,7 @@ import {
   getOpenCodeProtocolForModel,
   MAX_CHAT_BODY_BYTES,
 } from "../../../db/local/chat.cjs";
+import { attachFilesToMessages } from "../../../db/local/chat-attachments.cjs";
 import { getProjectContext } from "../../../db/local/project-context.cjs";
 import { compileProjectContext, withSnapshot } from "../../../db/local/project-graph.cjs";
 import { getProjectCatalogs } from "../../../db/local/tasks.cjs";
@@ -54,7 +55,8 @@ export async function POST(request: Request) {
   const validation = validateChatRequest(bodyResult.data);
   if (validation.error) return validation.error;
 
-  const { projectId, provider, model, protocol: requestedProtocol, region, messages } = validation.data;
+  const { projectId, provider, model, protocol: requestedProtocol, region } = validation.data;
+  let messages: any[] = validation.data.messages;
 
   let db: DatabaseSync | null = null;
   let projectRow: { id: number; nombre: string } | undefined;
@@ -85,6 +87,12 @@ export async function POST(request: Request) {
 
     if (!projectRow) {
       return jsonResponse({ error: "Proyecto no encontrado o no pertenece a tu perfil" }, 404);
+    }
+
+    try {
+      messages = attachFilesToMessages(db, projectId, messages);
+    } catch {
+      return jsonResponse({ error: "No se pudieron leer los adjuntos del mensaje" }, 500);
     }
 
     try {

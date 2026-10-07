@@ -1,7 +1,13 @@
 import { OnboardingFrame } from "./components/onboarding-frame";
 import { StorageSelection } from "./components/storage-selection";
+import { redirect } from "next/navigation";
+import { hasLocalProfile } from "../db/local/profile.cjs";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export default function Home() {
+  if (hasLocalProfile()) redirect("/inicio");
   return (
     <OnboardingFrame>
       <section className="flex w-full max-w-[400px] flex-col items-center gap-6">

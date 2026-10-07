@@ -13,6 +13,8 @@ import type {
   SaveChatRequest,
 } from "../../chat-contract";
 import type { Project } from "../projects-data";
+import { useChatAttachments } from "./use-chat-attachments";
+import { maxAttachments } from "../../chat-attachments.mjs";
 import styles from "./chat.module.css";
 import shared from "../workspace.module.css";
 import { ChatComposer } from "./chat-composer";
@@ -24,11 +26,29 @@ import { ChatSettings } from "./chat-settings";
 import { ChatTranscript } from "./chat-transcript";
 import { createChat, errorForStatus, readChat, validConversation, validMessages, validSummary } from "./chat-api.mjs";
 import { maxMessages, maxTotalCharacters, protocols, providers, regions } from "./chat-data.mjs";
-import type { TaskSuggestionDraft, TaskSuggestionView } from "./task-suggestion-card";
+import type { SuggestionTargetTask, TaskSuggestionDraft, TaskSuggestionView } from "./task-suggestion-card";
+
+function toTargetTask(task: Record<string, unknown>): SuggestionTargetTask {
+  const list = (value: unknown) => (Array.isArray(value) ? value : []) as Record<string, unknown>[];
+  const date = (value: unknown) => (typeof value === "string" ? value : null);
+  return {
+    title: String(task.title),
+    description: typeof task.description === "string" ? task.description : "",
+    priority: typeof task.priority === "string" ? task.priority.toLowerCase() : "sin prioridad",
+    startDate: date(task.startDate),
+    endDate: date(task.endDate),
+    column: typeof task.column === "number" ? task.column : 0,
+    tags: list(task.tags).flatMap((tag) => typeof tag.name === "string"
+      ? [{ name: tag.name, color: typeof tag.color === "string" ? tag.color : undefined }] : []),
+    subtasks: list(task.subtasks).flatMap((item) => typeof item.title === "string"
+      ? [{ title: item.title, completed: item.completed === true }] : []),
+  };
+}
 
 type SuggestionTaskData = {
   projectId: number;
   tasks: Map<number, string>;
+  details: Map<number, SuggestionTargetTask>;
   tags: { name: string; color: string | null }[];
 };
 
@@ -78,7 +98,9 @@ export function WorkspaceChat({
   const [chatActionError, setChatActionError] = useState("");
   const [chatActionPending, setChatActionPending] = useState(false);
   const [pendingSuggestionId, setPendingSuggestionId] = useState<string | null>(null);
+  const [bulkAccepting, setBulkAccepting] = useState(false);
   const [suggestionTaskData, setSuggestionTaskData] = useState<SuggestionTaskData | null>(null);
+  const attachments = useChatAttachments(project?.id);
   const draftRef = useRef("");
   const drafts = useRef(new Map<string, string>());
   const newDraftKey = useRef("new");
@@ -158,6 +180,15 @@ export function WorkspaceChat({
 
   useEffect(() => {
     projectGeneration.current += 1;
+    conversationRequest.current?.abort();
+    setConversationLoading(false);
+    sendRequest.current?.abort();
+    sendRequest.current = null;
+    sendingRef.current = false;
+    setSending(false);
+    setSearching(false);
+    setPendingMessage(null);
+    setSaving(false);
     mutationRequest.current?.abort();
     mutationRequest.current = null;
     suggestionRequest.current?.abort();
@@ -345,10 +376,12 @@ export function WorkspaceChat({
           !("tags" in data.catalogs) || !Array.isArray(data.catalogs.tags)) throw new Error();
         if (controller.signal.aborted) return;
         const tasks = new Map<number, string>();
+        const details = new Map<number, SuggestionTargetTask>();
         for (const task of data.tasks) {
           if (typeof task === "object" && task !== null && "id" in task && Number.isSafeInteger(task.id) &&
             (task.id as number) > 0 && "title" in task && typeof task.title === "string") {
             tasks.set(task.id as number, task.title);
+            details.set(task.id as number, toTargetTask(task as Record<string, unknown>));
           }
         }
         const tags = data.catalogs.tags.flatMap((tag) =>
@@ -356,9 +389,9 @@ export function WorkspaceChat({
           "color" in tag && (tag.color === null || typeof tag.color === "string")
             ? [{ name: tag.name, color: typeof tag.color === "string" && /^#[0-9a-f]{6}$/i.test(tag.color) ? tag.color : null }]
             : []);
-        setSuggestionTaskData({ projectId, tasks, tags });
+        setSuggestionTaskData({ projectId, tasks, details, tags });
       } catch {
-        if (!controller.signal.aborted) setSuggestionTaskData({ projectId, tasks: new Map(), tags: [] });
+        if (!controller.signal.aborted) setSuggestionTaskData({ projectId, tasks: new Map(), details: new Map(), tags: [] });
       }
     })();
     return () => controller.abort();
@@ -372,14 +405,18 @@ export function WorkspaceChat({
     !conversationLoading && !saving && !pendingSave.current && !chatActionPending && !mutationRequest.current &&
     !suggestionRequest.current;
   const transcript = sending && pendingMessage ? [...history, pendingMessage] : history;
-  const canSwitch = !sending && !saving && !pendingSave.current && !conversationLoading &&
+  const canSwitch = !sending && !saving && !attachments.items.length && !pendingSave.current && !conversationLoading &&
     !chatActionPending && !mutationRequest.current && !suggestionRequest.current;
   const canMutateChats = !!project && canSwitch && !historyLoading;
   const suggestionsDisabled = !project || sending || saving || !!pendingSave.current || saveConflict ||
-    historyLoading || conversationLoading || chatActionPending || !!suggestionRequest.current;
+    historyLoading || conversationLoading || chatActionPending || !!suggestionRequest.current || bulkAccepting;
 
   async function retryHistory() {
     if (!project) return;
+    if (attachments.items.length) {
+      setHistoryError("Quita los adjuntos del borrador antes de recargar el historial.");
+      return;
+    }
     if (retryChatId.current) {
       await selectChat(retryChatId.current);
       return;
@@ -603,6 +640,7 @@ export function WorkspaceChat({
   }
 
   async function saveCompleted(chatId: number, request: SaveChatRequest) {
+    const generation = projectGeneration.current;
     const pending = { chatId, request };
     pendingSave.current = pending;
     setSaving(true);
@@ -616,21 +654,22 @@ export function WorkspaceChat({
         body: JSON.stringify(request),
       });
       if (!response.ok) {
-        if (response.status === 409) setSaveConflict(true);
+        if (response.status === 409 && projectGeneration.current === generation) setSaveConflict(true);
         throw new Error(response.status === 409
           ? "Este chat cambió en otra sesión. Guarda la respuesta como un chat nuevo."
           : "No se pudo guardar el historial local. Inténtalo de nuevo.");
       }
       const saved = await readChat(response);
+      if (projectGeneration.current !== generation) return;
       pendingSave.current = null;
       setActiveChat(saved);
       setHistory(saved.messages);
       setChats((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
       setSaveError("");
     } catch (reason) {
-      setSaveError(reason instanceof Error ? reason.message : "No se pudo guardar el historial.");
+      if (projectGeneration.current === generation) setSaveError(reason instanceof Error ? reason.message : "No se pudo guardar el historial.");
     } finally {
-      setSaving(false);
+      if (projectGeneration.current === generation) setSaving(false);
     }
   }
 
@@ -641,10 +680,12 @@ export function WorkspaceChat({
 
   async function saveAsNewChat() {
     if (!project || !pendingSave.current || saving) return;
+    const generation = projectGeneration.current;
     setSaving(true);
     setSaveError("");
     try {
       const chat = await createChat(project.id);
+      if (projectGeneration.current !== generation || !pendingSave.current) return;
       const request = { ...pendingSave.current.request, revision: 0 };
       pendingSave.current = { chatId: chat.id, request };
       setActiveChat(chat);
@@ -652,9 +693,9 @@ export function WorkspaceChat({
       setSaveConflict(false);
       await saveCompleted(chat.id, request);
     } catch {
-      setSaveError("No se pudo crear una copia nueva. Inténtalo de nuevo.");
+      if (projectGeneration.current === generation) setSaveError("No se pudo crear una copia nueva. Inténtalo de nuevo.");
     } finally {
-      setSaving(false);
+      if (projectGeneration.current === generation) setSaving(false);
     }
   }
 
@@ -739,6 +780,26 @@ export function WorkspaceChat({
     }
   }
 
+  async function acceptAllSuggestions(items: TaskSuggestionView[]): Promise<string | null> {
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setBulkAccepting(true);
+    try {
+    for (const [index, item] of items.entries()) {
+      const kind = item.kind ?? "create";
+      const draft: TaskSuggestionDraft = kind === "add-tags" ? { tags: item.tags ?? [] }
+        : kind === "add-subtasks" ? { subtasks: item.subtasks }
+          : kind === "edit" ? { changes: item.changes ?? {} }
+            : { title: item.title, description: item.description, priority: item.priority, subtasks: item.subtasks, ...(item.tags?.length ? { tags: item.tags } : {}) };
+      const failure = await acceptSuggestion(item, draft);
+      if (failure) return `${index} de ${items.length} aplicadas. ${failure}`;
+      if (smooth && index < items.length - 1) await new Promise((resolve) => setTimeout(resolve, 260));
+    }
+    return null;
+    } finally {
+      setBulkAccepting(false);
+    }
+  }
+
   function setSuggestionDiscarded(suggestion: TaskSuggestionView, discarded: boolean) {
     const chat = activeChatRef.current;
     const expectedStatus = discarded ? "pending" : "discarded";
@@ -775,9 +836,16 @@ export function WorkspaceChat({
   }
 
   async function sendMessage() {
-    const content = draft.trim();
-    if (!content || !ready || sendingRef.current || !project || !provider || !selectedModel) return;
-    const outgoing = [...history.map(({ role, content: messageContent }) => ({ role, content: messageContent })), { role: "user" as const, content }];
+    const content = draft.trim() || (attachments.items.some((item) => item.status === "ready") ? "Archivos adjuntos." : "");
+    if (!content || !ready || sendingRef.current || !project || !provider || !selectedModel || attachments.items.some((item) => item.status !== "ready")) return;
+    const attached = attachments.items.flatMap((item) => item.attachment ? [item.attachment] : []);
+    if (attached.length !== attachments.items.length || attached.length > maxAttachments) return;
+    const outgoing = [
+      ...history.map(({ role, content: messageContent, attachments: files }) => ({
+        role, content: messageContent, ...(role === "user" && files?.length ? { attachmentIds: files.map((file) => file.id) } : {}),
+      })),
+      { role: "user" as const, content, ...(attached.length ? { attachmentIds: attached.map((file) => file.id) } : {}) },
+    ];
     const characters = outgoing.reduce((total, item) => total + item.content.length, 0);
     if (outgoing.length > maxMessages || characters > maxTotalCharacters) {
       setLimitError("Se alcanzó el límite de esta conversación. Crea un chat nuevo para continuar.");
@@ -806,8 +874,10 @@ export function WorkspaceChat({
     draftRef.current = "";
     setDraft("");
     drafts.current.set(activeChat ? String(activeChat.id) : newDraftKey.current, "");
-    setPendingMessage({ role: "user", content });
+    const userMessage: ChatMessage = { role: "user", content, ...(attached.length ? { attachments: attached } : {}) };
+    setPendingMessage(userMessage);
     setSending(true);
+    const detached = attachments.detach(attached.map((item) => item.id));
     let delivered = false;
     try {
       let chat = activeChat;
@@ -904,10 +974,11 @@ export function WorkspaceChat({
         !validMessages([message])) {
         throw new Error("La respuesta del chat no es válida.");
       }
-      const completed = [...history, { role: "user" as const, content }, message];
+      const completed = [...history, userMessage, message];
       setPendingMessage(null);
       setHistory(completed);
       delivered = true;
+      attachments.release(detached);
       if (chat) {
         const saveRequest: SaveChatRequest = {
           revision: chat.revision,
@@ -931,7 +1002,11 @@ export function WorkspaceChat({
         );
       }
     } finally {
-      sendingRef.current = false;
+      if (!delivered) attachments.restore(detached);
+      if (sendRequest.current === controller) {
+        sendingRef.current = false;
+        sendRequest.current = null;
+      }
       if (!controller.signal.aborted) {
         setSending(false);
         setSearching(false);
@@ -1070,10 +1145,13 @@ export function WorkspaceChat({
           suggestionsDisabled={suggestionsDisabled}
           pendingSuggestionId={pendingSuggestionId}
           taskTitles={currentSuggestionTaskData?.tasks ?? new Map()}
+          taskDetails={currentSuggestionTaskData?.details ?? new Map()}
           catalogTags={currentSuggestionTaskData?.tags ?? []}
           onAcceptSuggestion={acceptSuggestion}
+          onAcceptAllSuggestions={acceptAllSuggestions}
           onDiscardSuggestion={(suggestion) => setSuggestionDiscarded(suggestion, true)}
           onUndoDiscardSuggestion={(suggestion) => setSuggestionDiscarded(suggestion, false)}
+          projectId={project?.id}
         />
       </div>
 
@@ -1141,6 +1219,14 @@ export function WorkspaceChat({
         onSend={() => void sendMessage()}
         sending={sending}
         canSend={ready}
+        attachmentsDisabled={busy || !!pendingSave.current || !project || !storageAvailable}
+        attachments={attachments.items}
+        attachmentError={attachments.error}
+        projectId={project?.id}
+        onFiles={attachments.add}
+        onRetryAttachment={attachments.retry}
+        onCancelAttachment={attachments.cancel}
+        onRemoveAttachment={(key) => void attachments.remove(key)}
       />
       <ChatActionDialog
         dialogRef={actionDialog}

@@ -196,6 +196,10 @@ export async function POST(
           column?: number;
           addTags?: { name: string; color?: string }[];
           addSubtasks?: { title: string }[];
+          removeTags?: string[];
+          removeSubtasks?: string[];
+          completeSubtasks?: string[];
+          reopenSubtasks?: string[];
         };
         const updateArgs: Record<string, unknown> = { projectId, taskId: targetTaskId };
         if (changes.title !== undefined) updateArgs.title = changes.title;
@@ -208,20 +212,31 @@ export async function POST(
             .get(changes.priority) as { id: number } | undefined;
           updateArgs.priorityId = priorityRow ? Number(priorityRow.id) : null;
         }
-        if (changes.addTags) {
+        const norm = (value: string) => value.trim().toLowerCase();
+        if (changes.addTags || changes.removeTags) {
+          const removed = new Set((changes.removeTags ?? []).map(norm));
+          const kept = targetTask.tags.filter((t: { name: string }) => !removed.has(norm(t.name)));
+          const present = new Set(kept.map((t: { name: string }) => norm(t.name)));
           updateArgs.tags = [
-            ...targetTask.tags.map((t: { id: number }) => ({ id: t.id })),
-            ...changes.addTags.map((t) => (t.color ? { name: t.name, color: t.color } : { name: t.name })),
+            ...kept.map((t: { id: number }) => ({ id: t.id })),
+            ...(changes.addTags ?? [])
+              .filter((t) => !present.has(norm(t.name)))
+              .map((t) => (t.color ? { name: t.name, color: t.color } : { name: t.name })),
           ];
         }
-        if (changes.addSubtasks) {
+        if (changes.addSubtasks || changes.removeSubtasks || changes.completeSubtasks || changes.reopenSubtasks) {
+          const removed = new Set((changes.removeSubtasks ?? []).map(norm));
+          const completed = new Set((changes.completeSubtasks ?? []).map(norm));
+          const reopened = new Set((changes.reopenSubtasks ?? []).map(norm));
           updateArgs.subtasks = [
-            ...targetTask.subtasks.map((st: { id: number; title: string; completed: boolean }) => ({
-              id: st.id,
-              title: st.title,
-              completed: st.completed,
-            })),
-            ...changes.addSubtasks.map((st) => ({ title: st.title, completed: false })),
+            ...targetTask.subtasks
+              .filter((st: { title: string }) => !removed.has(norm(st.title)))
+              .map((st: { id: number; title: string; completed: boolean }) => ({
+                id: st.id,
+                title: st.title,
+                completed: completed.has(norm(st.title)) ? true : reopened.has(norm(st.title)) ? false : st.completed,
+              })),
+            ...(changes.addSubtasks ?? []).map((st) => ({ title: st.title, completed: false })),
           ];
         }
 

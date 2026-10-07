@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Skeleton } from "../skeleton";
 import styles from "./weekly-activity.module.css";
 import {
@@ -60,17 +60,6 @@ export function WeeklyActivity({ refreshKey = 0 }: { refreshKey?: number }) {
           <h2 id="weekly-activity-heading">Actividad semanal</h2>
           {activity && <p className={styles.notice}>{activity.historyNotice}</p>}
         </div>
-        {activity && (
-          <div
-            className={styles.total}
-            role="group"
-            aria-label={`Total semanal: ${activity.total} finalizaciones`}
-          >
-            <span className={styles.totalLabel}>Total semanal</span>
-            <strong>{activity.total}</strong>
-            <span>finalizaciones</span>
-          </div>
-        )}
       </header>
       {loading ? (
         <div className={styles.skeleton} role="status" aria-label="Cargando actividad semanal">
@@ -91,13 +80,16 @@ export function WeeklyActivity({ refreshKey = 0 }: { refreshKey?: number }) {
             </p>
           )}
           <ol className={styles.chart} aria-label="Finalizaciones por día">
-            {activity.days.map((day) => {
-              const height = day.completed === 0
-                ? 2
-                : Math.max(6, (day.completed / maximum) * 100);
+            {activity.days.map((day, index) => {
+              const height = day.completed === 0 ? 0 : Math.max(12, (day.completed / maximum) * 100);
 
               return (
-                <li className={styles.day} key={day.date}>
+                <li
+                  className={styles.day}
+                  key={day.date}
+                  data-today={index === activity.days.length - 1 || undefined}
+                  style={{ "--i": index } as CSSProperties}
+                >
                   <span className={styles.dayName} aria-hidden="true">
                     {weekdayFormatter.format(day.localDate)}
                   </span>
@@ -105,12 +97,9 @@ export function WeeklyActivity({ refreshKey = 0 }: { refreshKey?: number }) {
                     {dateFormatter.format(day.localDate)}
                   </span>
                   <div className={styles.barTrack} aria-hidden="true">
-                    <span
-                      className={day.completed === 0 ? styles.zeroBar : styles.bar}
-                      style={{ height: `${height}%` }}
-                    />
+                    {day.completed > 0 && <span className={styles.bar} style={{ height: `${height}%` }} />}
                   </div>
-                  <span className={styles.count} aria-hidden="true">{day.completed}</span>
+                  <span className={styles.count} data-zero={day.completed === 0 || undefined} aria-hidden="true">{day.completed}</span>
                   <span className="sr-only">
                     {fullDateFormatter.format(day.localDate)}: {day.completed} finalizaciones
                   </span>

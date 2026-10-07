@@ -1,12 +1,14 @@
 "use client";
 
 import type { ChatMessage } from "../../chat-contract";
+import { attachmentUrl } from "../../chat-attachments.mjs";
 import { Skeleton } from "../skeleton";
 import styles from "./chat.module.css";
 import { ThinkingOrb } from "./thinking-orb";
 import { SearchingOrb } from "./searching-orb";
+import { SuggestionBulkBar } from "./suggestion-bulk-bar";
 import { ChatMarkdown } from "./chat-markdown";
-import { TaskSuggestionCard, type TaskSuggestionDraft, type TaskSuggestionView } from "./task-suggestion-card";
+import { TaskSuggestionCard, type SuggestionTargetTask, type TaskSuggestionDraft, type TaskSuggestionView } from "./task-suggestion-card";
 
 export function ChatTranscript({
   messages,
@@ -18,10 +20,13 @@ export function ChatTranscript({
   suggestionsDisabled,
   pendingSuggestionId,
   taskTitles,
+  taskDetails,
   catalogTags,
   onAcceptSuggestion,
+  onAcceptAllSuggestions,
   onDiscardSuggestion,
   onUndoDiscardSuggestion,
+  projectId,
 }: {
   messages: ChatMessage[];
   loading: boolean;
@@ -32,10 +37,13 @@ export function ChatTranscript({
   suggestionsDisabled: boolean;
   pendingSuggestionId: string | null;
   taskTitles: Map<number, string>;
+  taskDetails: Map<number, SuggestionTargetTask>;
   catalogTags: { name: string; color: string | null }[];
   onAcceptSuggestion: (suggestion: TaskSuggestionView, draft: TaskSuggestionDraft) => Promise<string | null>;
+  onAcceptAllSuggestions: (suggestions: TaskSuggestionView[]) => Promise<string | null>;
   onDiscardSuggestion: (suggestion: TaskSuggestionView) => void;
   onUndoDiscardSuggestion: (suggestion: TaskSuggestionView) => void;
+  projectId?: number;
 }) {
   if (loading) {
     return (
@@ -68,12 +76,20 @@ export function ChatTranscript({
           >
             <strong>{item.role === "user" ? "Tú" : "Asistente"}</strong>
             {item.role === "assistant" ? <ChatMarkdown content={item.content} taskTitles={taskTitles} /> : <p>{item.content}</p>}
+            {item.role === "user" && !!item.attachments?.length && projectId && <ul className={styles.messageAttachments} aria-label="Archivos adjuntos">{item.attachments.map((attachment) => {
+              const url = attachmentUrl(attachment.id, projectId);
+              return <li key={attachment.id}><a href={url} target="_blank" rel="noreferrer">
+                {attachment.type.startsWith("image/") ? <img src={url} alt="" loading="lazy" /> : <i aria-hidden="true" className="bi bi-file-earmark" />}
+                <span>{attachment.name} · {Math.max(1, Math.ceil(attachment.size / 1024))} KiB</span>
+              </a></li>;
+            })}</ul>}
             {item.role === "assistant" && item.suggestions?.map((suggestion) => {
               const view = suggestion as TaskSuggestionView;
               return <TaskSuggestionCard
                 key={suggestion.id}
                 suggestion={view}
                 targetTaskTitle={view.targetTaskId ? taskTitles.get(view.targetTaskId) : undefined}
+                targetTask={view.targetTaskId ? taskDetails.get(view.targetTaskId) : undefined}
                 catalogTags={catalogTags}
                 actionsDisabled={suggestionsDisabled}
                 pending={pendingSuggestionId === suggestion.id}
@@ -82,6 +98,13 @@ export function ChatTranscript({
                 onUndoDiscard={onUndoDiscardSuggestion}
               />;
             })}
+            {item.role === "assistant" && (item.suggestions?.filter((suggestion) => suggestion.status === "pending").length ?? 0) >= 2 && (
+              <SuggestionBulkBar
+                count={item.suggestions!.filter((suggestion) => suggestion.status === "pending").length}
+                disabled={suggestionsDisabled || !!pendingSuggestionId}
+                onAcceptAll={() => onAcceptAllSuggestions(item.suggestions!.filter((suggestion) => suggestion.status === "pending") as TaskSuggestionView[])}
+              />
+            )}
           </article>
         ))
       )}

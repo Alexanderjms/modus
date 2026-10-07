@@ -34,6 +34,11 @@ export type TaskSuggestionChanges = {
   column?: 0 | 1 | 2;
   addTags?: TaskSuggestionTag[];
   addSubtasks?: { title: string }[];
+  /** Nombres de etiquetas y títulos de subtareas ya existentes en la tarea. */
+  removeTags?: string[];
+  removeSubtasks?: string[];
+  completeSubtasks?: string[];
+  reopenSubtasks?: string[];
 };
 
 export type TaskSuggestion = {
@@ -54,9 +59,12 @@ export type TaskSuggestion = {
   changes?: TaskSuggestionChanges;
 };
 
+export type ChatAttachment = { id: string; name: string; type: string; size: number };
+
 export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+  attachments?: ChatAttachment[];
   suggestions?: TaskSuggestion[];
 };
 

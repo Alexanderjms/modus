@@ -6,7 +6,7 @@ const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{
 const ALLOWED_PRIORITIES = new Set(["alta", "media", "baja", "sin prioridad"]);
 const ALLOWED_STATUSES = new Set(["pending", "accepted", "discarded"]);
 
-const MAX_SUGGESTIONS_PER_MESSAGE = 3;
+const MAX_SUGGESTIONS_PER_MESSAGE = 12;
 const MAX_SUBTASKS_PER_SUGGESTION = 20;
 const MAX_TITLE_LEN = 255;
 const MAX_DESC_LEN = 2000;
@@ -100,6 +100,17 @@ function sanitizeProposalTags(tags, options = {}) {
   return result;
 }
 
+function sanitizeTitleList(list, max) {
+  if (!Array.isArray(list) || list.length === 0 || list.length > max) return null;
+  const result = [];
+  for (const item of list) {
+    const title = sanitizeSuggestionTitle(item);
+    if (!title) return null;
+    result.push(title);
+  }
+  return result;
+}
+
 function isValidDateOnly(val) {
   if (typeof val !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(val)) return false;
   const date = new Date(`${val}T00:00:00Z`);
@@ -112,7 +123,7 @@ function isValidDateOnly(val) {
  */
 function sanitizeTaskChanges(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const allowed = ["title", "description", "priority", "startDate", "endDate", "column", "addTags", "addSubtasks"];
+  const allowed = ["title", "description", "priority", "startDate", "endDate", "column", "addTags", "addSubtasks", "removeTags", "removeSubtasks", "completeSubtasks", "reopenSubtasks"];
   const keys = Object.keys(raw);
   if (keys.length === 0 || keys.some((key) => !allowed.includes(key))) return null;
 
@@ -151,6 +162,17 @@ function sanitizeTaskChanges(raw) {
     const subtasks = sanitizeSubtasks(raw.addSubtasks);
     if (subtasks === null || subtasks.length === 0) return null;
     changes.addSubtasks = subtasks;
+  }
+  if (raw.removeTags !== undefined) {
+    const names = sanitizeTitleList(raw.removeTags, MAX_TAGS_PER_SUGGESTION);
+    if (!names) return null;
+    changes.removeTags = names;
+  }
+  for (const key of ["removeSubtasks", "completeSubtasks", "reopenSubtasks"]) {
+    if (raw[key] === undefined) continue;
+    const titles = sanitizeTitleList(raw[key], MAX_SUBTASKS_PER_SUGGESTION);
+    if (!titles) return null;
+    changes[key] = titles;
   }
   return changes;
 }

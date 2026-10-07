@@ -3,9 +3,11 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import type { TaskSuggestion, TaskSuggestionChanges } from "../../chat-contract";
 import { Modal } from "../shell/modal";
+import { describeChanges, TaskEditReview, type SuggestionTargetTask } from "./task-edit-review";
 import { fallbackPriorityColor, getTaskTagHue } from "./task-card";
 import styles from "./task-suggestion-card.module.css";
 
+export type { SuggestionTargetTask };
 export type SuggestedTag = { name: string; color?: string };
 export type TaskSuggestionView = TaskSuggestion & {
   kind?: "create" | "add-tags" | "add-subtasks" | "edit";
@@ -16,22 +18,6 @@ type TaskCreateDraft = Pick<TaskSuggestion, "title" | "description" | "priority"
 export type TaskSuggestionDraft = TaskCreateDraft | { tags: SuggestedTag[] } | { subtasks: { title: string }[] } | { changes: TaskSuggestionChanges };
 type CatalogTag = { name: string; color: string | null };
 
-const columnNames = ["Por hacer", "En progreso", "Terminado"];
-const priorityNames = { alta: "Alta", media: "Media", baja: "Baja", "sin prioridad": "Sin prioridad" };
-
-function describeChanges(changes: TaskSuggestionChanges): [string, string][] {
-  const rows: [string, string][] = [];
-  if (changes.title !== undefined) rows.push(["Nombre", changes.title]);
-  if (changes.description !== undefined) rows.push(["Descripción", changes.description || "Sin descripción"]);
-  if (changes.priority !== undefined) rows.push(["Prioridad", priorityNames[changes.priority]]);
-  if (changes.startDate !== undefined) rows.push(["Inicio", changes.startDate ?? "Sin fecha"]);
-  if (changes.endDate !== undefined) rows.push(["Fin", changes.endDate ?? "Sin fecha"]);
-  if (changes.column !== undefined) rows.push(["Columna", columnNames[changes.column]]);
-  if (changes.addTags?.length) rows.push(["Añadir etiquetas", changes.addTags.map(({ name }) => name).join(", ")]);
-  if (changes.addSubtasks?.length) rows.push(["Añadir subtareas", changes.addSubtasks.map(({ title: item }) => item).join(" · ")]);
-  return rows;
-}
-
 function normalizedName(value: string) {
   return value.trim().toLocaleLowerCase("es");
 }
@@ -39,6 +25,7 @@ function normalizedName(value: string) {
 export function TaskSuggestionCard({
   suggestion,
   targetTaskTitle,
+  targetTask,
   catalogTags,
   actionsDisabled,
   pending,
@@ -48,6 +35,7 @@ export function TaskSuggestionCard({
 }: {
   suggestion: TaskSuggestionView;
   targetTaskTitle?: string;
+  targetTask?: SuggestionTargetTask;
   catalogTags: CatalogTag[];
   actionsDisabled: boolean;
   pending: boolean;
@@ -106,13 +94,6 @@ export function TaskSuggestionCard({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isEdit) {
-      if (!suggestion.changes) return;
-      const failure = await onAccept(suggestion, { changes: suggestion.changes });
-      if (!failure) setReviewing(false);
-      else setError(failure);
-      return;
-    }
     if (isAddSubtasks) {
       const reviewed = subtasks.map((item) => ({ title: item.trim() })).filter(({ title: item }) => item);
       if (reviewed.length === 0 || reviewed.length > 20 || reviewed.some(({ title: item }) => item.length > 255)) {
@@ -214,30 +195,40 @@ export function TaskSuggestionCard({
           </span>
         )}
       </div>
-      <Modal
+      {isEdit ? <TaskEditReview
         open={reviewing}
         onClose={() => { if (!pending) setReviewing(false); }}
-        title={isAddTags ? "Revisar etiquetas" : isAddSubtasks ? "Revisar subtareas" : isEdit ? "Revisar cambios" : "Revisar tarea"}
-        submitLabel={pending ? isExisting ? "Aplicando…" : "Creando…" : isAddTags ? "Aplicar etiquetas" : isAddSubtasks ? "Añadir subtareas" : isEdit ? "Aplicar cambios" : "Crear tarea"}
+        changes={suggestion.changes ?? {}}
+        target={targetTask}
+        targetLabel={targetLabel}
+        catalogTags={catalogTags}
+        pending={pending}
+        onSubmit={async (changes) => {
+          const failure = await onAccept(suggestion, { changes });
+          if (!failure) setReviewing(false);
+          return failure;
+        }}
+      /> : <Modal
+        open={reviewing}
+        onClose={() => { if (!pending) setReviewing(false); }}
+        title={isAddTags ? "Revisar etiquetas" : isAddSubtasks ? "Revisar subtareas" : "Revisar tarea"}
+        submitLabel={pending ? isAddTags || isAddSubtasks ? "Aplicando…" : "Creando…" : isAddTags ? "Aplicar etiquetas" : isAddSubtasks ? "Añadir subtareas" : "Crear tarea"}
         pending={pending}
         submitDisabled={formInvalid}
         onSubmit={(event) => void submit(event)}
         className={styles.reviewModal}
       >
         <div className={styles.fields}>
-          {isExisting && (
+          {(isAddTags || isAddSubtasks) && (
             <>
               <label>
                 <span>Tarea</span>
                 <input value={`${targetLabel} · ID ${suggestion.targetTaskId}`} readOnly />
               </label>
-              <p className={styles.notice}>{isEdit ? "Etiquetas y subtareas se añaden sin quitar las actuales." : isAddTags ? "Se añadirán sin quitar las etiquetas actuales." : "Se añadirán sin quitar las subtareas actuales."}</p>
-              {isEdit && <dl className={styles.changes} aria-label="Cambios propuestos">
-                {changeRows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
-              </dl>}
+              <p className={styles.notice}>{isAddTags ? "Se añadirán sin quitar las etiquetas actuales." : "Se añadirán sin quitar las subtareas actuales."}</p>
             </>
           )}
-          {!isAddTags && !isEdit && (
+          {!isAddTags && (
             <>
               {!isAddSubtasks && <>
               <label>
@@ -281,7 +272,7 @@ export function TaskSuggestionCard({
               </fieldset>
             </>
           )}
-          {!isAddSubtasks && !isEdit && <fieldset className={styles.tagsEditor}>
+          {!isAddSubtasks && <fieldset className={styles.tagsEditor}>
             <legend>Etiquetas ({tags.length}/10)</legend>
             {tags.map((tag, index) => {
               const existing = catalogTags.find((item) => normalizedName(item.name) === normalizedName(tag.name));
@@ -325,7 +316,7 @@ export function TaskSuggestionCard({
           </fieldset>}
           {error && <p className={styles.error} role="alert">{error}</p>}
         </div>
-      </Modal>
+      </Modal>}
     </section>
   );
 }

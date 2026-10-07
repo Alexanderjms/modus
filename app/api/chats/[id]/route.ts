@@ -16,6 +16,7 @@ import {
   MAX_CHAT_JSON_BODY_BYTES,
 } from "../../../../db/local/conversations.cjs";
 import { readLimitedJsonBody } from "../../../../db/local/chat.cjs";
+import { resolveMessageAttachments } from "../../../../db/local/chat-attachments.cjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -161,11 +162,17 @@ export async function PUT(
 
     const nowIso = new Date().toISOString();
     const newRevision = revision + 1;
-    const messagesJson = JSON.stringify(messages);
 
     db.exec("BEGIN IMMEDIATE;");
     let committed = false;
     try {
+      const resolved = resolveMessageAttachments(db, projectId, messages);
+      if (resolved.error) {
+        db.exec("ROLLBACK;");
+        return jsonResponse({ error: resolved.error }, 400);
+      }
+      const messagesJson = JSON.stringify(resolved.data);
+
       const updateStmt = db.prepare(`
         UPDATE chats
         SET

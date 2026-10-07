@@ -1,0 +1,99 @@
+.dropzone {
+  flex-shrink: 0;
+  min-width: 0;
+  border-radius: 8px;
+}
+.dropActive {
+  outline: 2px dashed #007aff;
+  outline-offset: -4px;
+}
+.list {
+  display: grid;
+  gap: 6px;
+  max-height: 180px;
+  margin: 0 0 8px;
+  padding: 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--divider-soft);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.preview,
+.icon {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  background: var(--page);
+  color: var(--muted);
+}
+.info {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 15px;
+}
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta { color: var(--muted); }
+.info progress {
+  width: 100%;
+  height: 4px;
+  accent-color: #007aff;
+}
+.info a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.actions { display: flex; gap: 3px; }
+.actions button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.actions button:disabled { cursor: default; opacity: 0.55; }
+.actions button:focus-visible,
+.info a:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.error[role="alert"] { color: var(--danger, #b42318); overflow-wrap: anywhere; }
+:global([data-theme="dark"]) .error[role="alert"] { color: #f97066; }
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+@media (hover: hover) and (pointer: fine) {
+  .actions button:not(:disabled):hover { background: var(--page); }
+}
+@media (max-width: 600px) {
+  .item { gap: 6px; padding: 6px; }
+}

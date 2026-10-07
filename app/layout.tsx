@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { Geist } from "next/font/google";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./globals.css";
 import "./theme.css";
 import "./panels.css";
+import { PinLockScreen } from "./components/pin-lock-screen";
+import { UNLOCK_COOKIE, hasPin, isUnlocked } from "../db/local/pin-lock.cjs";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -17,11 +20,15 @@ export const metadata: Metadata = {
   icons: { icon: "/favicon.png" },
 };
 
-export default function RootLayout({
+export const dynamic = "force-dynamic";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locked = hasPin() && !isUnlocked((await cookies()).get(UNLOCK_COOKIE)?.value);
+
   return (
     <html lang="es" className={geist.variable} suppressHydrationWarning>
       <head>
@@ -31,7 +38,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">{locked ? <PinLockScreen /> : children}</body>
     </html>
   );
 }
