@@ -12,6 +12,7 @@ import type { TaskCatalogsDto } from "../../api/tasks/route";
 
 export function Board({
   projectId,
+  tasksVersion,
   projectName,
   projectsLoading,
   projectsError,
@@ -24,6 +25,7 @@ export function Board({
   contextTrigger,
 }: {
   projectId?: number | null;
+  tasksVersion: number;
   projectName: string;
   projectsLoading: boolean;
   projectsError: string;
@@ -51,6 +53,8 @@ export function Board({
     anchor: { left: number; top: number; bottom: number };
   } | null>(null);
   const activeProjectId = useRef(projectId);
+  const tasksProjectIdRef = useRef(tasksProjectId);
+  tasksProjectIdRef.current = tasksProjectId;
   const previousProjectId = useRef(projectId);
   const projectVersion = useRef(0);
   const movingTaskIds = useRef(new Set<number>());
@@ -85,12 +89,15 @@ export function Board({
     }
 
     const requestedProjectId = projectId;
-    const controller = new AbortController();
-    async function loadTasks() {
-      setTasksLoading(true);
-      setTasksError("");
+    if (tasksProjectIdRef.current !== requestedProjectId) {
       setTasks([]);
       setCatalogs(null);
+    }
+    const controller = new AbortController();
+    const background = tasksProjectIdRef.current === requestedProjectId;
+    async function loadTasks() {
+      if (!background) setTasksLoading(true);
+      setTasksError("");
       try {
         const res = await fetch(`/api/tasks?projectId=${requestedProjectId}&catalogs=1`, {
           signal: controller.signal,
@@ -123,7 +130,7 @@ export function Board({
 
     void loadTasks();
     return () => controller.abort();
-  }, [projectId, tasksReload]);
+  }, [projectId, tasksReload, tasksVersion]);
 
   const handleAddTask = async (column: number, title: string): Promise<boolean> => {
     if (!projectId) return false;
@@ -442,6 +449,11 @@ export function Board({
         projectId={selectedTask?.projectId}
         catalogs={catalogs}
         onSave={handleSaveTask}
+        onTagDataChange={(nextCatalogs, nextTasks) => {
+          if (!selectedTask || activeProjectId.current !== selectedTask.projectId) return;
+          setCatalogs(nextCatalogs);
+          setTasks(nextTasks);
+        }}
         savePending={savePending}
         onClose={() => setSelectedTask(null)}
       />

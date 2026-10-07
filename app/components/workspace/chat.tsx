@@ -16,21 +16,32 @@ import type { Project } from "../projects-data";
 import styles from "./chat.module.css";
 import shared from "../workspace.module.css";
 import { ChatComposer } from "./chat-composer";
+import { flyTaskToBoard, pointAtTask } from "./task-flight";
 import { ChatPicker, type ChatPickerOption } from "./chat-picker";
+import { ChatActionDialog, type ChatAction } from "./chat-action-dialog";
 import { ChatErrors, ChatNotices } from "./chat-notices";
 import { ChatSettings } from "./chat-settings";
 import { ChatTranscript } from "./chat-transcript";
-import { createChat, errorForStatus, readChat, validSummary } from "./chat-api.mjs";
+import { createChat, errorForStatus, readChat, validConversation, validMessages, validSummary } from "./chat-api.mjs";
 import { maxMessages, maxTotalCharacters, protocols, providers, regions } from "./chat-data.mjs";
+import type { TaskSuggestionDraft, TaskSuggestionView } from "./task-suggestion-card";
+
+type SuggestionTaskData = {
+  projectId: number;
+  tasks: Map<number, string>;
+  tags: { name: string; color: string | null }[];
+};
 
 export function WorkspaceChat({
   project,
   onClose,
   closeButtonRef,
+  onTaskCreated,
 }: {
   project: Project | null;
   onClose: () => void;
   closeButtonRef: RefObject<HTMLButtonElement | null>;
+  onTaskCreated: (projectId: number) => void;
 }) {
   const [configured, setConfigured] = useState<ChatProviderId[]>([]);
   const [provider, setProvider] = useState<ChatProviderId | "">("");
@@ -54,17 +65,20 @@ export function WorkspaceChat({
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<ChatMessage | null>(null);
   const [sendError, setSendError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saveConflict, setSaveConflict] = useState(false);
   const [limitError, setLimitError] = useState("");
-  const [chatAction, setChatAction] = useState<"rename" | "delete" | null>(null);
+  const [chatAction, setChatAction] = useState<ChatAction | null>(null);
   const [actionChatId, setActionChatId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [chatActionError, setChatActionError] = useState("");
   const [chatActionPending, setChatActionPending] = useState(false);
+  const [pendingSuggestionId, setPendingSuggestionId] = useState<string | null>(null);
+  const [suggestionTaskData, setSuggestionTaskData] = useState<SuggestionTaskData | null>(null);
   const draftRef = useRef("");
   const drafts = useRef(new Map<string, string>());
   const newDraftKey = useRef("new");
@@ -82,7 +96,11 @@ export function WorkspaceChat({
   const retryChatId = useRef<string | null>(null);
   const sendRequest = useRef<AbortController | null>(null);
   const mutationRequest = useRef<AbortController | null>(null);
+  const suggestionRequest = useRef<AbortController | null>(null);
+  const pendingSuggestionRef = useRef<string | null>(null);
   const projectGeneration = useRef(0);
+  const activeChatRef = useRef(activeChat);
+  activeChatRef.current = activeChat;
   const actionDialog = useRef<HTMLDialogElement>(null);
   const renameInput = useRef<HTMLInputElement>(null);
   const actionTitleId = useId();
@@ -142,6 +160,10 @@ export function WorkspaceChat({
     projectGeneration.current += 1;
     mutationRequest.current?.abort();
     mutationRequest.current = null;
+    suggestionRequest.current?.abort();
+    suggestionRequest.current = null;
+    pendingSuggestionRef.current = null;
+    setPendingSuggestionId(null);
     setChatActionPending(false);
     setChatAction(null);
     setActionChatId(null);
@@ -189,6 +211,7 @@ export function WorkspaceChat({
     return () => {
       controller.abort();
       mutationRequest.current?.abort();
+      suggestionRequest.current?.abort();
     };
   }, [project?.id]);
 
@@ -283,6 +306,7 @@ export function WorkspaceChat({
     conversationRequest.current?.abort();
     sendRequest.current?.abort();
     mutationRequest.current?.abort();
+    suggestionRequest.current?.abort();
   }, []);
 
   useEffect(() => {
@@ -304,16 +328,55 @@ export function WorkspaceChat({
     }
   }, [history, sending, sendError]);
 
+  const hasTagSuggestions = history.some((message) => message.role === "assistant" &&
+    (!!message.suggestions?.length || message.content.includes("[tarea:")));
+
+  useEffect(() => {
+    const projectId = project?.id;
+    if (!projectId || !hasTagSuggestions || suggestionTaskData?.projectId === projectId) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const query = new URLSearchParams({ projectId: String(projectId), catalogs: "1" });
+        const response = await fetch(`/api/tasks?${query}`, { cache: "no-store", signal: controller.signal });
+        const data: unknown = await response.json();
+        if (!response.ok || typeof data !== "object" || data === null || !("tasks" in data) || !Array.isArray(data.tasks) ||
+          !("catalogs" in data) || typeof data.catalogs !== "object" || data.catalogs === null ||
+          !("tags" in data.catalogs) || !Array.isArray(data.catalogs.tags)) throw new Error();
+        if (controller.signal.aborted) return;
+        const tasks = new Map<number, string>();
+        for (const task of data.tasks) {
+          if (typeof task === "object" && task !== null && "id" in task && Number.isSafeInteger(task.id) &&
+            (task.id as number) > 0 && "title" in task && typeof task.title === "string") {
+            tasks.set(task.id as number, task.title);
+          }
+        }
+        const tags = data.catalogs.tags.flatMap((tag) =>
+          typeof tag === "object" && tag !== null && "name" in tag && typeof tag.name === "string" &&
+          "color" in tag && (tag.color === null || typeof tag.color === "string")
+            ? [{ name: tag.name, color: typeof tag.color === "string" && /^#[0-9a-f]{6}$/i.test(tag.color) ? tag.color : null }]
+            : []);
+        setSuggestionTaskData({ projectId, tasks, tags });
+      } catch {
+        if (!controller.signal.aborted) setSuggestionTaskData({ projectId, tasks: new Map(), tags: [] });
+      }
+    })();
+    return () => controller.abort();
+  }, [project?.id, hasTagSuggestions, suggestionTaskData]);
+
   const selectedModel = models.find((item) => item.id === model);
   const needsProtocol = selectedModel?.protocol === null;
   const ready = storageAvailable && !providersLoading && !providersError && !modelsLoading && !modelsError &&
     !!project && !!provider && configured.includes(provider) && !!selectedModel &&
     (!needsProtocol || !!protocol) && (provider !== "bedrock" || !!region) && !historyLoading &&
-    !conversationLoading && !saving && !pendingSave.current && !chatActionPending && !mutationRequest.current;
+    !conversationLoading && !saving && !pendingSave.current && !chatActionPending && !mutationRequest.current &&
+    !suggestionRequest.current;
   const transcript = sending && pendingMessage ? [...history, pendingMessage] : history;
   const canSwitch = !sending && !saving && !pendingSave.current && !conversationLoading &&
-    !chatActionPending && !mutationRequest.current;
+    !chatActionPending && !mutationRequest.current && !suggestionRequest.current;
   const canMutateChats = !!project && canSwitch && !historyLoading;
+  const suggestionsDisabled = !project || sending || saving || !!pendingSave.current || saveConflict ||
+    historyLoading || conversationLoading || chatActionPending || !!suggestionRequest.current;
 
   async function retryHistory() {
     if (!project) return;
@@ -400,7 +463,7 @@ export function WorkspaceChat({
     }
   }
 
-  function openChatAction(option: ChatPickerOption, action: "rename" | "delete") {
+  function openChatAction(option: ChatPickerOption, action: ChatAction) {
     if (!canMutateChats) return;
     setActionChatId(Number(option.value));
     setRenameValue(option.label);
@@ -595,10 +658,126 @@ export function WorkspaceChat({
     }
   }
 
+  async function acceptSuggestion(suggestion: TaskSuggestionView, draft: TaskSuggestionDraft): Promise<string | null> {
+    const chat = activeChatRef.current;
+    if (!project || !chat || chat.projectId !== project.id || suggestion.status !== "pending" ||
+      !chat.messages.some((message) => message.role === "assistant" &&
+        message.suggestions?.some((item) => item.id === suggestion.id && item.status === "pending")) ||
+      saving || pendingSave.current || saveConflict || sending || historyLoading || conversationLoading ||
+      chatActionPending || suggestionRequest.current || pendingSuggestionRef.current) return "Espera a que se guarde el historial antes de aplicar la propuesta.";
+
+    const projectId = project.id;
+    const chatId = chat.id;
+    const generation = projectGeneration.current;
+    const controller = new AbortController();
+    suggestionRequest.current = controller;
+    pendingSuggestionRef.current = suggestion.id;
+    setPendingSuggestionId(suggestion.id);
+    const isCurrent = () => !controller.signal.aborted && projectGeneration.current === generation &&
+      activeChatRef.current?.id === chatId && project?.id === projectId;
+    const fromRect = document.querySelector(`[data-suggestion-id="${suggestion.id}"]`)?.getBoundingClientRect();
+    try {
+      const response = await fetch(`/api/chats/${chatId}/suggestions/${encodeURIComponent(suggestion.id)}/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          suggestion.kind === "add-tags" ? { tags: "tags" in draft ? draft.tags ?? [] : [] }
+            : suggestion.kind === "add-subtasks" ? { subtasks: "subtasks" in draft ? draft.subtasks : [] }
+              : suggestion.kind === "edit" ? { changes: "changes" in draft ? draft.changes : {} }
+              : draft),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const errorBody: unknown = await response.json().catch(() => null);
+        if (errorBody && typeof errorBody === "object" && "error" in errorBody && typeof errorBody.error === "string") {
+          throw new Error(errorBody.error);
+        }
+        const reason = response.status === 409
+          ? "El historial cambió en otra sesión. Actualiza el chat antes de aplicar la propuesta."
+          : response.status === 404
+            ? "La sugerencia ya no está disponible en este chat."
+            : "No se pudo aplicar la propuesta. Inténtalo de nuevo.";
+        throw new Error(reason);
+      }
+      const result: unknown = await response.json();
+      if (typeof result !== "object" || result === null || !("conversation" in result) ||
+        !validConversation(result.conversation) || result.conversation.id !== chatId ||
+        result.conversation.projectId !== projectId ||
+        !result.conversation.messages.some((message) => message.role === "assistant" &&
+          message.suggestions?.some((item) => item.id === suggestion.id && item.status === "accepted")) ||
+        !("task" in result) || (result.task !== null && (typeof result.task !== "object" || result.task === null)) ||
+        !("alreadyAccepted" in result) || typeof result.alreadyAccepted !== "boolean") {
+        throw new Error("El servidor devolvió una respuesta de aceptación no válida.");
+      }
+      if (!isCurrent()) return "El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.";
+      const canonical = result.conversation;
+      setActiveChat(canonical);
+      activeChatRef.current = canonical;
+      setHistory(canonical.messages);
+      setChats((current) => [canonical, ...current.filter((item) => item.id !== canonical.id)]);
+      setSuggestionTaskData(null);
+      onTaskCreated(projectId);
+      const createdId = (result.task as { id?: unknown } | null)?.id;
+      if (fromRect && !result.alreadyAccepted) {
+        if ((suggestion.kind ?? "create") === "create") {
+          if (typeof createdId === "number") flyTaskToBoard(createdId, fromRect);
+        } else if (suggestion.targetTaskId) {
+          pointAtTask(suggestion.targetTaskId, fromRect);
+        }
+      }
+      return null;
+    } catch (reason) {
+      return isCurrent()
+        ? reason instanceof Error ? reason.message : "No se pudo aplicar la propuesta. Inténtalo de nuevo."
+        : "El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.";
+    } finally {
+      if (suggestionRequest.current === controller) suggestionRequest.current = null;
+      if (pendingSuggestionRef.current === suggestion.id) {
+        pendingSuggestionRef.current = null;
+        if (!controller.signal.aborted && projectGeneration.current === generation) setPendingSuggestionId(null);
+      }
+    }
+  }
+
+  function setSuggestionDiscarded(suggestion: TaskSuggestionView, discarded: boolean) {
+    const chat = activeChatRef.current;
+    const expectedStatus = discarded ? "pending" : "discarded";
+    const nextStatus = discarded ? "discarded" as const : "pending" as const;
+    if (!project || !chat || chat.projectId !== project.id || suggestion.status !== expectedStatus ||
+      saving || pendingSave.current || saveConflict || sending || historyLoading || conversationLoading ||
+      chatActionPending || suggestionRequest.current || pendingSuggestionRef.current) return;
+    const providerId = chat.provider ?? provider;
+    const modelId = chat.model ?? model;
+    if (!providerId || !modelId) {
+      setSaveError("No se puede guardar esta decisión sin los metadatos del proveedor.");
+      return;
+    }
+    const messages = history.map((message) => message.role === "assistant" && message.suggestions?.some(({ id, status }) => id === suggestion.id && status === expectedStatus)
+      ? { ...message, suggestions: message.suggestions.map((item) => item.id === suggestion.id && item.status === expectedStatus ? { ...item, status: nextStatus } : item) }
+      : message);
+    if (messages.every((message, index) => message === history[index])) return;
+    pendingSuggestionRef.current = suggestion.id;
+    setPendingSuggestionId(suggestion.id);
+    setHistory(messages);
+    void saveCompleted(chat.id, {
+      revision: chat.revision,
+      messages,
+      provider: providerId,
+      model: modelId,
+      protocol: chat.protocol,
+      region: chat.region,
+    }).finally(() => {
+      if (pendingSuggestionRef.current === suggestion.id) {
+        pendingSuggestionRef.current = null;
+        setPendingSuggestionId(null);
+      }
+    });
+  }
+
   async function sendMessage() {
     const content = draft.trim();
     if (!content || !ready || sendingRef.current || !project || !provider || !selectedModel) return;
-    const outgoing = [...history, { role: "user" as const, content }];
+    const outgoing = [...history.map(({ role, content: messageContent }) => ({ role, content: messageContent })), { role: "user" as const, content }];
     const characters = outgoing.reduce((total, item) => total + item.content.length, 0);
     if (outgoing.length > maxMessages || characters > maxTotalCharacters) {
       setLimitError("Se alcanzó el límite de esta conversación. Crea un chat nuevo para continuar.");
@@ -620,6 +799,7 @@ export function WorkspaceChat({
     }
     setLimitError("");
     setSendError("");
+    setSearching(false);
     sendingRef.current = true;
     const controller = new AbortController();
     sendRequest.current = controller;
@@ -640,17 +820,91 @@ export function WorkspaceChat({
       }
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
         body: requestBody,
         signal: controller.signal,
       });
-      if (!response.ok) throw new Error(errorForStatus(response.status));
-      const data: ChatResponse = await response.json();
+      if (!response.ok) {
+        let errorMessage = errorForStatus(response.status);
+        try {
+          const data: unknown = await response.json();
+          if (typeof data === "object" && data !== null && "error" in data && typeof data.error === "string") {
+            errorMessage = data.error;
+          }
+        } catch {}
+        throw new Error(errorMessage);
+      }
+      let message: ChatResponse["message"];
+      const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+      if (contentType.includes("application/x-ndjson")) {
+        if (!response.body) {
+          throw new Error("La respuesta del chat no es válida.");
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let completedMessage: ChatResponse["message"] | null = null;
+        let eventBuffer = "";
+        let streamComplete = false;
+        const consumeEvent = (line: string) => {
+          if (!line.trim() || controller.signal.aborted) return;
+          let event: unknown;
+          try {
+            event = JSON.parse(line);
+          } catch {
+            throw new Error("La respuesta del chat contiene JSON inválido.");
+          }
+          if (!event || typeof event !== "object" || !("type" in event)) {
+            throw new Error("La respuesta del chat contiene un evento inválido.");
+          }
+          if (event.type === "searching") {
+            setSearching(true);
+          } else if (event.type === "thinking") {
+            setSearching(false);
+          } else if (event.type === "error") {
+            throw new Error("error" in event && typeof event.error === "string"
+              ? event.error : "No se pudo completar el chat.");
+          } else if (event.type === "complete" && "message" in event &&
+            typeof event.message === "object" && event.message !== null &&
+            "role" in event.message && event.message.role === "assistant" &&
+            "content" in event.message && typeof event.message.content === "string") {
+            if (completedMessage) throw new Error("La respuesta del chat repitió el resultado final.");
+            completedMessage = event.message as ChatResponse["message"];
+          } else {
+            throw new Error("La respuesta del chat contiene un evento inesperado.");
+          }
+        };
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            eventBuffer += decoder.decode(value, { stream: true });
+            const lines = eventBuffer.split("\n");
+            eventBuffer = lines.pop() ?? "";
+            for (const line of lines) consumeEvent(line);
+          }
+          if (controller.signal.aborted) return;
+          eventBuffer += decoder.decode();
+          if (eventBuffer.trim()) consumeEvent(eventBuffer);
+          if (!completedMessage) throw new Error("La respuesta del chat terminó sin resultado.");
+          streamComplete = true;
+        } finally {
+          setSearching(false);
+          if (!streamComplete) void reader.cancel().catch(() => {});
+          reader.releaseLock();
+        }
+        message = completedMessage as ChatResponse["message"];
+      } else if (contentType.includes("application/json")) {
+        const data: ChatResponse = await response.json();
+        message = data.message;
+      } else {
+        throw new Error("La respuesta del chat tiene un formato no válido.");
+      }
       if (controller.signal.aborted) return;
-      if (!data || data.message?.role !== "assistant" || typeof data.message.content !== "string") {
+      if (!message || message.role !== "assistant" || typeof message.content !== "string" ||
+        !validMessages([message])) {
         throw new Error("La respuesta del chat no es válida.");
       }
-      const completed = [...outgoing, data.message];
+      const completed = [...history, { role: "user" as const, content }, message];
       setPendingMessage(null);
       setHistory(completed);
       delivered = true;
@@ -680,6 +934,7 @@ export function WorkspaceChat({
       sendingRef.current = false;
       if (!controller.signal.aborted) {
         setSending(false);
+        setSearching(false);
         setPendingMessage(null);
       }
     }
@@ -757,6 +1012,7 @@ export function WorkspaceChat({
     detail: new Date(chat.updatedAt).toLocaleString("es", { dateStyle: "short", timeStyle: "short" }),
   }));
   const busy = providersLoading || historyLoading || conversationLoading || sending || saving || chatActionPending;
+  const currentSuggestionTaskData = suggestionTaskData?.projectId === project?.id ? suggestionTaskData : null;
 
   return (
     <section className={styles.chat} aria-labelledby="chat-title">
@@ -809,7 +1065,15 @@ export function WorkspaceChat({
           loading={historyLoading || conversationLoading}
           saving={saving}
           pendingMessage={pendingMessage}
+          searching={searching}
           hasProject={!!project}
+          suggestionsDisabled={suggestionsDisabled}
+          pendingSuggestionId={pendingSuggestionId}
+          taskTitles={currentSuggestionTaskData?.tasks ?? new Map()}
+          catalogTags={currentSuggestionTaskData?.tags ?? []}
+          onAcceptSuggestion={acceptSuggestion}
+          onDiscardSuggestion={(suggestion) => setSuggestionDiscarded(suggestion, true)}
+          onUndoDiscardSuggestion={(suggestion) => setSuggestionDiscarded(suggestion, false)}
         />
       </div>
 
@@ -878,66 +1142,24 @@ export function WorkspaceChat({
         sending={sending}
         canSend={ready}
       />
-      <dialog
-        ref={actionDialog}
-        className={styles.chatActionDialog}
-        aria-labelledby={actionTitleId}
-        onClose={() => {
+      <ChatActionDialog
+        dialogRef={actionDialog}
+        renameInputRef={renameInput}
+        action={chatAction}
+        actionTitleId={actionTitleId}
+        renameValue={renameValue}
+        actionError={chatActionError}
+        pending={chatActionPending}
+        chatTitle={chats.find((chat) => chat.id === actionChatId)?.title}
+        onClose={() => setChatAction(null)}
+        onDialogClose={() => {
           setChatAction(null);
           setActionChatId(null);
           setChatActionError("");
         }}
-        onCancel={(event) => {
-          if (chatActionPending) event.preventDefault();
-        }}
-      >
-        <form onSubmit={(event) => { event.preventDefault(); void submitChatAction(); }} aria-busy={chatActionPending || undefined}>
-          <header>
-            <div>
-              <h2 id={actionTitleId}>{chatAction === "rename" ? "Renombrar chat" : "Eliminar chat"}</h2>
-              <p>{chatAction === "rename" ? "El nuevo nombre se conservará en este proyecto." : "Esta acción no se puede deshacer."}</p>
-            </div>
-            <button type="button" aria-label="Cerrar" disabled={chatActionPending} onClick={() => setChatAction(null)}>
-              <i aria-hidden="true" className="bi bi-x-lg" />
-            </button>
-          </header>
-          <div className={styles.chatActionBody}>
-            {chatAction === "rename" ? (
-              <label className={styles.chatActionField}>
-                <span>Nombre del chat</span>
-                <input
-                  ref={renameInput}
-                  type="text"
-                  value={renameValue}
-                  maxLength={80}
-                  required
-                  disabled={chatActionPending}
-                  aria-invalid={!!chatActionError || undefined}
-                  onChange={(event) => { setRenameValue(event.target.value); setChatActionError(""); }}
-                />
-                <small>{renameValue.length}/80</small>
-              </label>
-            ) : (
-              <p className={styles.deleteWarning}>
-                ¿Eliminar <strong>{chats.find((chat) => chat.id === actionChatId)?.title}</strong>? Se perderán este chat y todos sus mensajes.
-              </p>
-            )}
-            {chatActionError && <p className={styles.chatActionError} role="alert">{chatActionError}</p>}
-          </div>
-          <footer>
-            <button type="button" disabled={chatActionPending} onClick={() => setChatAction(null)}>Cancelar</button>
-            <button
-              type="submit"
-              className={chatAction === "delete" ? styles.dangerButton : ""}
-              disabled={chatActionPending || (chatAction === "rename" &&
-                (!renameValue.trim() || renameValue.trim().length > 80 || /[\x00-\x1F\x7F]/.test(renameValue.trim())))}
-            >
-              {chatActionPending ? chatAction === "rename" ? "Guardando…" : "Eliminando…"
-                : chatAction === "rename" ? "Guardar nombre" : "Eliminar chat"}
-            </button>
-          </footer>
-        </form>
-      </dialog>
+        onRenameValueChange={(value) => { setRenameValue(value); setChatActionError(""); }}
+        onSubmit={() => void submitChatAction()}
+      />
     </section>
   );
 }

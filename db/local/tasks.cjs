@@ -500,7 +500,9 @@ function moveProjectTask(db, { projectId, taskId, column, beforeTaskId }) {
 
   const defaultStatusId = statusRow ? statusRow.id : null;
 
-  db.exec("BEGIN");
+  const isOuterTx = Boolean(db.isTransaction);
+  db.exec(isOuterTx ? "SAVEPOINT move_task_sp" : "BEGIN");
+  const commit = () => db.exec(isOuterTx ? "RELEASE move_task_sp" : "COMMIT");
   try {
     const isSameList = Number(taskRow.lista_id) === Number(targetColDef.listId);
     const targetStatusId = isSameList ? taskRow.estado_id : defaultStatusId;
@@ -515,7 +517,7 @@ function moveProjectTask(db, { projectId, taskId, column, beforeTaskId }) {
       .all(targetColDef.listId, taskId);
 
     if (beforeTask && Number(beforeTask.id) === taskId && isSameList) {
-      db.exec("COMMIT");
+      commit();
       return getProjectTaskById(db, taskId, projectId);
     }
 
@@ -563,10 +565,15 @@ function moveProjectTask(db, { projectId, taskId, column, beforeTaskId }) {
       recordTaskCompletion(db, taskId, projectId);
     }
 
-    db.exec("COMMIT");
+    commit();
   } catch (err) {
     try {
-      db.exec("ROLLBACK");
+      if (isOuterTx) {
+        db.exec("ROLLBACK TO move_task_sp");
+        db.exec("RELEASE move_task_sp");
+      } else {
+        db.exec("ROLLBACK");
+      }
     } catch {}
     throw err;
   }
@@ -590,12 +597,13 @@ function getProjectCatalogs(db, projectId) {
     .all()
     .map((c) => c.name);
   const hasTagColorCol = tagsCols.includes("color");
+  const hasTagProjectCol = tagsCols.includes("proyecto_id");
 
-  const tags = db
-    .prepare(
-      `SELECT id, nombre AS name${hasTagColorCol ? ", color" : ""}, descripcion AS description FROM etiquetas ORDER BY nombre ASC`
-    )
-    .all()
+  const tagsQuery = hasTagProjectCol
+    ? `SELECT id, nombre AS name${hasTagColorCol ? ", color" : ""}, descripcion AS description FROM etiquetas WHERE proyecto_id = ? ORDER BY nombre ASC`
+    : `SELECT id, nombre AS name${hasTagColorCol ? ", color" : ""}, descripcion AS description FROM etiquetas ORDER BY nombre ASC`;
+
+  const tags = (hasTagProjectCol ? db.prepare(tagsQuery).all(projectId) : db.prepare(tagsQuery).all())
     .map((t) => ({
       id: Number(t.id),
       name: t.name,
@@ -729,6 +737,16 @@ function updateProjectTask(db, {
     const seenTagIds = new Set();
     const seenTagNames = new Set();
 
+    const etiquetasCols = db
+      .prepare("SELECT name FROM pragma_table_info('etiquetas')")
+      .all()
+      .map((c) => c.name);
+    const hasTagProjectCol = etiquetasCols.includes("proyecto_id");
+
+    const findTagByIdStmt = hasTagProjectCol
+      ? db.prepare("SELECT id FROM etiquetas WHERE id = ? AND proyecto_id = ?")
+      : db.prepare("SELECT id FROM etiquetas WHERE id = ?");
+
     for (const item of tags) {
       if (typeof item === "number") {
         if (!Number.isSafeInteger(item) || item <= 0) {
@@ -736,7 +754,9 @@ function updateProjectTask(db, {
           err.code = "INVALID_TAG_ID";
           throw err;
         }
-        const tRow = db.prepare("SELECT id FROM etiquetas WHERE id = ?").get(item);
+        const tRow = hasTagProjectCol
+          ? findTagByIdStmt.get(item, projectId)
+          : findTagByIdStmt.get(item);
         if (!tRow) {
           const err = new Error(`Etiqueta con ID ${item} no encontrada`);
           err.code = "TAG_NOT_FOUND";
@@ -771,7 +791,9 @@ function updateProjectTask(db, {
             err.code = "INVALID_TAG_ID";
             throw err;
           }
-          const tRow = db.prepare("SELECT id FROM etiquetas WHERE id = ?").get(tagId);
+          const tRow = hasTagProjectCol
+            ? findTagByIdStmt.get(tagId, projectId)
+            : findTagByIdStmt.get(tagId);
           if (!tRow) {
             const err = new Error(`Etiqueta con ID ${tagId} no encontrada`);
             err.code = "TAG_NOT_FOUND";
@@ -899,7 +921,12 @@ function updateProjectTask(db, {
     });
   }
 
-  db.exec("BEGIN");
+  const isOuterTx = Boolean(db.isTransaction);
+  if (isOuterTx) {
+    db.exec("SAVEPOINT update_task_sp");
+  } else {
+    db.exec("BEGIN");
+  }
   try {
     const scalarUpdates = [];
     const scalarArgs = [];
@@ -946,11 +973,18 @@ function updateProjectTask(db, {
         .all()
         .map((c) => c.name);
       const hasTagColorCol = etiquetasCols.includes("color");
+      const hasTagProjectCol = etiquetasCols.includes("proyecto_id");
 
-      const findTagByName = db.prepare("SELECT id FROM etiquetas WHERE LOWER(nombre) = LOWER(?)");
-      const insertTag = hasTagColorCol
-        ? db.prepare("INSERT INTO etiquetas (nombre, color) VALUES (?, ?)")
-        : db.prepare("INSERT INTO etiquetas (nombre) VALUES (?)");
+      const findTagByName = hasTagProjectCol
+        ? db.prepare("SELECT id FROM etiquetas WHERE proyecto_id = ? AND LOWER(nombre) = LOWER(?)")
+        : db.prepare("SELECT id FROM etiquetas WHERE LOWER(nombre) = LOWER(?)");
+      const insertTag = hasTagProjectCol
+        ? (hasTagColorCol
+            ? db.prepare("INSERT INTO etiquetas (proyecto_id, nombre, color) VALUES (?, ?, ?)")
+            : db.prepare("INSERT INTO etiquetas (proyecto_id, nombre) VALUES (?, ?)"))
+        : (hasTagColorCol
+            ? db.prepare("INSERT INTO etiquetas (nombre, color) VALUES (?, ?)")
+            : db.prepare("INSERT INTO etiquetas (nombre) VALUES (?)"));
       const linkTag = db.prepare("INSERT OR IGNORE INTO tarea_etiquetas (tarea_id, etiqueta_id) VALUES (?, ?)");
 
       for (const tagId of validatedTagIds) {
@@ -958,14 +992,20 @@ function updateProjectTask(db, {
       }
 
       for (const tagItem of validatedNewTags) {
-        const existing = findTagByName.get(tagItem.name);
+        const existing = hasTagProjectCol
+          ? findTagByName.get(projectId, tagItem.name)
+          : findTagByName.get(tagItem.name);
         let tagId;
         if (existing) {
           tagId = Number(existing.id);
         } else {
-          const info = hasTagColorCol
-            ? insertTag.run(tagItem.name, tagItem.color)
-            : insertTag.run(tagItem.name);
+          const info = hasTagProjectCol
+            ? (hasTagColorCol
+                ? insertTag.run(projectId, tagItem.name, tagItem.color)
+                : insertTag.run(projectId, tagItem.name))
+            : (hasTagColorCol
+                ? insertTag.run(tagItem.name, tagItem.color)
+                : insertTag.run(tagItem.name));
           tagId = Number(info.lastInsertRowid);
         }
         linkTag.run(taskId, tagId);
@@ -1040,10 +1080,19 @@ function updateProjectTask(db, {
       }
     }
 
-    db.exec("COMMIT");
+    if (isOuterTx) {
+      db.exec("RELEASE update_task_sp");
+    } else {
+      db.exec("COMMIT");
+    }
   } catch (err) {
     try {
-      db.exec("ROLLBACK");
+      if (isOuterTx) {
+        db.exec("ROLLBACK TO update_task_sp");
+        db.exec("RELEASE update_task_sp");
+      } else {
+        db.exec("ROLLBACK");
+      }
     } catch {}
     throw err;
   }
@@ -1132,10 +1181,27 @@ function duplicateProjectTask(db, { projectId, taskId }) {
       );
     const newId = Number(info.lastInsertRowid);
 
-    db.prepare(
-      `INSERT INTO tarea_etiquetas (tarea_id, etiqueta_id)
-       SELECT ?, etiqueta_id FROM tarea_etiquetas WHERE tarea_id = ?`
-    ).run(newId, taskId);
+    // Duplicar enlaces de etiquetas respetando el ámbito de proyecto
+    const etiquetasCols = db
+      .prepare("SELECT name FROM pragma_table_info('etiquetas')")
+      .all()
+      .map((c) => c.name);
+    const hasTagProjectCol = etiquetasCols.includes("proyecto_id");
+
+    if (hasTagProjectCol) {
+      db.prepare(
+        `INSERT INTO tarea_etiquetas (tarea_id, etiqueta_id)
+         SELECT ?, te.etiqueta_id
+         FROM tarea_etiquetas te
+         JOIN etiquetas e ON e.id = te.etiqueta_id
+         WHERE te.tarea_id = ? AND e.proyecto_id = ?`
+      ).run(newId, taskId, projectId);
+    } else {
+      db.prepare(
+        `INSERT INTO tarea_etiquetas (tarea_id, etiqueta_id)
+         SELECT ?, etiqueta_id FROM tarea_etiquetas WHERE tarea_id = ?`
+      ).run(newId, taskId);
+    }
 
     if (hasCompletadaCol) {
       db.prepare(
@@ -1209,6 +1275,131 @@ function getWeeklyActivity(db, userId, clientNow) {
   };
 }
 
+function updateProjectTag(db, { projectId, tagId, name, color }) {
+  const etiquetasCols = db
+    .prepare("SELECT name FROM pragma_table_info('etiquetas')")
+    .all()
+    .map((c) => c.name);
+  const hasTagProjectCol = etiquetasCols.includes("proyecto_id");
+  const hasTagColorCol = etiquetasCols.includes("color");
+
+  const tagRow = hasTagProjectCol
+    ? db.prepare("SELECT id, proyecto_id, nombre, color FROM etiquetas WHERE id = ? AND proyecto_id = ?").get(tagId, projectId)
+    : db.prepare("SELECT id, nombre FROM etiquetas WHERE id = ?").get(tagId);
+
+  if (!tagRow) {
+    return null;
+  }
+
+  if (typeof name !== "string") {
+    const err = new Error("El nombre de etiqueta debe ser un texto");
+    err.code = "INVALID_TAG_NAME";
+    throw err;
+  }
+  const trimmedName = name.trim();
+  if (trimmedName.length < 1 || trimmedName.length > 80) {
+    const err = new Error("El nombre de etiqueta debe tener entre 1 y 80 caracteres");
+    err.code = "INVALID_TAG_NAME";
+    throw err;
+  }
+
+  if (typeof color !== "string" || !isValidHexColor(color)) {
+    const err = new Error("Color de etiqueta inválido (debe ser formato HEX #RRGGBB)");
+    err.code = "INVALID_TAG_COLOR";
+    throw err;
+  }
+
+  // Comprobar conflicto de nombre duplicado en el mismo proyecto (case-insensitive)
+  const dupRow = hasTagProjectCol
+    ? db.prepare("SELECT id FROM etiquetas WHERE proyecto_id = ? AND LOWER(nombre) = LOWER(?) AND id != ?").get(projectId, trimmedName, tagId)
+    : db.prepare("SELECT id FROM etiquetas WHERE LOWER(nombre) = LOWER(?) AND id != ?").get(trimmedName, tagId);
+
+  if (dupRow) {
+    const err = new Error("Ya existe una etiqueta con este nombre en el proyecto");
+    err.code = "TAG_NAME_CONFLICT";
+    throw err;
+  }
+
+  db.exec("BEGIN");
+  try {
+    if (hasTagProjectCol) {
+      if (hasTagColorCol) {
+        db.prepare("UPDATE etiquetas SET nombre = ?, color = ? WHERE id = ? AND proyecto_id = ?").run(trimmedName, color, tagId, projectId);
+      } else {
+        db.prepare("UPDATE etiquetas SET nombre = ? WHERE id = ? AND proyecto_id = ?").run(trimmedName, tagId, projectId);
+      }
+    } else {
+      if (hasTagColorCol) {
+        db.prepare("UPDATE etiquetas SET nombre = ?, color = ? WHERE id = ?").run(trimmedName, color, tagId);
+      } else {
+        db.prepare("UPDATE etiquetas SET nombre = ? WHERE id = ?").run(trimmedName, tagId);
+      }
+    }
+    db.exec("COMMIT");
+  } catch (err) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {}
+    throw err;
+  }
+
+  return {
+    id: tagId,
+    name: trimmedName,
+    color,
+  };
+}
+
+function deleteProjectTag(db, { projectId, tagId }) {
+  const etiquetasCols = db
+    .prepare("SELECT name FROM pragma_table_info('etiquetas')")
+    .all()
+    .map((c) => c.name);
+  const hasTagProjectCol = etiquetasCols.includes("proyecto_id");
+
+  const tagRow = hasTagProjectCol
+    ? db.prepare("SELECT id FROM etiquetas WHERE id = ? AND proyecto_id = ?").get(tagId, projectId)
+    : db.prepare("SELECT id FROM etiquetas WHERE id = ?").get(tagId);
+
+  if (!tagRow) {
+    return false;
+  }
+
+  db.exec("BEGIN");
+  try {
+    // Eliminar asociaciones explícitamente dentro del proyecto para tareas de este proyecto
+    db.prepare(`
+      DELETE FROM tarea_etiquetas
+      WHERE etiqueta_id = ?
+        AND tarea_id IN (
+          SELECT t.id
+          FROM tareas t
+          JOIN listas_tareas lt ON lt.id = t.lista_id
+          WHERE lt.proyecto_id = ?
+        )
+    `).run(tagId, projectId);
+
+    if (hasTagProjectCol) {
+      db.prepare("DELETE FROM etiquetas WHERE id = ? AND proyecto_id = ?").run(tagId, projectId);
+    } else {
+      // Si la tabla fuera legacy sin proyecto_id, borrar solo si no quedan asociaciones en otros proyectos
+      const remainingLinks = db.prepare("SELECT COUNT(*) AS cnt FROM tarea_etiquetas WHERE etiqueta_id = ?").get(tagId);
+      if (!remainingLinks || Number(remainingLinks.cnt) === 0) {
+        db.prepare("DELETE FROM etiquetas WHERE id = ?").run(tagId);
+      }
+    }
+
+    db.exec("COMMIT");
+  } catch (err) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {}
+    throw err;
+  }
+
+  return true;
+}
+
 module.exports = {
   MAX_TASK_TITLE_LENGTH,
   MAX_TASK_JSON_BODY_BYTES,
@@ -1232,6 +1423,8 @@ module.exports = {
   updateProjectTask,
   deleteProjectTask,
   duplicateProjectTask,
+  updateProjectTag,
+  deleteProjectTag,
   getProjectCatalogs,
   createProjectTask,
   ensureTaskCompletionsTable,

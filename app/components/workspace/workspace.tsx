@@ -21,6 +21,7 @@ export function Workspace({
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState("");
   const [projectsReload, setProjectsReload] = useState(0);
+  const [tasksVersion, setTasksVersion] = useState(0);
   const [chatOpen, setChatOpen] = useState(true);
   const [contextOpen, setContextOpen] = useState(true);
   const [contextPendingChanges, setContextPendingChanges] = useState(false);
@@ -154,12 +155,16 @@ export function Workspace({
                 project={selectedProject}
                 onClose={closeChat}
                 closeButtonRef={chatCloseButton}
+                onTaskCreated={(projectId) => {
+                  if (selectedProject?.id === projectId) setTasksVersion((value) => value + 1);
+                }}
               />
             </div>
           </div>
         </div>
         <Board
           projectId={selectedProject?.id}
+          tasksVersion={tasksVersion}
           projectName={project}
           projectsLoading={projectsLoading}
           projectsError={projectsError}

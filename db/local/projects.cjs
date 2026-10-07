@@ -165,6 +165,15 @@ function openProjectDatabase() {
 
   try {
     const db = getDatabase();
+    const tagColumns = db.prepare("SELECT name FROM pragma_table_info('etiquetas')").all();
+    if (tagColumns.length && !tagColumns.some(({ name }) => name === "proyecto_id")) {
+      try {
+        require("./migrate.cjs").applySchema(db);
+      } catch {
+        db.close();
+        return { error: Response.json({ error: "No se pudo actualizar el esquema local de etiquetas. Tus datos no se han modificado." }, { status: 500 }) };
+      }
+    }
     return { db };
   } catch {
     return { error: Response.json({ error: "Configura primero tu perfil local." }, { status: 409 }) };

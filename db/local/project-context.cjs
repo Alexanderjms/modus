@@ -93,6 +93,11 @@ function sanitizeMimeType(mimeType) {
   return "application/octet-stream";
 }
 
+/**
+ * @param {any} data
+ * @param {any} [db]
+ * @param {number|null} [projectId]
+ */
 function validateContextDocument(data, db = null, projectId = null) {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     return { error: "El cuerpo debe ser un objeto JSON" };

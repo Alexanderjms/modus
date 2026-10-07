@@ -1,0 +1,379 @@
+.card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 8px;
+  padding: 9px;
+  border: 1px solid var(--card-border);
+  border-radius: 9px;
+  background: var(--page);
+}
+
+.heading {
+  display: grid;
+  gap: 5px;
+}
+
+.heading h3 {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 17px;
+  overflow-wrap: anywhere;
+}
+
+.priority,
+.count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.priority i {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+}
+
+.description {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--secondary);
+  font-size: 11.5px;
+  line-height: 16px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tags > li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--tag-color, hsl(var(--tag-hue) 72% 48%)) 14%, var(--surface));
+  color: var(--foreground);
+  font-size: 10px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.tags > li::before {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--tag-color, hsl(var(--tag-hue) 72% 48%));
+  content: "";
+}
+
+.footer,
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.footer {
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.count > i {
+  font-size: 12px;
+}
+
+.actions button,
+.addSubtask {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.actions button:first-child {
+  border-color: #007aff;
+  background: #007aff;
+  color: white;
+}
+
+.actions button:disabled,
+.addSubtask:disabled,
+.subtaskRow button:disabled,
+.tagRow button:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+}
+
+.accepted,
+.discarded {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.accepted {
+  color: #248a4b;
+}
+
+:global([data-theme="dark"]) .accepted {
+  color: #5dd389;
+}
+
+.reviewModal {
+  width: min(480px, calc(100vw - 28px));
+}
+
+.fields {
+  display: grid;
+  gap: 12px;
+}
+
+.fields > label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--foreground);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.fields input,
+.fields textarea,
+.fields select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--page);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 13px;
+}
+
+.fields input,
+.fields select {
+  height: 38px;
+  padding: 0 10px;
+}
+
+.fields textarea {
+  min-height: 82px;
+  padding: 9px 10px;
+  resize: vertical;
+  line-height: 18px;
+}
+
+.fields input[readonly] {
+  background: var(--surface);
+  color: var(--secondary);
+}
+
+.fields :is(input, textarea, select):focus-visible,
+.tagRow input:focus-visible,
+.newTagRow input:focus-visible {
+  border-color: #007aff;
+  outline: none;
+  box-shadow: inset 0 0 0 1px #007aff;
+}
+
+.subtaskRow button:focus-visible,
+.tagRow button:focus-visible,
+.newTagRow button:focus-visible,
+.actions button:focus-visible,
+.addSubtask:focus-visible {
+  border-color: #007aff;
+  outline: 2px solid color-mix(in srgb, #007aff 24%, transparent);
+  outline-offset: 1px;
+}
+
+.subtasks {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.tagsEditor {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.tagsEditor legend {
+  margin-bottom: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.tagRow,
+.newTagRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tagRow > input:first-child,
+.newTagRow > input:first-child {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+}
+
+.tagRow > input[type="color"],
+.newTagRow > input[type="color"] {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  padding: 3px;
+  cursor: pointer;
+}
+
+.tagRow > input[type="color"]:disabled,
+.newTagRow > input[type="color"]:disabled {
+  cursor: not-allowed;
+  opacity: .7;
+}
+
+.tagRow button {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--page);
+  color: var(--muted);
+}
+
+.newTagRow .addSubtask {
+  min-height: 34px;
+  flex: 0 0 auto;
+}
+
+.notice {
+  color: var(--secondary);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.notice {
+  margin-top: -5px;
+}
+
+.subtasks legend {
+  margin-bottom: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.subtaskRow {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.subtaskRow input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+}
+
+.subtaskRow button {
+  width: 34px;
+  flex: 0 0 34px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--page);
+  color: var(--muted);
+}
+
+.addSubtask {
+  justify-self: start;
+  background: transparent;
+}
+
+.error {
+  color: var(--danger, #b42318);
+  font-size: 11.5px;
+  line-height: 16px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .actions button:not(:disabled):hover,
+  .addSubtask:not(:disabled):hover,
+  .subtaskRow button:not(:disabled):hover,
+  .tagRow button:not(:disabled):hover {
+    background-color: var(--toggle-track);
+  }
+
+  .actions button:first-child:not(:disabled):hover {
+    background: #006ee6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reviewModal,
+  .reviewModal::backdrop {
+    transition: none;
+  }
+}
+
+.changes {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.changes div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--page);
+}
+
+.changes dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.changes dd {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 12.5px;
+  line-height: 17px;
+  overflow-wrap: anywhere;
+}

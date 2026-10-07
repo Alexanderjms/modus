@@ -1,5 +1,6 @@
 import { Skeleton } from "../skeleton";
 import styles from "./context.module.css";
+import stateStyles from "./context-load-save.module.css";
 import shared from "../workspace.module.css";
 
 export function ContextSkeleton() {
@@ -9,40 +10,35 @@ export function ContextSkeleton() {
         Cargando contexto del proyecto…
       </p>
       <section className={styles.contextSection}>
-        <header className={styles.skeletonHeader}>
+        <header className={stateStyles.skeletonHeader}>
           <Skeleton variant="text" width={116} height={8} />
-          <Skeleton variant="rounded" width={24} height={24} />
         </header>
         <Skeleton variant="rounded" width="100%" height={84} />
-        <div className={`${styles.skeletonField} ${styles.skeletonHint}`}>
+        <div className={stateStyles.skeletonHint}>
           <Skeleton variant="text" width={72} height={8} />
         </div>
       </section>
       <section className={styles.contextSection}>
-        <header className={styles.skeletonHeader}>
+        <header className={stateStyles.skeletonHeader}>
           <Skeleton variant="text" width={92} height={8} />
-          <Skeleton variant="rounded" width={24} height={24} />
         </header>
         <ul className={styles.editableList}>
           {[0, 1, 2].map((key) => (
-            <li key={key}>
+            <li className={stateStyles.skeletonRuleRow} key={key}>
               <Skeleton variant="rounded" width="100%" height={32} />
-              <Skeleton variant="rounded" width={28} height={28} />
             </li>
           ))}
         </ul>
       </section>
       <section className={styles.contextSection}>
-        <header className={styles.skeletonHeader}>
+        <header className={stateStyles.skeletonHeader}>
           <Skeleton variant="text" width={68} height={8} />
-          <Skeleton variant="rounded" width={24} height={24} />
         </header>
         <ul className={styles.editableList}>
           {[0, 1].map((key) => (
-            <li className={styles.skeletonResourceRow} key={key}>
+            <li className={stateStyles.skeletonResourceRow} key={key}>
               <Skeleton variant="rounded" width="100%" height={32} />
               <Skeleton variant="rounded" width="100%" height={32} />
-              <Skeleton variant="rounded" width={28} height={28} />
             </li>
           ))}
         </ul>
@@ -62,14 +58,14 @@ export function ContextLoadMessage({
 }) {
   if (kind === "no-project") {
     return (
-      <p className={styles.panelMessage} role="status">
+      <p className={stateStyles.panelMessage} role="status">
         Selecciona un proyecto para editar su contexto.
       </p>
     );
   }
 
   return (
-    <div className={styles.panelMessage} role="alert">
+    <div className={stateStyles.panelMessage} role="alert">
       <p>{message || "No se pudo cargar el contexto."}</p>
       <button type="button" className={shared.textButton} onClick={onRetry}>
         Reintentar

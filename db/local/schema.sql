@@ -39,9 +39,11 @@ CREATE TABLE IF NOT EXISTS estados (
 
 CREATE TABLE IF NOT EXISTS etiquetas (
   id INTEGER PRIMARY KEY,
-  nombre TEXT NOT NULL UNIQUE,
+  proyecto_id INTEGER NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+  nombre TEXT NOT NULL,
   color TEXT,
-  descripcion TEXT
+  descripcion TEXT,
+  UNIQUE(proyecto_id, nombre COLLATE NOCASE)
 );
 
 CREATE TABLE IF NOT EXISTS tareas (
@@ -80,6 +82,8 @@ CREATE INDEX IF NOT EXISTS idx_tareas_lista_posicion ON tareas(lista_id, posicio
 
 CREATE INDEX IF NOT EXISTS idx_subtareas_tarea ON subtareas(tarea_id);
 
+CREATE INDEX IF NOT EXISTS idx_etiquetas_proyecto ON etiquetas(proyecto_id);
+
 CREATE TABLE IF NOT EXISTS proveedor_claves (
   id INTEGER PRIMARY KEY,
   usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -107,6 +111,17 @@ CREATE TABLE IF NOT EXISTS chats (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chats_proyecto_actualizado ON chats(proyecto_id, actualizado_en DESC, id DESC);
+
+CREATE TABLE IF NOT EXISTS chat_suggestion_tasks (
+  chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+  suggestion_id TEXT NOT NULL,
+  tarea_id INTEGER REFERENCES tareas(id) ON DELETE SET NULL,
+  creado_en TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  UNIQUE(chat_id, suggestion_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_suggestion_tasks_chat ON chat_suggestion_tasks(chat_id);
+CREATE INDEX IF NOT EXISTS idx_chat_suggestion_tasks_tarea ON chat_suggestion_tasks(tarea_id);
 
 CREATE TABLE IF NOT EXISTS proyecto_contexto (
   proyecto_id INTEGER PRIMARY KEY REFERENCES proyectos(id) ON DELETE CASCADE,
@@ -137,6 +152,20 @@ CREATE TABLE IF NOT EXISTS tarea_completaciones (
 
 CREATE INDEX IF NOT EXISTS idx_tarea_completaciones_proyecto_fecha ON tarea_completaciones(proyecto_id, completada_en);
 CREATE INDEX IF NOT EXISTS idx_tarea_completaciones_tarea ON tarea_completaciones(tarea_id);
+
+CREATE TABLE IF NOT EXISTS proyecto_eventos (
+  id INTEGER PRIMARY KEY,
+  proyecto_id INTEGER NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+  actor_usuario_id INTEGER,
+  entidad_tipo TEXT NOT NULL,
+  entidad_id TEXT NOT NULL,
+  accion TEXT NOT NULL,
+  datos TEXT,
+  creado_en TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_proyecto_eventos_proyecto_id ON proyecto_eventos(proyecto_id, id ASC);
+CREATE INDEX IF NOT EXISTS idx_proyecto_eventos_entidad ON proyecto_eventos(entidad_tipo, entidad_id);
 
 INSERT OR IGNORE INTO prioridades (nombre) VALUES ('Alta'), ('Media'), ('Baja'), ('Sin prioridad');
 

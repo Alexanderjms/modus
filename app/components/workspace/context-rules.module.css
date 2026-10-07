@@ -1,0 +1,59 @@
+.ruleChip {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  padding: 7px 0;
+  color: var(--foreground);
+  font-size: 11.5px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+.ruleChip::before {
+  flex-shrink: 0;
+  color: var(--muted);
+  content: "•";
+}
+.ruleInput {
+  grid-column: 1;
+}
+.inlineRuleError {
+  grid-column: 1 / -1;
+  color: var(--danger, #b42318);
+  font-size: 10.5px;
+  line-height: 14px;
+}
+.ruleMenu {
+  position: fixed;
+  z-index: 1000;
+  display: grid;
+  width: 148px;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px #00000024;
+}
+.ruleMenu button {
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  font-size: 12px;
+}
+.ruleMenu .ruleMenuDelete {
+  color: var(--danger, #b42318);
+}
+.ruleMenu button:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ruleMenu button:hover {
+    background: var(--toggle-track);
+  }
+}

@@ -5,7 +5,7 @@ import { Modal } from "../shell/modal";
 import type { TaskCatalogsDto } from "../../api/tasks/route";
 import type { BoardTask } from "./workspace-data";
 import { fallbackPriorityColor } from "./task-card";
-import { ChatPicker } from "./chat-picker";
+import { ChatPicker, type ChatPickerOption } from "./chat-picker";
 import { DatePicker } from "./date-picker";
 import { getSubtasksToSave } from "./task-subtask-utils.mjs";
 import {
@@ -14,7 +14,7 @@ import {
   TaskTagsSection,
   type EditableSubtask,
 } from "./task-detail-sections";
-import styles from "./board.module.css";
+import styles from "./task-editor.module.css";
 
 export type TaskEditPayload = {
   title: string;
@@ -32,6 +32,7 @@ export function TaskDetailModal({
   projectId,
   catalogs,
   onSave,
+  onTagDataChange,
   savePending = false,
   onClose,
 }: {
@@ -39,6 +40,7 @@ export function TaskDetailModal({
   projectId?: number;
   catalogs: TaskCatalogsDto | null;
   onSave: (taskId: number, projectId: number, column: 0 | 1 | 2, payload: TaskEditPayload) => Promise<string | null>;
+  onTagDataChange: (catalogs: TaskCatalogsDto, tasks: BoardTask[]) => void;
   savePending?: boolean;
   onClose: () => void;
 }) {
@@ -65,6 +67,13 @@ export function TaskDetailModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [tagError, setTagError] = useState("");
+  const [tagActionNotice, setTagActionNotice] = useState("");
+  const [tagActionPending, setTagActionPending] = useState(false);
+  const [tagEditTarget, setTagEditTarget] = useState<{ option: ChatPickerOption; draftKey?: string } | null>(null);
+  const [tagDeleteTarget, setTagDeleteTarget] = useState<{ option: ChatPickerOption; draftKey?: string } | null>(null);
+  const [tagEditName, setTagEditName] = useState("");
+  const [tagEditColor, setTagEditColor] = useState("#007AFF");
+  const [tagActionError, setTagActionError] = useState("");
   const retainedTask = useRef<BoardTask | null>(task);
   const initialized = useRef<{ identity: string | null; catalogsReady: boolean }>({ identity: null, catalogsReady: false });
   if (task) retainedTask.current = task;
@@ -147,6 +156,12 @@ export function TaskDetailModal({
     const taskChanged = initialized.current.identity !== identity;
     const catalogsLoaded = Boolean(catalogs) && !initialized.current.catalogsReady;
     if (!taskChanged && !catalogsLoaded) return;
+    if (taskChanged) {
+      setTagEditTarget(null);
+      setTagDeleteTarget(null);
+      setTagActionError("");
+      setTagActionNotice("");
+    }
     initialized.current = { identity, catalogsReady: Boolean(catalogs) };
     exitingTagKeysRef.current = new Set();
     setExitingTagKeys(exitingTagKeysRef.current);
@@ -201,6 +216,156 @@ export function TaskDetailModal({
     if (!existing) setNewTagColors((current) => ({ ...current, [key]: newTagColor }));
     setTagError("");
     setNewTag("");
+  };
+
+  const openTagAction = (option: ChatPickerOption, action: "rename" | "delete") => {
+    const draftKey = option.value.startsWith("name:") ? option.value : undefined;
+    setTagError("");
+    setTagActionError("");
+    setTagActionNotice("");
+    if (action === "rename") {
+      setTagEditName(option.label);
+      setTagEditColor(option.color || "#007AFF");
+      setTagEditTarget({ option, draftKey });
+    } else {
+      setTagDeleteTarget({ option, draftKey });
+    }
+  };
+
+  const submitTagEdit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!tagEditTarget || tagActionPending) return;
+    const name = tagEditName.trim();
+    if (!name) {
+      setTagActionError("Escribe un nombre para la etiqueta.");
+      return;
+    }
+    const existingId = tagEditTarget.option.value.startsWith("id:")
+      ? Number(tagEditTarget.option.value.slice(3))
+      : null;
+    const duplicate = catalogs?.tags.some((tag) =>
+      tag.id !== existingId && tag.name.trim().toLocaleLowerCase("es") === name.toLocaleLowerCase("es"),
+    ) || tagKeys.some((key) => {
+      if (key === tagEditTarget.draftKey) return false;
+      if (key.startsWith("name:")) return key.slice(5).trim().toLocaleLowerCase("es") === name.toLocaleLowerCase("es");
+      const tag = catalogs?.tags.find((item) => key === `id:${item.id}`);
+      return tag?.id !== existingId && tag?.name.trim().toLocaleLowerCase("es") === name.toLocaleLowerCase("es");
+    });
+    if (duplicate) {
+      setTagActionError("Ya existe una etiqueta con ese nombre en el proyecto.");
+      return;
+    }
+
+    setTagActionPending(true);
+    setTagActionError("");
+    try {
+      if (tagEditTarget.draftKey) {
+        const oldKey = tagEditTarget.draftKey;
+        const newKey = `name:${name}`;
+        setTagKeys((current) => current.map((key) => key === oldKey ? newKey : key));
+        setNewTagColors((current) => {
+          const { [oldKey]: color, ...rest } = current;
+          return { ...rest, [newKey]: tagEditColor };
+        });
+        if (exitingTagKeysRef.current.has(oldKey)) {
+          const next = new Set(exitingTagKeysRef.current);
+          next.delete(oldKey);
+          next.add(newKey);
+          exitingTagKeysRef.current = next;
+          setExitingTagKeys(next);
+        }
+        setTagEditTarget(null);
+        setTagActionNotice(`Etiqueta «${name}» actualizada en este formulario.`);
+        return;
+      }
+      if (projectId === undefined || existingId === null) throw new Error("No se pudo identificar la etiqueta del proyecto.");
+      const response = await fetch(`/api/projects/${projectId}/tags/${existingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ name, color: tagEditColor }),
+      });
+      const data = await response.json().catch(() => ({})) as {
+        error?: string;
+        tag?: { id: number; name: string; color: string };
+        tasks?: BoardTask[];
+        catalogs?: TaskCatalogsDto;
+      };
+      if (!response.ok) throw new Error(data.error || "No se pudo actualizar la etiqueta.");
+      if (!data.tag || data.tag.id !== existingId || !Array.isArray(data.tasks) || !data.catalogs
+        || !Array.isArray(data.catalogs.lists) || !Array.isArray(data.catalogs.priorities)
+        || !Array.isArray(data.catalogs.statuses) || !Array.isArray(data.catalogs.tags)) {
+        throw new Error("El servidor devolvió una respuesta no válida.");
+      }
+      onTagDataChange(data.catalogs, data.tasks);
+      setTagEditTarget(null);
+      setTagActionNotice(`Etiqueta «${name}» actualizada en todas las tareas de este proyecto.`);
+    } catch (error) {
+      setTagActionError(error instanceof Error ? error.message : "Error al actualizar la etiqueta.");
+    } finally {
+      setTagActionPending(false);
+    }
+  };
+
+  const confirmTagDelete = async () => {
+    if (!tagDeleteTarget || tagActionPending) return;
+    if (tagDeleteTarget.draftKey) {
+      const key = tagDeleteTarget.draftKey;
+      setTagKeys((current) => current.filter((item) => item !== key));
+      setNewTagColors((current) => {
+        const { [key]: _color, ...rest } = current;
+        return rest;
+      });
+      if (exitingTagKeysRef.current.has(key)) {
+        const next = new Set(exitingTagKeysRef.current);
+        next.delete(key);
+        exitingTagKeysRef.current = next;
+        setExitingTagKeys(next);
+      }
+      setTagDeleteTarget(null);
+      setTagActionNotice(`La etiqueta «${tagDeleteTarget.option.label}» se quitó del formulario.`);
+      return;
+    }
+
+    const id = Number(tagDeleteTarget.option.value.slice(3));
+    if (projectId === undefined || !Number.isSafeInteger(id)) {
+      setTagActionError("No se pudo identificar la etiqueta del proyecto.");
+      return;
+    }
+    setTagActionPending(true);
+    setTagActionError("");
+    try {
+      const response = await fetch(`/api/projects/${projectId}/tags/${id}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => ({})) as {
+        error?: string;
+        tasks?: BoardTask[];
+        catalogs?: TaskCatalogsDto;
+      };
+      if (!response.ok) throw new Error(data.error || "No se pudo eliminar la etiqueta.");
+      if (!Array.isArray(data.tasks) || !data.catalogs || !Array.isArray(data.catalogs.lists)
+        || !Array.isArray(data.catalogs.priorities) || !Array.isArray(data.catalogs.statuses)
+        || !Array.isArray(data.catalogs.tags)) {
+        throw new Error("El servidor devolvió una respuesta no válida.");
+      }
+      onTagDataChange(data.catalogs, data.tasks);
+      const key = `id:${id}`;
+      setTagKeys((current) => current.filter((item) => item !== key));
+      if (exitingTagKeysRef.current.has(key)) {
+        const next = new Set(exitingTagKeysRef.current);
+        next.delete(key);
+        exitingTagKeysRef.current = next;
+        setExitingTagKeys(next);
+      }
+      setTagDeleteTarget(null);
+      setTagActionNotice(`Etiqueta «${tagDeleteTarget.option.label}» eliminada de todas las tareas de este proyecto.`);
+    } catch (error) {
+      setTagActionError(error instanceof Error ? error.message : "Error al eliminar la etiqueta.");
+    } finally {
+      setTagActionPending(false);
+    }
   };
 
   const attachmentEntries = attachments.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
@@ -295,6 +460,7 @@ export function TaskDetailModal({
   };
 
   return (
+    <>
     <Modal
       open={Boolean(task)}
       onClose={onClose}
@@ -346,12 +512,15 @@ export function TaskDetailModal({
                   newTagColor={newTagColor}
                   newTagColors={newTagColors}
                   tagError={tagError}
+                  tagActionNotice={tagActionNotice}
                   saving={saving}
                   savePending={savePending}
                   suspended={!task}
                   onNewTagChange={setNewTag}
                   onNewTagColorChange={setNewTagColor}
                   onAddTag={addTag}
+                  onTagAction={openTagAction}
+                  tagActionPending={tagActionPending}
                   onAppendTagKey={(key) => setTagKeys((current) => current.includes(key) ? current : [...current, key])}
                   onStartRemoval={startTagRemoval}
                   onCancelRemoval={cancelTagRemoval}
@@ -397,5 +566,52 @@ export function TaskDetailModal({
         </div>
       )}
     </Modal>
+    <Modal
+      open={tagEditTarget !== null}
+      onClose={() => { if (!tagActionPending) { setTagEditTarget(null); setTagActionError(""); } }}
+      title="Editar etiqueta"
+      onSubmit={(event) => void submitTagEdit(event)}
+      submitLabel={tagActionPending ? "Guardando…" : "Guardar etiqueta"}
+      submitDisabled={!tagEditName.trim()}
+      pending={tagActionPending}
+      className={styles.tagActionDialog}
+    >
+      <div className={styles.tagActionFields}>
+        <label className={styles.editorField}>
+          <span>Nombre</span>
+          <input autoFocus required maxLength={80} value={tagEditName} onChange={(event) => setTagEditName(event.target.value)} />
+        </label>
+        <label className={styles.editorField}>
+          <span>Color</span>
+          <input type="color" aria-label="Color de etiqueta" value={tagEditColor} onChange={(event) => setTagEditColor(event.target.value)} />
+        </label>
+        {tagActionError && <p className={styles.editorError} role="alert">{tagActionError}</p>}
+      </div>
+    </Modal>
+    <Modal
+      open={tagDeleteTarget !== null}
+      onClose={() => { if (!tagActionPending) { setTagDeleteTarget(null); setTagActionError(""); } }}
+      title="Eliminar etiqueta"
+      descriptionId="task-tag-delete-description"
+      showFooter={false}
+      pending={tagActionPending}
+      className={styles.tagActionDialog}
+    >
+      <div className={styles.tagDeleteContent}>
+        <p id="task-tag-delete-description">
+          {tagDeleteTarget?.draftKey
+            ? `«${tagDeleteTarget.option.label}» solo existe en este formulario y se quitará de los cambios sin guardar.`
+            : `«${tagDeleteTarget?.option.label ?? "Esta etiqueta"}» se quitará de todas las tareas de este proyecto. Esta acción no se puede deshacer.`}
+        </p>
+        {tagActionError && <p className={styles.editorError} role="alert">{tagActionError}</p>}
+        <div className={styles.tagDeleteActions}>
+          <button type="button" className={styles.tagCancelButton} disabled={tagActionPending} onClick={() => { setTagDeleteTarget(null); setTagActionError(""); }}>Cancelar</button>
+          <button type="button" className={styles.tagDeleteButton} disabled={tagActionPending} onClick={() => void confirmTagDelete()}>
+            {tagActionPending ? "Eliminando…" : "Eliminar etiqueta"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+    </>
   );
 }

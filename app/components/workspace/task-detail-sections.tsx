@@ -3,8 +3,8 @@
 import type { CSSProperties, RefObject } from "react";
 import type { TaskCatalogsDto } from "../../api/tasks/route";
 import { getTaskTagHue } from "./task-card";
-import { ChatPicker } from "./chat-picker";
-import styles from "./board.module.css";
+import { ChatPicker, type ChatPickerOption } from "./chat-picker";
+import styles from "./task-editor.module.css";
 
 export type EditableSubtask = {
   id?: number;
@@ -21,6 +21,7 @@ export function TaskTagsSection({
   newTagColor,
   newTagColors,
   tagError,
+  tagActionNotice,
   saving,
   savePending,
   suspended,
@@ -28,6 +29,8 @@ export function TaskTagsSection({
   onNewTagColorChange,
   onAddTag,
   onAppendTagKey,
+  onTagAction,
+  tagActionPending,
   onStartRemoval,
   onCancelRemoval,
   onFinishRemoval,
@@ -39,6 +42,7 @@ export function TaskTagsSection({
   newTagColor: string;
   newTagColors: Record<string, string>;
   tagError: string;
+  tagActionNotice: string;
   saving: boolean;
   savePending: boolean;
   suspended: boolean;
@@ -46,6 +50,8 @@ export function TaskTagsSection({
   onNewTagColorChange: (value: string) => void;
   onAddTag: () => void;
   onAppendTagKey: (key: string) => void;
+  onTagAction: (option: ChatPickerOption, action: "rename" | "delete") => void;
+  tagActionPending: boolean;
   onStartRemoval: (key: string) => void;
   onCancelRemoval: (key: string) => void;
   onFinishRemoval: (key: string) => void;
@@ -63,6 +69,11 @@ export function TaskTagsSection({
         ]}
         emptyLabel="Aún no hay etiquetas. Crea una abajo."
         onChange={() => {}}
+        optionActions={{
+          disabled: tagActionPending,
+          labels: { rename: "Editar" },
+          onSelect: onTagAction,
+        }}
         multipleValues={tagKeys.filter((key) => !exitingTagKeys.has(key))}
         onMultipleChange={(values) => {
           const selected = tagKeys.filter((key) => !exitingTagKeys.has(key));
@@ -86,6 +97,7 @@ export function TaskTagsSection({
         size="form"
       />
       {tagError && <p className={styles.editorError} role="alert">{tagError}</p>}
+      {tagActionNotice && <p className={styles.tagActionStatus} role="status">{tagActionNotice}</p>}
       <ul className={styles.selectedTags} aria-label="Etiquetas asociadas">
         {tagKeys.map((key) => {
           const catalogTag = key.startsWith("id:") ? catalogs.tags.find((item) => key === `id:${item.id}`) : undefined;

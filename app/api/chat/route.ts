@@ -7,16 +7,42 @@ import {
   openProjectDatabase,
   getDecryptedProviderKey,
   discoverProviderModels,
+  searchTavily,
+  formatWebSearchContext,
   validateChatRequest,
   readLimitedJsonBody,
   executeInference,
+  buildDecisionSystemPrompt,
+  buildFinalAnswerSystemPrompt,
+  parseModelDecision,
   getOpenCodeProtocolForModel,
   MAX_CHAT_BODY_BYTES,
 } from "../../../db/local/chat.cjs";
 import { getProjectContext } from "../../../db/local/project-context.cjs";
+import { compileProjectContext, withSnapshot } from "../../../db/local/project-graph.cjs";
+import { getProjectCatalogs } from "../../../db/local/tasks.cjs";
+import {
+  captureProjectResources,
+  resolveProjectResourceContent,
+} from "../../../db/local/project-resource-content.cjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+export interface ProjectContextCompiled {
+  context: string;
+  rules: string[];
+  resources: { title: string; url: string }[];
+  compiledPrompt?: string;
+  coverage?: {
+    totalTasks: number;
+    includedSummaryTasks: number;
+    truncatedSummaryTasks: number;
+    isComplete: boolean;
+    budgetChars: number;
+  };
+  version?: string;
+}
 
 export async function POST(request: Request) {
   const secError = validateLoopbackSecurity(request);
@@ -34,14 +60,15 @@ export async function POST(request: Request) {
   let projectRow: { id: number; nombre: string } | undefined;
   let apiKey: string | null = null;
 
-  let projectContext: { context: string; rules: string[]; resources: { title: string; url: string }[] } | null = null;
+  let projectContext: ProjectContextCompiled | null = null;
+  let capturedResources: any = null;
 
   try {
     const dbResult = openProjectDatabase();
     if ("error" in dbResult && dbResult.error) {
       return withNoStore(dbResult.error);
     }
-    db = dbResult.db;
+    db = dbResult.db as DatabaseSync;
 
     const user = resolveUser(db);
     if (user instanceof Response) {
@@ -61,8 +88,38 @@ export async function POST(request: Request) {
     }
 
     try {
-      projectContext = getProjectContext(db, projectId);
-    } catch {
+      const lastUserMessage = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+      const snapshotResult = withSnapshot(db, () => {
+        const compiled = compileProjectContext(db, projectId, { queryText: lastUserMessage });
+        const initialCtx = {
+          context: compiled.context,
+          rules: compiled.rules,
+          resources: compiled.resources,
+          compiledPrompt: compiled.compiledPrompt,
+          coverage: compiled.coverage,
+          version: compiled.version,
+        };
+        // Catálogo de etiquetas del proyecto, acotado, para que el modelo reutilice nombres existentes.
+        try {
+          const tagCatalog = getProjectCatalogs(db, projectId).tags || [];
+          const boundedTags = tagCatalog
+            .slice(0, 80)
+            .map((t: { name: unknown; color?: unknown }) =>
+              `- ${String(t.name).slice(0, 80)}${t.color ? ` (${String(t.color)})` : ""}`
+            );
+          if (boundedTags.length > 0) {
+            initialCtx.compiledPrompt = `${initialCtx.compiledPrompt || ""}\n\n### ETIQUETAS DEL PROYECTO (reutilizables):\n${boundedTags.join("\n")}\n`;
+          }
+        } catch {}
+        const captured = captureProjectResources(db, projectId, initialCtx);
+        return { initialCtx, captured };
+      });
+      projectContext = snapshotResult.initialCtx;
+      capturedResources = snapshotResult.captured;
+    } catch (err: any) {
+      if (err && err.code === "PROJECT_CONTEXT_BUDGET_EXCEEDED") {
+        return jsonResponse({ error: err.message || "Presupuesto de contexto de proyecto excedido" }, 422);
+      }
       return jsonResponse({ error: "No se pudo cargar el contexto del proyecto" }, 500);
     }
 
@@ -129,31 +186,203 @@ export async function POST(request: Request) {
     effectiveProtocol = "responses";
   }
 
-  const inference = await executeInference(
-    provider,
-    apiKey,
-    model,
-    effectiveProtocol,
-    region,
-    messages,
-    projectRow.nombre,
-    projectRow.id,
-    request.signal,
-    undefined,
-    projectContext
-  );
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (event: Record<string, unknown>) => {
+        if (request.signal.aborted) return;
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        } catch {}
+      };
+      const sendError = async (response: Response) => {
+        let error = "No se pudo completar el chat.";
+        try {
+          const body = await response.json();
+          if (typeof body?.error === "string") error = body.error;
+        } catch {}
+        send({ type: "error", error, status: response.status });
+        try { controller.close(); } catch {}
+      };
 
-  if (inference.error) {
-    return inference.error;
-  }
+      try {
+        let resourceContentResult = null;
+        if (capturedResources) {
+          resourceContentResult = await resolveProjectResourceContent(capturedResources, {
+            signal: request.signal,
+          });
+        }
 
-  return jsonResponse(
-    {
-      message: {
-        role: "assistant",
-        content: inference.text,
-      },
+        if (request.signal.aborted) {
+          try { controller.close(); } catch {}
+          return;
+        }
+
+        if (resourceContentResult?.formattedBlock) {
+          projectContext = {
+            ...(projectContext ?? {}),
+            context: projectContext?.context ?? "",
+            rules: projectContext?.rules ?? [],
+            resources: projectContext?.resources ?? [],
+            compiledPrompt: `${projectContext?.compiledPrompt ?? ""}${resourceContentResult.formattedBlock}`,
+          };
+        }
+
+        send({ type: "thinking" });
+
+        // Paso 1: Decisión del modelo sobre responder directo o buscar en la web
+        // Se preserva el contexto completo del proyecto (grafo/kanban/reglas/citas/recursos) en esta llamada
+        const decisionPrompt = buildDecisionSystemPrompt(projectRow!.nombre, projectContext);
+        const decisionInference = await executeInference(
+          provider,
+          apiKey,
+          model,
+          effectiveProtocol,
+          region,
+          messages,
+          projectRow!.nombre,
+          projectRow!.id,
+          request.signal,
+          undefined,
+          projectContext,
+          decisionPrompt
+        );
+
+        if (request.signal.aborted) {
+          try { controller.close(); } catch {}
+          return;
+        }
+
+        if (decisionInference.error) {
+          await sendError(decisionInference.error);
+          return;
+        }
+
+        const decision = parseModelDecision(decisionInference.text);
+
+        // Fallo controlado si el modelo no emitió una decisión estructurada válida:
+        // no exponer envelopes crudos ni texto no validado al cliente
+        if (!decision) {
+          send({
+            type: "error",
+            error: "El modelo no emitió una decisión o respuesta estructurada válida.",
+            status: 502,
+          });
+          try { controller.close(); } catch {}
+          return;
+        }
+
+        // Si la decisión es "answer", entregamos la respuesta ya generada
+        if (decision.action === "answer") {
+          const answerDecision = decision as { action: "answer"; answer: string; suggestions?: any[] };
+          send({
+            type: "complete",
+            message: {
+              role: "assistant",
+              content: answerDecision.answer,
+              ...(answerDecision.suggestions ? { suggestions: answerDecision.suggestions } : {}),
+            },
+          });
+          try { controller.close(); } catch {}
+          return;
+        }
+
+        // Acción es "search": verificar si tenemos clave de Tavily sin simular searching
+        const tavilyKey = process.env.TAVILY_API_KEY?.trim();
+        if (!tavilyKey) {
+          send({
+            type: "error",
+            error: "El modelo solicitó buscar información en la web, pero no está configurada la variable TAVILY_API_KEY en el servidor.",
+            status: 503,
+          });
+          try { controller.close(); } catch {}
+          return;
+        }
+
+        // Emitir "searching" INMEDIATAMENTE antes de llamar a Tavily y tras validar la clave
+        send({ type: "searching" });
+
+        const search = await searchTavily(
+          decision.query,
+          tavilyKey,
+          request.signal,
+        );
+
+        if (request.signal.aborted) {
+          try { controller.close(); } catch {}
+          return;
+        }
+
+        if (!search.ok) {
+          await sendError(search.errorResponse ?? jsonResponse({ error: "Error de conexión con Tavily" }, 502));
+          return;
+        }
+
+        // Tras la búsqueda, volvemos a thinking para la inferencia final
+        send({ type: "thinking" });
+
+        const contextWithSearch = {
+          ...(projectContext ?? {}),
+          compiledPrompt: `${projectContext?.compiledPrompt ?? ""}${formatWebSearchContext(search.results)}`,
+        };
+
+        const finalPrompt = buildFinalAnswerSystemPrompt(projectRow!.nombre, contextWithSearch as any);
+
+        const finalInference = await executeInference(
+          provider,
+          apiKey,
+          model,
+          effectiveProtocol,
+          region,
+          messages,
+          projectRow!.nombre,
+          projectRow!.id,
+          request.signal,
+          undefined,
+          contextWithSearch,
+          finalPrompt
+        );
+
+        if (request.signal.aborted) {
+          try { controller.close(); } catch {}
+          return;
+        }
+
+        if (finalInference.error) {
+          await sendError(finalInference.error);
+          return;
+        }
+
+        const finalDecision = parseModelDecision(finalInference.text);
+        if (finalDecision && finalDecision.action === "answer") {
+          const finalAnswerDecision = finalDecision as { action: "answer"; answer: string; suggestions?: any[] };
+          send({
+            type: "complete",
+            message: {
+              role: "assistant",
+              content: finalAnswerDecision.answer,
+              ...(finalAnswerDecision.suggestions ? { suggestions: finalAnswerDecision.suggestions } : {}),
+            },
+          });
+        } else {
+          // Si el modelo devolvió texto plano o no estructuró JSON en la respuesta final,
+          // enviar como texto plano limpio sin propuestas para compatibilidad
+          send({ type: "complete", message: { role: "assistant", content: finalInference.text } });
+        }
+        try { controller.close(); } catch {}
+      } catch {
+        send({ type: "error", error: "No se pudo procesar la solicitud de chat.", status: 502 });
+        try { controller.close(); } catch {}
+      }
     },
-    200
-  );
+    cancel() {},
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }

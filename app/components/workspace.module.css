@@ -22,7 +22,7 @@
 .workspace :is(button, summary, select) {
   font-size: 12px;
 }
-.workspace button {
+.workspace button:where(:not(dialog button)) {
   padding: 5px 11px;
   border: 1px solid var(--divider);
   background: var(--surface);

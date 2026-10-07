@@ -7,18 +7,19 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { createPortal } from "react-dom";
 import styles from "./context.module.css";
-import shared from "../workspace.module.css";
 import { isProjectContextFileUrl } from "./context-file-resource.mjs";
+import { getResourceTitle } from "./context-resource-title.mjs";
 import {
-  getContextResourceDomain,
-  isContextFile,
   isValidContextDocument,
   type ContextDocument,
   type ContextResource,
 } from "./context-document.mjs";
 import { ContextLoadMessage, ContextSkeleton } from "./context-load-states";
+import { ContextProjectSection } from "./context-project-section";
+import { ContextRulesSection } from "./context-rules-section";
+import { ContextResourcesSection } from "./context-resources-section";
+import { ContextSaveStatus } from "./context-save-status";
 
 export {
   isContextDocument,
@@ -26,18 +27,6 @@ export {
   type ContextDocument,
   type ContextResource,
 } from "./context-document.mjs";
-
-function getResourceTitle(parsedUrl: URL, fallback: string) {
-  const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
-  let title = pathParts[pathParts.length - 1] || parsedUrl.hostname.replace(/^www\./i, "");
-  try {
-    title = decodeURIComponent(title);
-  } catch {
-    // Keep the original path segment when percent-encoding is invalid.
-  }
-  title = title.replace(/[-_]+/g, " ").trim() || fallback;
-  return title.slice(0, 200);
-}
 
 export function ContextSections({
   document,
@@ -330,10 +319,23 @@ export function ContextSections({
   }
 
   const isCollapsed = (key: string) => collapsed[key] === true;
+  const storageKey = `modus:context-collapsed:${projectId ?? "none"}`;
+
+  useEffect(() => {
+    try {
+      setCollapsed(JSON.parse(localStorage.getItem(storageKey) ?? "{}") || {});
+    } catch {
+      setCollapsed({});
+    }
+  }, [storageKey]);
 
   function toggleSection(key: string) {
     const collapsing = !isCollapsed(key);
-    setCollapsed((current) => ({ ...current, [key]: collapsing }));
+    const next = { ...collapsed, [key]: collapsing };
+    setCollapsed(next);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next));
+    } catch {}
     if (!collapsing) return;
     if (key === "rules") {
       setOpenRuleMenu(null);
@@ -694,486 +696,109 @@ export function ContextSections({
 
       {loadState === "ready" && (
         <>
-          <section
-            className={styles.contextSection}
-            aria-labelledby={`${id}-context`}
-          >
-            <header>
-              <h3 id={`${id}-context`}>CONTEXTO DEL PROYECTO</h3>
-              <button
-                type="button"
-                aria-label={editingContext ? "Finalizar edición del contexto" : "Editar contexto"}
-                disabled={disabled}
-                onClick={() => setEditingContext((editing) => !editing)}
-              >
-                <i
-                  aria-hidden="true"
-                  className={`bi bi-${editingContext ? "check" : "pencil"}`}
-                />
-              </button>
-              {renderSectionToggle("context", "el contexto del proyecto")}
-            </header>
-            <div
-              id={`${id}-context-panel`}
-              role="region"
-              aria-labelledby={`${id}-context`}
-              aria-hidden={isCollapsed("context")}
-              inert={isCollapsed("context")}
-              data-open={!isCollapsed("context")}
-              className={styles.sectionBody}
-            >
-              <div className={styles.sectionBodyInner}>
-                {editingContext ? (
-                  <>
-                    <textarea
-                      ref={contextRef}
-                      id={`${id}-description`}
-                      rows={6}
-                      maxLength={5000}
-                      value={document.context}
-                      disabled={disabled}
-                      onChange={(event) => update({ context: event.target.value })}
-                      aria-label="Contexto del proyecto"
-                      placeholder="Describe el proyecto para orientar las respuestas de la IA…"
-                    />
-                    <p className={styles.fieldHint}>
-                      {document.context.length}/5000 caracteres
-                    </p>
-                  </>
-                ) : (
-                  <p className={styles.contextText}>
-                    {document.context || "Aún no se ha agregado contexto para este proyecto."}
-                  </p>
-                )}
-              </div>
-            </div>
-          </section>
+          <ContextProjectSection
+            id={id}
+            document={document}
+            disabled={disabled}
+            editing={editingContext}
+            collapsed={isCollapsed("context")}
+            contextRef={contextRef}
+            onEditingChange={() => setEditingContext((editing) => !editing)}
+            onContextChange={(context) => update({ context })}
+            onToggle={() => toggleSection("context")}
+          />
 
-          <section
-            className={styles.contextSection}
-            aria-labelledby={`${id}-rules`}
-          >
-            <header>
-              <h3 id={`${id}-rules`}>REGLAS A SEGUIR</h3>
-              <button
-                type="button"
-                aria-label="Agregar regla"
-                title={atRuleLimit ? "Máximo 50 reglas." : undefined}
-                ref={addRuleRef}
-                disabled={disabled || atRuleLimit || addingRule || editingRule !== null || confirmDeleteRule !== null || confirmDeleteResource !== null}
-                onClick={() => {
-                  setAddingRule(true);
-                  setRuleDraft("");
-                }}
-              >
-                <i aria-hidden="true" className="bi bi-plus" />
-              </button>
-              {renderSectionToggle("rules", "las reglas a seguir")}
-            </header>
-            <div
-              id={`${id}-rules-panel`}
-              role="region"
-              aria-labelledby={`${id}-rules`}
-              aria-hidden={isCollapsed("rules")}
-              inert={isCollapsed("rules")}
-              data-open={!isCollapsed("rules")}
-              className={styles.sectionBody}
-            >
-              <div className={styles.sectionBodyInner}>
-            {document.rules.length || addingRule ? (
-              <ul className={styles.editableList}>
-                {document.rules.map((rule, index) => (
-                  <li className={`${styles.ruleRow} ${editingRule === index ? styles.ruleEditRow : ""}`} key={index}>
-                    {editingRule === index ? (
-                      <>
-                        <label className={styles.srOnly} htmlFor={`${id}-rule-${index}`}>
-                          Editar regla {index + 1}
-                        </label>
-                        <input
-                          ref={ruleInputRef}
-                          id={`${id}-rule-${index}`}
-                          className={styles.ruleInput}
-                          value={ruleDraft}
-                          maxLength={500}
-                          disabled={disabled}
-                          aria-invalid={showValidation && !ruleDraft.trim()}
-                          onKeyDown={(event) => {
-                            if (event.key === "Escape") {
-                              event.preventDefault();
-                              cancelRuleEdit();
-                            } else submitOnEnter(event);
-                          }}
-                          onChange={(event) => setRuleDraft(event.target.value)}
-                        />
-                        <div className={styles.ruleEditActions}>
-                          <button type="button" aria-label="Cancelar edición" onClick={cancelRuleEdit}>
-                            <i aria-hidden="true" className="bi bi-x" />
-                          </button>
-                          <button type="button" aria-label="Confirmar regla" onClick={confirmRuleEdit}>
-                            <i aria-hidden="true" className="bi bi-check" />
-                          </button>
-                        </div>
-                        {showValidation && !ruleDraft.trim() && (
-                          <p className={styles.inlineRuleError} role="alert">Escribe una regla antes de confirmar.</p>
-                        )}
-                      </>
-                    ) : confirmDeleteRule === index ? (
-                      <div className={styles.deleteConfirm} role="group" aria-label={`Confirmar eliminación de regla ${index + 1}`}>
-                        <span>¿Eliminar esta regla?</span>
-                        <button
-                          ref={deleteCancelRef}
-                          type="button"
-                          onClick={() => {
-                            setConfirmDeleteRule(null);
-                            setFocusRuleAction(index);
-                          }}
-                        >Cancelar</button>
-                        <button
-                          type="button"
-                          className={styles.deleteConfirmAction}
-                          onClick={() => {
-                            const nextRules = document.rules.filter((_, i) => i !== index);
-                            const nextFocus = nextRules.length ? Math.min(index, nextRules.length - 1) : -1;
-                            update({ rules: nextRules });
-                            setConfirmDeleteRule(null);
-                            setFocusRuleAction(nextFocus);
-                          }}
-                        >Eliminar</button>
-                      </div>
-                    ) : (
-                      <>
-                        <span className={styles.ruleChip}>{rule}</span>
-                        <button
-                          ref={(element) => {
-                            if (element) ruleActionRefs.current.set(index, element);
-                            else ruleActionRefs.current.delete(index);
-                          }}
-                          type="button"
-                          className={styles.ruleActionsButton}
-                          aria-label={`Acciones para regla ${index + 1}`}
-                          aria-haspopup="menu"
-                          aria-expanded={openRuleMenu === index}
-                          aria-controls={`${id}-rule-actions`}
-                          disabled={disabled || addingRule || editingRule !== null || confirmDeleteRule !== null || confirmDeleteResource !== null}
-                          onClick={(event) => beginRuleMenu(index, event.currentTarget)}
-                        >
-                          <i aria-hidden="true" className="bi bi-three-dots" />
-                        </button>
-                      </>
-                    )}
-                  </li>
-                ))}
-                {addingRule && (
-                  <li className={`${styles.ruleRow} ${styles.ruleEditRow}`}>
-                    <label className={styles.srOnly} htmlFor={`${id}-new-rule`}>Nueva regla</label>
-                    <input
-                      ref={ruleInputRef}
-                      id={`${id}-new-rule`}
-                      className={styles.ruleInput}
-                      value={ruleDraft}
-                      maxLength={500}
-                      disabled={disabled}
-                      aria-invalid={showValidation && !ruleDraft.trim()}
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          event.preventDefault();
-                          cancelRuleEdit();
-                        } else submitOnEnter(event);
-                      }}
-                      onChange={(event) => setRuleDraft(event.target.value)}
-                    />
-                    <div className={styles.ruleEditActions}>
-                      <button type="button" aria-label="Cancelar regla" onClick={cancelRuleEdit}>
-                        <i aria-hidden="true" className="bi bi-x" />
-                      </button>
-                      <button type="button" aria-label="Confirmar regla" onClick={confirmRuleEdit}>
-                        <i aria-hidden="true" className="bi bi-check" />
-                      </button>
-                    </div>
-                    {showValidation && !ruleDraft.trim() && (
-                      <p className={styles.inlineRuleError} role="alert">Escribe una regla antes de confirmar.</p>
-                    )}
-                  </li>
-                )}
-              </ul>
-            ) : (
-              <p>Aún no hay reglas para este proyecto.</p>
-            )}
-              </div>
-            </div>
-            {openRuleMenu !== null && typeof window !== "undefined" && createPortal(
-              <div
-                ref={ruleMenuRef}
-                id={`${id}-rule-actions`}
-                className={styles.ruleMenu}
-                role="menu"
-                aria-label={`Acciones para regla ${openRuleMenu + 1}`}
-                style={{ top: menuPosition.top, left: menuPosition.left }}
-                onKeyDown={handleRuleMenuKeyDown}
-              >
-                <button type="button" role="menuitem" onClick={() => editRule(openRuleMenu)}>Editar</button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={styles.ruleMenuDelete}
-                  onClick={() => {
-                    setConfirmDeleteRule(openRuleMenu);
-                    setOpenRuleMenu(null);
-                  }}
-                >Eliminar</button>
-              </div>,
-              globalThis.document.body,
-            )}
-          </section>
+          <ContextRulesSection
+            id={id}
+            document={document}
+            disabled={disabled}
+            collapsed={isCollapsed("rules")}
+            atRuleLimit={atRuleLimit}
+            addingRule={addingRule}
+            editingRule={editingRule}
+            ruleDraft={ruleDraft}
+            showValidation={showValidation}
+            confirmDeleteRule={confirmDeleteRule}
+            confirmDeleteResource={confirmDeleteResource}
+            openRuleMenu={openRuleMenu}
+            menuPosition={menuPosition}
+            addRuleRef={addRuleRef}
+            ruleInputRef={ruleInputRef}
+            deleteCancelRef={deleteCancelRef}
+            ruleActionRefs={ruleActionRefs}
+            ruleMenuRef={ruleMenuRef}
+            onAddRule={() => { setAddingRule(true); setRuleDraft(""); }}
+            onRuleDraftChange={setRuleDraft}
+            onCancelRule={cancelRuleEdit}
+            onConfirmRule={confirmRuleEdit}
+            onConfirmDelete={(index) => {
+              const nextRules = document.rules.filter((_, i) => i !== index);
+              const nextFocus = nextRules.length ? Math.min(index, nextRules.length - 1) : -1;
+              update({ rules: nextRules });
+              setConfirmDeleteRule(null);
+              setFocusRuleAction(nextFocus);
+            }}
+            onCancelDelete={(index) => { setConfirmDeleteRule(null); setFocusRuleAction(index); }}
+            onOpenMenu={beginRuleMenu}
+            onMenuKeyDown={handleRuleMenuKeyDown}
+            onEditRule={editRule}
+            onDeleteRule={(index) => { setConfirmDeleteRule(index); setOpenRuleMenu(null); }}
+            renderSectionToggle={renderSectionToggle}
+          />
 
-          <section
-            className={styles.contextSection}
-            aria-labelledby={`${id}-resources`}
-          >
-            <header>
-              <h3 id={`${id}-resources`}>RECURSOS</h3>
-              <button
-                type="button"
-                aria-label="Agregar recurso"
-                aria-haspopup="menu"
-                aria-expanded={openResourceMenu}
-                aria-controls={`${id}-resource-menu`}
-                title={atResourceLimit ? "Máximo 50 recursos." : undefined}
-                ref={resourceAddRef}
-                disabled={disabled || atResourceLimit || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null}
-                onClick={(event) => beginResourceMenu(event.currentTarget)}
-              >
-                <i aria-hidden="true" className="bi bi-plus" />
-              </button>
-              {renderSectionToggle("resources", "los recursos")}
-            </header>
-            <input
-              ref={fileInputRef}
-              type="file"
-              hidden
-              tabIndex={-1}
-              aria-hidden="true"
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                event.currentTarget.value = "";
-                if (file) void uploadResource(file, filePickerProjectIdRef.current);
-              }}
-            />
-            <div
-              id={`${id}-resources-panel`}
-              role="region"
-              aria-labelledby={`${id}-resources`}
-              aria-hidden={isCollapsed("resources")}
-              inert={isCollapsed("resources")}
-              data-open={!isCollapsed("resources")}
-              className={styles.sectionBody}
-            >
-              <div className={styles.sectionBodyInner}>
-            {openResourceMenu && typeof window !== "undefined" && createPortal(
-              <div
-                ref={resourceMenuRef}
-                id={`${id}-resource-menu`}
-                className={styles.resourceMenu}
-                role="menu"
-                aria-label="Agregar recurso"
-                style={{ top: resourceMenuPosition.top, left: resourceMenuPosition.left }}
-                onKeyDown={handleResourceMenuKeyDown}
-              >
-                <button type="button" role="menuitem" onClick={addUrlResource}>
-                  <i aria-hidden="true" className="bi bi-link-45deg" />
-                  <span>URL</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setOpenResourceMenu(false);
-                    filePickerProjectIdRef.current = projectId;
-                    resourceAddRef.current?.focus();
-                    fileInputRef.current?.click();
-                  }}
-                >
-                  <i aria-hidden="true" className="bi bi-paperclip" />
-                  <span>Archivo</span>
-                  <i aria-hidden="true" className="bi bi-file-earmark" />
-                </button>
-              </div>,
-              globalThis.document.body,
-            )}
-            {document.resources.length || resourceDraft?.isNew ? (
-              <ul className={styles.editableList}>
-                {document.resources.map((resource, index) => {
-                  const isFile = isContextFile(resource);
-                  const editing = resourceDraft?.index === index;
-                  const validUrl = isValidContextDocument({
-                    context: "",
-                    rules: [],
-                    resources: [resource],
-                  });
-                  const domain = getContextResourceDomain(resource, validUrl);
+          <ContextResourcesSection
+            id={id}
+            document={document}
+            disabled={disabled}
+            collapsed={isCollapsed("resources")}
+            atResourceLimit={atResourceLimit}
+            uploading={uploading}
+            resourceDraft={resourceDraft}
+            confirmDeleteResource={confirmDeleteResource}
+            confirmDeleteRule={confirmDeleteRule}
+            openResourceMenu={openResourceMenu}
+            resourceMenuPosition={resourceMenuPosition}
+            retryFile={retryFile}
+            uploadError={uploadError}
+            resourceAddRef={resourceAddRef}
+            fileInputRef={fileInputRef}
+            resourceMenuRef={resourceMenuRef}
+            resourceDeleteCancelRef={resourceDeleteCancelRef}
+            resourceActionRefs={resourceActionRefs}
+            resourceDeleteRefs={resourceDeleteRefs}
+            renderSectionToggle={renderSectionToggle}
+            onBeginMenu={beginResourceMenu}
+            onFileChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = "";
+              if (file) void uploadResource(file, filePickerProjectIdRef.current);
+            }}
+            onMenuKeyDown={handleResourceMenuKeyDown}
+            onAddUrl={addUrlResource}
+            onChooseFile={() => {
+              setOpenResourceMenu(false);
+              filePickerProjectIdRef.current = projectId;
+              resourceAddRef.current?.focus();
+              fileInputRef.current?.click();
+            }}
+            onCancelRemoval={cancelResourceRemoval}
+            onConfirmRemoval={confirmResourceRemoval}
+            onBeginRemoval={beginResourceRemoval}
+            onEditUrl={editUrlResource}
+            onRenderEditor={renderResourceEditor}
+            onRetry={(file) => void uploadResource(file)}
+          />
 
-                  return (
-                    <li
-                      className={`${styles.resourceFields} ${editing ? styles.resourceEditFields : ""}`}
-                      key={index}
-                    >
-                      {confirmDeleteResource?.index === index ? (
-                        <div
-                          className={styles.deleteConfirm}
-                          role="group"
-                          aria-label={`Confirmar ${isFile ? "quitar archivo" : "eliminar recurso"} ${resource.title || index + 1}`}
-                        >
-                          <span>
-                            {isFile
-                              ? `¿Quitar «${resource.title}» de Recursos? El archivo almacenado no se eliminará.`
-                              : `¿Eliminar «${resource.title || `recurso ${index + 1}`}»?`}
-                          </span>
-                          <button ref={resourceDeleteCancelRef} type="button" onClick={cancelResourceRemoval}>Cancelar</button>
-                          <button
-                            type="button"
-                            className={styles.deleteConfirmAction}
-                            disabled={disabled}
-                            onClick={confirmResourceRemoval}
-                          >{isFile ? "Quitar de Recursos" : "Eliminar"}</button>
-                        </div>
-                      ) : isFile ? (
-                        <>
-                          <a
-                            className={`${styles.resourceLink} ${styles.fileResourceLink}`}
-                            href={resource.url}
-                            download={resource.title}
-                          >
-                            <i aria-hidden="true" className="bi bi-file-earmark-arrow-down" />
-                            <span>{resource.title}</span>
-                          </a>
-                          <div className={styles.resourceActions}>
-                            <button
-                              ref={(element) => {
-                                if (element) {
-                                  resourceActionRefs.current.set(index, element);
-                                  resourceDeleteRefs.current.set(index, element);
-                                } else {
-                                  resourceActionRefs.current.delete(index);
-                                  resourceDeleteRefs.current.delete(index);
-                                }
-                              }}
-                              type="button"
-                              className={styles.removeButton}
-                              aria-label={`Quitar archivo ${resource.title}. El archivo almacenado no se eliminará del servidor.`}
-                              title="Quita el recurso de Modus; el archivo almacenado no se elimina del servidor."
-                              disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null}
-                              onClick={() => beginResourceRemoval(index)}
-                            >
-                              <i aria-hidden="true" className="bi bi-trash3" />
-                            </button>
-                          </div>
-                        </>
-                      ) : editing ? (
-                        renderResourceEditor(index)
-                      ) : (
-                        <>
-                          {validUrl ? (
-                            <a
-                              className={styles.resourceLink}
-                              href={resource.url.trim()}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title={resource.url.trim()}
-                              aria-label={`${resource.title} — ${resource.url.trim()}`}
-                            >
-                              <i aria-hidden="true" className="bi bi-box-arrow-up-right" />
-                              <span className={styles.resourceTitle} title={resource.title}>{resource.title}</span>
-                              <span className={styles.resourceDomain}>{domain}</span>
-                            </a>
-                          ) : (
-                            <span className={`${styles.resourceLink} ${styles.invalidResourceLink}`}>
-                              {resource.title || "URL pendiente"}
-                            </span>
-                          )}
-                          <div className={styles.resourceActions}>
-                            <button
-                              ref={(element) => {
-                                if (element) resourceActionRefs.current.set(index, element);
-                                else resourceActionRefs.current.delete(index);
-                              }}
-                              type="button"
-                              aria-label={`Editar recurso ${resource.title || index + 1}`}
-                              title="Editar URL"
-                              disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null}
-                              onClick={() => editUrlResource(index)}
-                            >
-                              <i aria-hidden="true" className="bi bi-pencil" />
-                            </button>
-                            <button
-                              ref={(element) => {
-                                if (element) resourceDeleteRefs.current.set(index, element);
-                                else resourceDeleteRefs.current.delete(index);
-                              }}
-                              type="button"
-                              className={styles.removeButton}
-                              aria-label={`Eliminar recurso ${resource.title || index + 1}`}
-                              disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null}
-                              onClick={() => beginResourceRemoval(index)}
-                            >
-                              <i aria-hidden="true" className="bi bi-trash3" />
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </li>
-                  );
-                })}
-                {resourceDraft?.isNew && (
-                  <li className={`${styles.resourceFields} ${styles.resourceEditFields}`} key="new-url">
-                    {renderResourceEditor(resourceDraft.index, true)}
-                  </li>
-                )}
-              </ul>
-            ) : (
-              <p>Aún no hay recursos para este proyecto.</p>
-            )}
-            {uploading && (
-              <p className={styles.uploadStatus} role="status">
-                Subiendo {retryFile?.name || "archivo"}…
-              </p>
-            )}
-            {uploadError && (
-              <div className={styles.uploadError}>
-                <p className={styles.errorMessage} role="alert">{uploadError}</p>
-                {retryFile && (
-                  <button
-                    type="button"
-                    className={shared.textButton}
-                    disabled={uploading || disabled || confirmDeleteResource !== null}
-                    onClick={() => void uploadResource(retryFile)}
-                  >Reintentar subida</button>
-                )}
-              </div>
-            )}
-              </div>
-            </div>
-          </section>
-
-          <div className={styles.saveActions}>
-            {saving && <p className={styles.saveStatus} role="status">Guardando…</p>}
-            {!saving && saved && !hasPendingChanges && !ruleDraftPending && resourceDraft === null && (
-              <p className={styles.savedMessage} role="status">Guardado</p>
-            )}
-            {(ruleDraftPending || resourceDraft !== null) && (
-              <p className={styles.fieldHint} role="status">Confirma o cancela la edición para guardar los cambios.</p>
-            )}
-            {saveError && (
-              <div className={styles.saveError}>
-                <p className={styles.errorMessage} role="alert">{saveError}</p>
-                <button
-                  type="button"
-                  className={shared.textButton}
-                  disabled={saving || !valid}
-                  onClick={onRetrySave}
-                >Reintentar</button>
-              </div>
-            )}
-          </div>
+          <ContextSaveStatus
+            saving={saving}
+            saved={saved}
+            hasPendingChanges={hasPendingChanges}
+            ruleDraftPending={ruleDraftPending}
+            resourceDraftActive={resourceDraft !== null}
+            saveError={saveError}
+            valid={valid}
+            onRetry={onRetrySave}
+          />
         </>
       )}
     </>

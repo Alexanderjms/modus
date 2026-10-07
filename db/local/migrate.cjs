@@ -108,6 +108,26 @@ function applySchema(db, options = {}) {
   db.exec("BEGIN TRANSACTION;");
   try {
     const existingTables = getTableList(db);
+    if (existingTables.includes("proyectos")) {
+      const proyectosCols = getTableColumns(db, "proyectos").map((c) => c.name);
+      if (!proyectosCols.includes("descripcion")) {
+        db.exec("ALTER TABLE proyectos ADD COLUMN descripcion TEXT;");
+      }
+      if (!proyectosCols.includes("estado")) {
+        db.exec("ALTER TABLE proyectos ADD COLUMN estado TEXT;");
+      }
+    }
+
+    if (existingTables.includes("listas_tareas")) {
+      const listasCols = getTableColumns(db, "listas_tareas").map((c) => c.name);
+      if (!listasCols.includes("descripcion")) {
+        db.exec("ALTER TABLE listas_tareas ADD COLUMN descripcion TEXT;");
+      }
+      if (!listasCols.includes("estado")) {
+        db.exec("ALTER TABLE listas_tareas ADD COLUMN estado TEXT;");
+      }
+    }
+
     if (existingTables.includes("tareas")) {
       const tareasCols = getTableColumns(db, "tareas").map((c) => c.name);
       if (!tareasCols.includes("posicion")) {
@@ -137,6 +157,74 @@ function applySchema(db, options = {}) {
       if (!etiquetasCols.includes("color")) {
         db.exec("ALTER TABLE etiquetas ADD COLUMN color TEXT;");
       }
+
+      if (!etiquetasCols.includes("proyecto_id")) {
+        // Migración segura de etiquetas globales compartidas a etiquetas con ámbito por proyecto.
+        // ponytail: recreación de tabla manteniendo integridad referencial y mapeo atómico de tareas
+        db.exec(`
+          CREATE TABLE etiquetas_nueva (
+            id INTEGER PRIMARY KEY,
+            proyecto_id INTEGER NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+            nombre TEXT NOT NULL,
+            color TEXT,
+            descripcion TEXT,
+            UNIQUE(proyecto_id, nombre COLLATE NOCASE)
+          );
+        `);
+
+        const allProjects = db.prepare("SELECT id FROM proyectos ORDER BY id ASC").all();
+        const oldTags = db.prepare("SELECT id, nombre, color, descripcion FROM etiquetas ORDER BY id ASC").all();
+        const oldLinks = db.prepare(`
+          SELECT te.tarea_id, te.etiqueta_id, lt.proyecto_id
+          FROM tarea_etiquetas te
+          JOIN tareas t ON t.id = te.tarea_id
+          JOIN listas_tareas lt ON lt.id = t.lista_id
+        `).all();
+
+        const insertNewTag = db.prepare(
+          "INSERT INTO etiquetas_nueva (proyecto_id, nombre, color, descripcion) VALUES (?, ?, ?, ?)"
+        );
+        // Map: `${projectId}:${oldTagId}` -> newTagId
+        const tagMap = new Map();
+
+        // 1. Para cada proyecto existente, duplicar el catálogo inicial de etiquetas existentes
+        for (const p of allProjects) {
+          for (const ot of oldTags) {
+            const res = insertNewTag.run(p.id, ot.nombre, ot.color, ot.descripcion);
+            const newTagId = Number(res.lastInsertRowid);
+            tagMap.set(`${p.id}:${ot.id}`, newTagId);
+          }
+        }
+
+        // 2. Recrear tarea_etiquetas apuntando a la nueva etiquetas para no violar la FK al actualizar o borrar
+        db.exec(`
+          CREATE TABLE tarea_etiquetas_nueva (
+            tarea_id INTEGER NOT NULL REFERENCES tareas(id) ON DELETE CASCADE,
+            etiqueta_id INTEGER NOT NULL REFERENCES etiquetas_nueva(id) ON DELETE CASCADE,
+            PRIMARY KEY (tarea_id, etiqueta_id)
+          );
+        `);
+
+        const insertNewLink = db.prepare(
+          "INSERT OR IGNORE INTO tarea_etiquetas_nueva (tarea_id, etiqueta_id) VALUES (?, ?)"
+        );
+        for (const link of oldLinks) {
+          const key = `${link.proyecto_id}:${link.etiqueta_id}`;
+          const newTagId = tagMap.get(key);
+          if (newTagId) {
+            insertNewLink.run(link.tarea_id, newTagId);
+          }
+        }
+
+        db.exec("DROP TABLE tarea_etiquetas;");
+        db.exec("DROP TABLE etiquetas;");
+        db.exec("ALTER TABLE etiquetas_nueva RENAME TO etiquetas;");
+        db.exec("ALTER TABLE tarea_etiquetas_nueva RENAME TO tarea_etiquetas;");
+        db.exec("CREATE INDEX IF NOT EXISTS idx_etiquetas_proyecto ON etiquetas(proyecto_id);");
+        if (db.prepare("PRAGMA foreign_key_check").all().length) {
+          throw new Error("La migración de etiquetas no pudo conservar la integridad de las relaciones");
+        }
+      }
     }
 
     if (existingTables.includes("chats")) {
@@ -146,9 +234,15 @@ function applySchema(db, options = {}) {
       }
     }
 
+    const { ensureSuggestionTasksTable } = require("./task-suggestions.cjs");
+    ensureSuggestionTasksTable(db);
+
     db.exec(sqlContent);
 
     db.exec("CREATE INDEX IF NOT EXISTS idx_tareas_lista_posicion ON tareas(lista_id, posicion);");
+
+    const { ensureProjectGraphSchema } = require("./project-graph.cjs");
+    ensureProjectGraphSchema(db);
 
     db.exec("COMMIT;");
   } catch (err) {
@@ -158,6 +252,8 @@ function applySchema(db, options = {}) {
 
   if (options && options.migrateSubtasks) {
     migrateSubtasksSchema(db);
+    const { ensureProjectGraphSchema } = require("./project-graph.cjs");
+    ensureProjectGraphSchema(db);
   }
 }
 

@@ -64,6 +64,7 @@ export function ChatPicker({
   action?: { label: string; onSelect: () => void; disabled?: boolean };
   optionActions?: {
     disabled?: boolean;
+    labels?: { rename?: string; delete?: string };
     onSelect: (option: ChatPickerOption, action: "rename" | "delete") => void;
   };
   loading?: boolean;
@@ -382,13 +383,13 @@ export function ChatPicker({
               if (actionOption) optionActions.onSelect(actionOption, "rename");
               close(true);
             }}>
-              <i aria-hidden="true" className="bi bi-pencil" /> Renombrar
+              <i aria-hidden="true" className="bi bi-pencil" /> {optionActions?.labels?.rename ?? "Renombrar"}
             </button>
             <button type="button" role="menuitem" className={styles.deleteOption} onClick={() => {
               if (actionOption) optionActions.onSelect(actionOption, "delete");
               close(true);
             }}>
-              <i aria-hidden="true" className="bi bi-trash3" /> Eliminar
+              <i aria-hidden="true" className="bi bi-trash3" /> {optionActions?.labels?.delete ?? "Eliminar"}
             </button>
           </div>
         )}

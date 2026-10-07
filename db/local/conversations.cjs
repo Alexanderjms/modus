@@ -1,6 +1,7 @@
 "use strict";
 
 const { applySchema } = require("./migrate.cjs");
+const { validatePersistedSuggestions, ensureSuggestionTasksTable } = require("./task-suggestions.cjs");
 
 const MAX_CHAT_JSON_BODY_BYTES = 512 * 1024;
 const MAX_MESSAGES = 40;
@@ -53,12 +54,14 @@ function ensureChatsTable(db) {
     .get();
   if (!row) {
     applySchema(db);
+    ensureSuggestionTasksTable(db);
     return;
   }
   const cols = db.prepare("PRAGMA table_info(chats)").all();
   if (!cols.some((c) => c.name === "titulo_manual")) {
     db.exec("ALTER TABLE chats ADD COLUMN titulo_manual INTEGER NOT NULL DEFAULT 0;");
   }
+  ensureSuggestionTasksTable(db);
 }
 
 function parseNonNegativeSafeInt(val) {
@@ -118,13 +121,28 @@ function validateMessages(messages) {
     if (typeof msg !== "object" || msg === null || Array.isArray(msg)) {
       return { error: "Cada mensaje debe ser un objeto" };
     }
-    if (Object.keys(msg).length !== 2 || !("role" in msg) || !("content" in msg)) {
+    const keys = Object.keys(msg);
+    const hasSuggestions = Object.hasOwn(msg, "suggestions");
+    if (keys.length > 3 || (keys.length === 3 && !hasSuggestions) || (keys.length < 2) || !("role" in msg) || !("content" in msg)) {
       return { error: "Mensaje contiene campos no permitidos" };
     }
 
     const expectedRole = i % 2 === 0 ? "user" : "assistant";
     if (msg.role !== expectedRole) {
       return { error: "Los roles deben alternar iniciando con 'user' y terminando con 'assistant'" };
+    }
+
+    if (hasSuggestions && expectedRole !== "assistant") {
+      return { error: "Solo los mensajes de asistente pueden incluir sugerencias de tareas" };
+    }
+
+    let sanitizedSuggestions = undefined;
+    if (hasSuggestions) {
+      const suggResult = validatePersistedSuggestions(msg.suggestions);
+      if (suggResult.error) {
+        return { error: suggResult.error };
+      }
+      sanitizedSuggestions = suggResult.data;
     }
 
     if (typeof msg.content !== "string") {
@@ -152,6 +170,7 @@ function validateMessages(messages) {
     sanitizedMessages.push({
       role: expectedRole,
       content: msg.content,
+      ...(sanitizedSuggestions !== undefined ? { suggestions: sanitizedSuggestions } : {}),
     });
   }
 

@@ -1,0 +1,746 @@
+.taskEditorDialog {
+  width: min(960px, calc(100vw - 24px));
+}
+.taskEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.editorFormFields {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.taskEditor :is(h3, legend) {
+  font-size: 12px;
+  font-weight: 600;
+}
+.taskEditorDialog.taskEditorDialog button[type="submit"] {
+  background: #007aff;
+  border-color: #007aff;
+  color: white;
+}
+.editorField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.editorField > :is(input, textarea),
+.newTagRow input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--page);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12px;
+}
+.editorField textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+.editorField :is(input, textarea):disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.taskEditorDialog.taskEditorDialog .taskEditor .editorField > :is(input:not([type="checkbox"]), textarea):focus-visible,
+.taskEditorDialog.taskEditorDialog .newTagRow input:not([type="color"]):focus-visible {
+  border-color: transparent;
+  outline: none;
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 1px #007aff;
+}
+.editorGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-column: 1;
+  min-width: 0;
+  gap: 12px;
+}
+.editorWide {
+  grid-column: 1 / -1;
+}
+.editorField > span > i {
+  color: var(--danger, #b42318);
+  font-style: normal;
+}
+.editorSection {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  padding-top: 13px;
+  border-top: 1px solid var(--divider);
+}
+.editorTagsField {
+  gap: 5px;
+  padding-top: 0;
+  border-top: 0;
+}
+.editorTagsField h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: normal;
+}
+.editorSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.editorSectionHeader h3 {
+  margin: 0;
+}
+.editorSubtasks {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  gap: 12px;
+  padding: 0 0 0 20px;
+  border-top: 0;
+  border-left: 1px solid var(--divider-soft);
+}
+.editorSectionHeader button,
+.newTagRow button {
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 11px;
+  cursor: pointer;
+}
+.newTagRow button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.tagPickerFooter {
+  margin-top: 6px;
+  padding-top: 7px;
+  border-top: 1px solid var(--divider-soft);
+}
+.tagActionStatus {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.tagActionDialog {
+  width: min(420px, calc(100vw - 32px));
+}
+.tagActionFields {
+  display: grid;
+  gap: 14px;
+}
+.tagActionFields input[type="color"] {
+  width: 48px;
+  height: 38px;
+  padding: 4px;
+  cursor: pointer;
+}
+.tagActionFields input:focus-visible {
+  border-color: #007aff;
+  outline: 0;
+  box-shadow: inset 0 0 0 1px #007aff;
+}
+.tagDeleteContent {
+  display: grid;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.tagDeleteContent > p {
+  margin: 0;
+}
+.tagDeleteActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.tagDeleteActions button {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.tagCancelButton {
+  color: var(--muted);
+}
+.tagDeleteButton {
+  background: var(--danger, #b42318);
+  color: white;
+}
+.tagDeleteActions button:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.tagDeleteActions button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.newTagRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.newTagRow input {
+  flex: 1;
+}
+.newTagRow .newTagColor {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  padding: 4px;
+  cursor: pointer;
+}
+.newTagRow .newTagColor:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.selectedTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.selectedTags li,
+.subtaskRow {
+  transition: opacity 180ms var(--ease-drawer), transform 180ms var(--ease-drawer);
+}
+.selectedTags li {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  box-sizing: border-box;
+  padding: 0 3px 0 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--tag-color, hsl(var(--tag-hue) 72% 48%)) 14%, var(--surface));
+  color: var(--foreground);
+  font-size: 11px;
+  line-height: 1;
+}
+.selectedTags li > span {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+.selectedTags li::before {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--tag-color, hsl(var(--tag-hue) 72% 48%));
+  content: "";
+}
+.editorItemExiting {
+  pointer-events: none;
+  animation: editorItemExit 150ms var(--ease-drawer) both;
+}
+@keyframes editorItemExit {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@starting-style {
+  .selectedTags li,
+  .subtaskRow {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.selectedTags button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 9px;
+  cursor: pointer;
+  line-height: 1;
+}
+.selectedTags button i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.selectedTags button:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 1px;
+}
+.attachmentEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.attachmentList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.attachmentList li {
+  display: grid;
+  grid-template-columns: 18px auto minmax(0, 1fr) 28px;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 4px 6px 4px 9px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--page);
+}
+.attachmentList li > i {
+  color: #007aff;
+  font-size: 14px;
+  text-align: center;
+}
+.attachmentKind {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.attachmentList a,
+.attachmentName {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachmentList a {
+  color: #007aff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.attachmentList li > button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.attachmentList li > button:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 1px;
+}
+.attachmentEmpty {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--divider);
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+.attachmentAdd {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 5px 4px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+  background: var(--surface);
+  transition: border-color 140ms ease;
+}
+.attachmentAdd:focus-within {
+  border-color: #007aff;
+}
+.attachmentAdd > i {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 14px;
+}
+.attachmentAdd input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  padding: 4px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12px;
+}
+.taskEditorDialog.taskEditorDialog .attachmentAdd input:focus-visible {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
+.taskEditorDialog.taskEditorDialog .attachmentAdd button:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}
+.attachmentAdd input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.attachmentAdd button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border-radius: 6px;
+  background: #007aff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.attachmentAdd button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.subtaskAddRow {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+.subtaskAddRow input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  flex: 1;
+  padding: 0 10px;
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+  background: var(--page);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12px;
+}
+.editorSubtasks .subtaskAddRow input:focus-visible {
+  border-color: #007aff;
+  outline: 0;
+}
+.subtaskAddRow input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.editorSubtasks .subtaskAddButton {
+  min-height: 36px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 1px solid #007aff;
+  border-radius: 7px;
+  background: #007aff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.editorSubtasks .subtaskAddButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.subtaskRows {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--divider-soft);
+  list-style: none;
+}
+.subtaskRow {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  min-width: 0;
+  min-height: 42px;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--divider-soft);
+}
+.subtaskCompletion {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.subtaskCompletion input[type="checkbox"] {
+  appearance: none;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: background-color 140ms ease-out, border-color 140ms ease-out;
+}
+.subtaskCompletion input::after {
+  width: 12px;
+  height: 12px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6 5 8.5 9.5 3.5' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  content: "";
+  transform: scale(0);
+  transition: transform 120ms ease-out;
+}
+.subtaskCompletion input:checked {
+  border-color: #007aff;
+  background: #007aff;
+}
+.subtaskCompletion input:checked::after {
+  transform: scale(1);
+}
+.subtaskRow .subtaskCompletion input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.subtaskRow .subtaskCompletion input:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.subtaskNameInput {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 5px 1px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12px;
+}
+.subtaskRow .subtaskNameInput:focus-visible {
+  border-color: #007aff;
+  outline: 0;
+  background: var(--page);
+}
+.subtaskNameCompleted {
+  color: var(--muted);
+}
+.subtaskRow .subtaskRemove {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+}
+.subtaskRow .subtaskRemove:focus-visible {
+  outline: 2px solid #007aff;
+  outline-offset: 2px;
+}
+.subtaskRow:focus-within .subtaskRemove,
+.subtaskRow:hover .subtaskRemove {
+  opacity: 1;
+  pointer-events: auto;
+}
+.subtaskRow .subtaskRemove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.editorHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.editorError {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--danger, #b42318) 9%, var(--surface));
+  color: var(--danger, #b42318);
+  font-size: 12px;
+}
+.catalogSkeleton {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+.catalogSkeleton span {
+  height: 38px;
+  border-radius: 7px;
+  background: var(--page);
+}
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  .editorSectionHeader button:hover,
+  .newTagRow button:hover:not(:disabled) {
+    background: var(--page);
+  }
+  .editorSubtasks .subtaskAddButton:hover:not(:disabled) {
+    background: #006ee6;
+  }
+  .selectedTags button:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+  }
+  .attachmentList li > button:hover:not(:disabled) {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    color: var(--foreground);
+  }
+  .attachmentAdd button:hover:not(:disabled) {
+    background: #006ee6;
+  }
+  .subtaskRow .subtaskRemove:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--foreground) 8%, transparent);
+    color: var(--danger, #b42318);
+  }
+  .subtaskCompletion:hover {
+    background: var(--page);
+  }
+  .subtaskCompletion input:hover:not(:disabled) {
+    border-color: #007aff;
+  }
+  .subtaskCompletion input:checked:hover:not(:disabled) {
+    background: #006ee6;
+    border-color: #006ee6;
+  }
+}
+.subtaskCompletion input:active:not(:disabled) {
+  background: #006ee6;
+  border-color: #006ee6;
+}
+.subtaskRow .subtaskCompletion:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .subtaskCompletion input,
+  .subtaskCompletion input::after {
+    transition: none;
+  }
+  .editorItemExiting {
+    animation: none;
+    transition: none;
+  }
+  .selectedTags li,
+  .subtaskRow {
+    transition: opacity 120ms ease-out;
+  }
+  @starting-style {
+    .selectedTags li,
+    .subtaskRow {
+      opacity: 0;
+      transform: none;
+    }
+  }
+}
+@media (max-width: 560px) {
+  .editorGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editorWide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 820px) {
+  .editorFormFields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editorGrid,
+  .editorSubtasks,
+  .catalogSkeleton {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .editorSubtasks {
+    padding: 14px 0 0;
+    border-top: 1px solid var(--divider);
+    border-left: 0;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .subtaskRow .subtaskRemove:not(:disabled) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (forced-colors: active) {
+  .subtaskCompletion input[type="checkbox"],
+  .subtaskCompletion input[type="checkbox"]:checked {
+    appearance: auto;
+    border: 0;
+    background: Field;
+    accent-color: auto;
+    opacity: 1;
+  }
+  .subtaskCompletion input::after {
+    display: none;
+  }
+  .subtaskCompletion input:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+@media (max-width: 420px) {
+  .attachmentAdd {
+    gap: 6px;
+    padding-left: 8px;
+  }
+  .attachmentAdd button {
+    gap: 0;
+    padding: 0 8px;
+  }
+  .attachmentAdd button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

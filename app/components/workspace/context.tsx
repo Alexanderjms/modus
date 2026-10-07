@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import styles from "./context.module.css";
+import planStyles from "./context-plan.module.css";
 import shared from "../workspace.module.css";
 import { ContextPlan } from "./context-plan";
 import { mergeContextSave } from "./context-autosave.mjs";
@@ -282,7 +283,7 @@ export function WorkspaceContext({
       </header>
       {plan ? (
         <>
-          <div className={styles.tabs} role="tablist" aria-label="Secciones del plan">
+          <div className={planStyles.tabs} role="tablist" aria-label="Secciones del plan">
             {planTabs.map((tab, index) => (
               <button
                 key={tab}

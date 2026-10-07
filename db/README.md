@@ -10,7 +10,7 @@ node --env-file=.env db/migrate.cjs
 
 ```
 
-Requiere `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN` en `.env` (ignorado por git).
+Requiere `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN` en `.env` (ignorado por git). La búsqueda web del chat también requiere `TAVILY_API_KEY`.
 `migrate.cjs` inspecciona el esquema antes, aplica solo `CREATE ... IF NOT EXISTS`
 e `INSERT OR IGNORE`, y no borra datos.
 
@@ -158,9 +158,18 @@ La aplicación expone los endpoints server-only para interactuar con SQLite loca
 
 ### `POST /api/chat`
 - **Seguridad:** Requiere Host/Origin loopback, no cross-site, `Content-Type: application/json`, límite de 128KB en body.
-- **Payload:** `ChatRequest` valida pertenencia al perfil local, `model`, `provider` y de 1 a 40 mensajes con roles alternados, comenzando y terminando con `user`. Cada mensaje de usuario admite 4000 caracteres; el historial de asistente y el total admiten 80000. El PIN todavía no constituye un flujo de desbloqueo.
+- **Payload:** `ChatRequest` valida pertenencia al perfil local, `model`, `provider` y de 1 a 40 mensajes con roles alternados, comenzando y terminando con `user`. Cada mensaje de usuario admite 4000 caracteres; el historial de asistente y el total admiten 80000. El PIN todavía no constituye un flujo de desbloqueo. Se acepta opcionalmente `webSearch` booleano para compatibilidad retrospectiva, pero la decisión de buscar en la web la toma el propio modelo internamente sin depender de la UI.
 - **Conversaciones:** El motor de inferencia no guarda historial por sí mismo. La interfaz guarda cada respuesta recibida mediante `/api/chats`, aislada por proyecto, y permite recuperar conversaciones al recargar. La IA no modifica tareas automáticamente. La generación se limita a 4096 tokens de salida; el consumo depende del proveedor y el modelo.
-- **Respuesta 200:** `Cache-Control: no-store`, `{ "message": { "role": "assistant", "content": string } }`.
+- **Respuesta (NDJSON streaming):** Formato `Content-Type: application/x-ndjson; charset=utf-8`.
+  - Los modelos deben ceñirse estrictamente al formato envelope (`action: "answer"` o `action: "search"`). Si el modelo devuelve un formato inválido o no estructurado, el servidor emite de forma honesta y controlada `{"type":"error","error":"El modelo no emitió una decisión o respuesta estructurada válida.","status":502}` sin exponer envelopes ni texto interno sin validar.
+  - Flujo de eventos:
+    1. `{"type":"thinking"}`: Mientras el modelo evalúa la consulta con el contexto del proyecto, su cobertura declarada y el contenido acotado de los recursos disponibles. La descarga real de enlaces cargados también puede emitir `{"type":"searching"}` antes de esta evaluación.
+    2. Si el modelo responde directamente sin requerir web externa: se reutiliza su respuesta y se emite directamente `{"type":"complete","message":{"role":"assistant","content":string}}` (exactamente 1 llamada a inferencia).
+    3. Si el modelo solicita búsqueda externa:
+       - Si no está configurado `TAVILY_API_KEY`: emite `{"type":"error","error":string,"status":503}` sin hacer llamadas innecesarias ni simular progreso.
+       - Si está configurado: valida que la consulta sea pública, sin tokens ni secretos y acotada a máx. 120 caracteres. Emite `{"type":"searching"}` de inmediato y ejecuta como máximo 1 búsqueda concisa en Tavily.
+       - Seguido de `{"type":"thinking"}` para la inferencia contextualizada final (máximo 2 llamadas a inferencia en total).
+       - Finalmente `{"type":"complete","message":{"role":"assistant","content":string}}`.
 - **Mapeo y Protocolos:**
   - `opencode`: Soporta familias `/responses` (`store: false`), `/messages` (`anthropic-version: 2023-06-01`), y `/chat/completions`. Los modelos Go se enrutan a `https://opencode.ai/zen/go/v1`. Los modelos OpenCode Zen (`zen:<raw-id>`) se enrutan automáticamente a `https://opencode.ai/zen/v1` extrayendo el ID nativo sin prefijo. Ambos usan la misma clave con cabeceras `Authorization: Bearer <key>` y `x-opencode-session`. No sondea ni reintenta entre protocolos.
   - `google`: Endpoint nativo `/models/{model}:generateContent` con `systemInstruction` y filtrado de `thought` y bloqueos de seguridad.
@@ -420,3 +429,50 @@ Persistencia local de tareas asociadas a las 3 columnas fijas del tablero Kanban
     node db/local/migrate.cjs --migrate-subtasks
     ```
   - La migración es atómica y transaccional (`BEGIN`/`COMMIT`), preserva íntegramente `id`, `tarea_id`, `nombre`, `completada` (y en tablas legadas sin `completada`, mapea `estado_id` a `1` si el nombre normalizado del estado era `'completada'`), conservando las relaciones de tareas (`ON DELETE CASCADE`), y es estrictamente idempotente. Abrir la base de datos o ejecutar la migración estándar (`node db/local/migrate.cjs` sin flag) **nunca** altera destructivamente ni purga datos existentes.
+
+---
+
+# Sistema de Grafo de Proyecto y Registro de Eventos Atómicos
+
+El subsistema backend en `db/local/project-graph.cjs` y sus endpoints asociados derivan la estructura del proyecto como un grafo y mantienen un historial de eventos atómico append-only sin introducir dependencias externas.
+
+## Grafo de Proyecto Derivado (`GET /api/projects/[id]/graph`)
+- **Seguridad:** Requiere validación de loopback, resolución de usuario único local y pertenencia estricta de proyecto (`404` si es ajeno o no existe).
+- **Fuente de verdad:** Nodos y aristas derivados exclusivamente de registros y relaciones FK oficiales existentes (`proyectos`, `listas_tareas`, `tareas`, `subtareas`, `tarea_etiquetas`, `proyecto_contexto`, `proyecto_archivos`).
+- **Sin inventar relaciones:** No se realizan inferencias semánticas ni extracción de dependencias por lenguaje de texto; las aristas representan únicamente vínculos relacionales reales (`contains`, `has_subtask`, `tagged_with`, `has_context`, `mandates`, `references`, `has_file`).
+- **Seguridad de datos:** El grafo expone solo metadatos de archivos. Para el chat, los archivos de texto admitidos pueden aportar extractos de su contenido; nunca se envían los BLOB completos ni archivos de otros proyectos.
+
+## Registro de Eventos Atómicos (`proyecto_eventos`)
+- **Tabla append-only:** `proyecto_eventos` registra `(proyecto_id, actor_usuario_id, entidad_tipo, entidad_id, accion, datos, creado_en)`.
+- **Cobertura exhaustiva mediante triggers SQLite:**
+  - Inserciones, actualizaciones sustanciales y eliminaciones en `tareas`, `subtareas`, `tarea_etiquetas`, `proyecto_contexto`, `proyecto_archivos` y `chats` se capturan de forma atómica y transaccional en todos los flujos de escritura (creación, edición, arrastre Kanban, duplicación, etc.).
+  - Las operaciones que no modifican datos relevantes (no-ops) no generan eventos espurios.
+  - El borrado de proyectos limpia en cascada (`ON DELETE CASCADE`) todos los eventos asociados, previniendo registros huérfanos.
+  - Nunca se registran secretos, claves de proveedores ni contenidos binarios BLOB.
+
+## Compilador de Contexto para Modelos de IA (`compileProjectContext`)
+- **Presupuesto determinístico (`maxBudgetChars`):** Tamaño máximo de caracteres documentado (por defecto 12.000 caracteres) sin contar tokens de forma heurística o imprecisa.
+- **Reglas obligatorias:** Las directivas de negocio en `proyecto_contexto.reglas` tienen prioridad absoluta y no se truncan en silencio; si superan el presupuesto asignado, la compilación falla con error controlado.
+- **Cobertura explícita:** El contexto informa si el snapshot kanban es completo o parcial (`coverage.isComplete`, `includedSummaryTasks`, `truncatedSummaryTasks`) y delimita los datos para evitar que instrucciones no confiables del usuario actúen como comandos privilegiados.
+- **Integración con System Prompt:** `buildSystemPrompt` establece un contrato de rigor con el modelo: distinguir hechos confirmados de hipótesis, citar tareas existentes mediante `[tarea:id]`, no alucinar herramientas ni accesos directos inexistentes, y pedir aclaraciones cuando sea necesario.
+- **Alcance actual y límites conocidos:** Se trata de un mecanismo de recuperación y compilación previa de contexto (retrieval previo determinístico snapshot), no de un agente autónomo de lectura o ejecución de tools dinámicas.
+
+## Lectura de recursos en el chat
+- Los archivos de texto del proyecto (Markdown, texto, JSON, CSV y código fuente común) aportan extractos al modelo antes de su primera respuesta. PDF, imágenes y binarios no se interpretan como texto.
+- Se consideran hasta 10 archivos y 3 enlaces públicos HTTPS. El bloque completo de recursos está limitado a 8.000 caracteres, con hasta 4.000 por recurso y notas de omisión o recorte.
+- Un enlace a la raíz de un repositorio GitHub permite leer su `README.md`; no equivale a recorrer ni auditar todo el repositorio.
+- Las descargas validan las direcciones IP, fijan la resolución DNS y revalidan las redirecciones. No envían credenciales ni cookies. El presupuesto total de red es de 10 segundos y se cancela junto con la petición del chat.
+- Los contenidos son datos no privilegiados. Los fallos de lectura se informan al modelo y no autorizan a afirmar que un recurso fue leído. Los enlaces pueden reutilizarse desde una caché de proceso durante cinco minutos.
+
+## Etiquetas por proyecto
+- Cada etiqueta pertenece a un proyecto. Su edición o eliminación afecta únicamente a las tareas de ese proyecto; quitarla de una tarea no elimina la etiqueta.
+- `PATCH /api/projects/{projectId}/tags/{tagId}` acepta `{name, color}`; `DELETE` en la misma ruta elimina la etiqueta y sus asociaciones, previa confirmación en la interfaz.
+- La inicialización migra el catálogo global anterior en una transacción: conserva una copia independiente de cada etiqueta para cada proyecto existente y reasigna sus asociaciones. Los proyectos nuevos no heredan ese catálogo antiguo.
+
+## Propuestas de tareas en el chat
+- El asistente puede devolver hasta tres sugerencias estructuradas por mensaje. Permanecen en el historial y no son tareas del proyecto hasta su aceptación explícita.
+- «Aceptar» abre una revisión editable de nombre, descripción, prioridad y subtareas. «Descartar» solo guarda esa decisión en la conversación.
+- `POST /api/chats/{chatId}/suggestions/{suggestionId}/accept` crea la tarea en «Por hacer» y actualiza la conversación en una misma transacción. Los reintentos para la misma sugerencia no crean duplicados, incluso si la tarea aceptada se elimina después.
+- Los mensajes anteriores mantienen compatibilidad. Para inferencia solo se envían los campos `role` y `content`; las sugerencias estructuradas se conservan al guardar el historial.
+- Las propuestas pueden incluir hasta diez etiquetas por nombre y color opcional. Al crear una tarea se guardan junto con sus demás campos.
+- Una propuesta `kind: "add-tags"` referencia una tarea existente con `targetTaskId`. Su aceptación recibe únicamente `{tags}` y añade esas etiquetas sin quitar las actuales ni cambiar nombre, descripción, prioridad o subtareas. La tarea debe pertenecer al proyecto del chat; las etiquetas existentes conservan su color y los reintentos son idempotentes.

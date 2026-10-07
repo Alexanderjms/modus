@@ -178,6 +178,7 @@
 }
 .doneCard h3 {
   color: var(--muted);
+  text-decoration: line-through;
 }
 @media (max-width: 760px) {
   .taskCard,

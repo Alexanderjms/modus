@@ -144,8 +144,7 @@
   font-size: 10.5px;
   line-height: 15px;
 }
-.fieldHint,
-.panelMessage {
+.fieldHint {
   margin-top: 8px;
   color: var(--muted);
   font-size: 10.5px;
@@ -172,22 +171,6 @@
 .editableList > .ruleEditRow {
   grid-template-columns: minmax(0, 1fr) auto;
 }
-.ruleChip {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  min-width: 0;
-  padding: 7px 0;
-  color: var(--foreground);
-  font-size: 11.5px;
-  line-height: 16px;
-  overflow-wrap: anywhere;
-}
-.ruleChip::before {
-  flex-shrink: 0;
-  color: var(--muted);
-  content: "•";
-}
 .contextSection .ruleActionsButton,
 .contextSection .ruleEditActions button {
   display: grid;
@@ -199,14 +182,6 @@
   border-radius: 7px;
   background: transparent;
   color: var(--muted);
-}
-.ruleInput {
-  grid-column: 1;
-}
-.ruleEditActions {
-  grid-column: 2;
-  display: flex;
-  gap: 2px;
 }
 .deleteConfirm {
   grid-column: 1 / -1;
@@ -227,12 +202,6 @@
   color: var(--foreground);
   overflow-wrap: anywhere;
 }
-.inlineRuleError {
-  grid-column: 1 / -1;
-  color: var(--danger, #b42318);
-  font-size: 10.5px;
-  line-height: 14px;
-}
 .contextSection .deleteConfirm button {
   min-height: 28px;
   padding: 4px 8px;
@@ -242,33 +211,9 @@
   color: var(--foreground);
   font-size: 11px;
 }
-.deleteConfirm .deleteConfirmAction,
-.ruleMenu .ruleMenuDelete {
+.deleteConfirm .deleteConfirmAction {
   color: var(--danger, #b42318);
 }
-.ruleMenu {
-  position: fixed;
-  z-index: 1000;
-  display: grid;
-  width: 148px;
-  gap: 2px;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: 0 8px 24px #00000024;
-}
-.ruleMenu button {
-  min-height: 32px;
-  padding: 6px 9px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--foreground);
-  text-align: left;
-  font-size: 12px;
-}
-.ruleMenu button:focus-visible,
 .ruleActionsButton:focus-visible,
 .ruleEditActions button:focus-visible,
 .deleteConfirm button:focus-visible {
@@ -407,58 +352,6 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.resourceMenu {
-  position: fixed;
-  z-index: 1000;
-  display: grid;
-  width: min(190px, calc(100vw - 16px));
-  gap: 3px;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: 11px;
-  background: var(--surface);
-  box-shadow: 0 8px 24px #00000024;
-}
-.resourceMenu button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  min-height: 36px;
-  padding: 7px 9px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--foreground);
-  text-align: left;
-  font-size: 12px;
-}
-.resourceMenu button > i:first-child {
-  width: 16px;
-  color: var(--muted);
-  text-align: center;
-}
-.resourceMenu button > span {
-  flex: 1;
-}
-.resourceMenu button > i:last-child:not(:first-child) {
-  color: var(--muted);
-  font-size: 11px;
-}
-.resourceMenu button:focus-visible {
-  outline: 2px solid #007aff;
-  outline-offset: 1px;
-}
-.uploadStatus {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 10.5px;
-  line-height: 15px;
-  overflow-wrap: anywhere;
-}
-.uploadError {
-  margin-top: 8px;
-}
 .removeButton,
 .contextSection > header > button {
   display: grid;
@@ -476,64 +369,12 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-.saveActions {
-  padding: 0 14px 14px;
-}
-.saveStatus {
-  margin: 0;
-  color: var(--muted);
-  font-size: 10.5px;
-  line-height: 15px;
-}
-.saveError {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.skeletonHeader {
-  justify-content: space-between;
-}
-.skeletonHint {
-  margin-top: 8px;
-}
-.skeletonResourceRow {
-  grid-template-rows: auto auto;
-}
-.skeletonResourceRow > span:first-child,
-.skeletonResourceRow > span:nth-child(2) {
-  grid-column: 1;
-}
-.skeletonResourceRow > span:last-child {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-}
-.saveActions > button {
-  min-height: 32px;
-  padding: 6px 11px;
-  border: 1px solid var(--divider);
-  border-radius: 7px;
-  background: var(--surface);
-  color: #007aff;
-  font-weight: 600;
-}
-.saveActions button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.validationMessage,
 .errorMessage {
   margin-top: 7px;
   color: var(--danger, #b42318);
   font-size: 10.5px;
   line-height: 15px;
   overflow-wrap: anywhere;
-}
-.savedMessage {
-  margin-top: 7px;
-  color: var(--success, #248a3d);
-  font-size: 10.5px;
-  line-height: 15px;
 }
 .srOnly {
   position: absolute;
@@ -546,34 +387,6 @@
   white-space: nowrap;
   border: 0;
 }
-.tabs {
-  display: flex;
-  gap: 2px;
-  margin: 0 14px 10px;
-  padding: 2px;
-  border-radius: 7px;
-  background: var(--toggle-track);
-}
-.tabs button {
-  flex: 1;
-  min-width: 0;
-  padding: 5px 3px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 10.5px;
-  white-space: nowrap;
-  transition:
-    color 140ms var(--ease-drawer),
-    background-color 140ms var(--ease-drawer);
-}
-.tabs button[aria-selected="true"] {
-  color: var(--foreground);
-  background: var(--surface);
-  box-shadow: 0 1px 3px #00000014;
-  font-weight: 600;
-}
 .planBody {
   gap: 12px;
   padding: 2px 14px 14px;
@@ -581,23 +394,6 @@
 .planBody:focus-visible {
   outline: 2px solid #007aff;
   outline-offset: -2px;
-}
-.summaryCard {
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-  background: var(--surface);
-}
-.summaryCard h3 {
-  margin-bottom: 8px;
-  font-size: 12.5px;
-  font-weight: 600;
-}
-.summaryCard p {
-  color: var(--muted);
-  font-size: 11.5px;
-  line-height: 16px;
 }
 @media (hover: hover) and (pointer: fine) {
   .contextSection > header > button:enabled:hover {
@@ -616,14 +412,6 @@
     text-decoration: underline;
     text-underline-offset: 2px;
   }
-  .saveActions .textButton:enabled:hover {
-    border-color: #007aff;
-    background: color-mix(in srgb, #007aff 7%, var(--surface));
-  }
-  .tabs button:hover:not([aria-selected="true"]) {
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--surface) 72%, transparent);
-  }
   .contextSection textarea:hover:not(:focus-visible) {
     border-color: var(--muted);
   }
@@ -635,16 +423,11 @@
     color: var(--foreground);
     background: var(--toggle-track);
   }
-  .ruleMenu button:hover,
-  .deleteConfirm button:hover,
-  .resourceMenu button:hover {
+  .deleteConfirm button:hover {
     background: var(--toggle-track);
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tabs button {
-    transition: none;
-  }
   .sectionBody,
   .sectionToggle > i {
     transition: none;

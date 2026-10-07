@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import styles from "./context.module.css";
+import planStyles from "./context-plan.module.css";
 
 export function ContextPlan({
   tab,
@@ -23,7 +24,7 @@ export function ContextPlan({
           "Próximos hitos",
           "Plan sugerido para hoy",
         ].map((heading) => (
-          <section className={styles.summaryCard} key={heading}>
+          <section className={planStyles.summaryCard} key={heading}>
             <h3>{heading}</h3>
             <p>Aún no hay información para este proyecto.</p>
           </section>
@@ -55,7 +56,7 @@ export function ContextPlan({
   }
 
   return (
-    <section className={styles.summaryCard}>
+    <section className={planStyles.summaryCard}>
       <h3>{tab}</h3>
       <p>
         {tab === "Estructura"
