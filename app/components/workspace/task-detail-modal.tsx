@@ -413,12 +413,49 @@ export function TaskDetailModal({
     setSubtasks((current) => current.map((item) => item.localKey === localKey ? { ...item, title } : item));
   };
 
+  // Marcar un paso se guarda al momento (como en una lista), sin esperar a "Guardar cambios".
+  // Solo envía los pasos que ya existen en la base, con su título guardado, para no subir ediciones sin guardar.
+  const completionQueue = useRef<Promise<void>>(Promise.resolve());
+  const persistSubtaskCompletion = (next: EditableSubtask[]) => {
+    if (!task || projectId === undefined) return;
+    const payload = task.subtasks.map((saved) => ({
+      id: saved.id,
+      title: saved.title,
+      completed: next.find((item) => item.id === saved.id)?.completed ?? saved.completed,
+    }));
+    const taskId = task.id;
+    completionQueue.current = completionQueue.current.then(async () => {
+      try {
+        const response = await fetch("/api/tasks", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({ projectId, taskId, subtasks: payload }),
+        });
+        const data = (await response.json().catch(() => ({}))) as { tasks?: BoardTask[]; error?: string };
+        if (!response.ok || !Array.isArray(data.tasks)) throw new Error(data.error || t("No se pudo guardar la tarea."));
+        if (catalogs) onTagDataChange(catalogs, data.tasks);
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : t("No se pudo guardar la tarea."));
+        setSubtasks((current) => current.map((item) => {
+          const saved = task.subtasks.find((entry) => entry.id === item.id);
+          return saved && item.id !== undefined ? { ...item, completed: saved.completed } : item;
+        }));
+      }
+    });
+  };
+
   const setSubtaskCompleted = (localKey: string, completed: boolean) => {
-    setSubtasks((current) => current.map((item) => item.localKey === localKey ? { ...item, completed } : item));
+    const next = subtasks.map((item) => item.localKey === localKey ? { ...item, completed } : item);
+    setSubtasks(next);
+    if (subtasks.some((item) => item.localKey === localKey && item.id !== undefined)) persistSubtaskCompletion(next);
   };
 
   const setAllSubtasksCompleted = (completed: boolean) => {
-    setSubtasks((current) => current.map((item) => exitingSubtaskKeysRef.current.has(item.localKey) ? item : { ...item, completed }));
+    const next = subtasks.map((item) => exitingSubtaskKeysRef.current.has(item.localKey) ? item : { ...item, completed });
+    const changed = next.some((item, index) => item.id !== undefined && item.completed !== subtasks[index].completed);
+    setSubtasks(next);
+    if (changed) persistSubtaskCompletion(next);
   };
 
   const addSubtask = () => {
