@@ -64,4 +64,20 @@ function updateLocalProfileName(name) {
   }
 }
 
-module.exports = { hasLocalProfile, hasProfile, getLocalProfileName, updateLocalProfileName };
+function tursoHasProfile() {
+  const { loadTursoConfig } = require("./storage.cjs");
+  const { PENDING_PASSWORD } = require("../password.cjs");
+  const config = loadTursoConfig();
+  if (!config) return false;
+  let db;
+  try {
+    db = require("../cloud/turso-db.cjs").openTurso(config);
+    return Boolean(db.prepare("SELECT 1 AS found FROM usuarios WHERE contrasena <> ? LIMIT 1").get(PENDING_PASSWORD));
+  } catch {
+    return false;
+  } finally {
+    db?.close();
+  }
+}
+
+module.exports = { hasLocalProfile, hasProfile, getLocalProfileName, updateLocalProfileName, tursoHasProfile };

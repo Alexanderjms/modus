@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { OnboardingFrame } from "../../../components/onboarding-frame";
 import { OnboardingBackButton } from "../../../components/onboarding-back-button";
 import { TursoProfileForm } from "../../../components/turso-profile-form";
+import { tursoHasProfile } from "../../../../db/local/profile.cjs";
 import { getT } from "../../../i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -11,6 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function TursoProfilePage() {
   const t = await getT();
+  const existing = tursoHasProfile();
   return (
     <OnboardingFrame>
       <section
@@ -24,17 +26,19 @@ export default async function TursoProfilePage() {
               id="turso-profile-title"
               className="w-full text-[20px] font-bold leading-[normal] tracking-[-0.3px] text-[var(--foreground)]"
             >
-              {t("Crea tu perfil")}
+              {existing ? t("Inicia sesión") : t("Crea tu perfil")}
             </h1>
             <p className="w-full text-[12.5px] leading-[18px] text-[var(--muted)]">
-              {t("Tu perfil se guardará junto con tus datos en Turso.")}
+              {existing ? t("Esta base de datos ya tiene un perfil. Inicia sesión con tu usuario y contraseña para recuperar tus datos.") : t("Tu perfil se guardará junto con tus datos en Turso.")}
             </p>
-            <p className="w-full text-[11.5px] leading-[17px] text-[var(--muted)]">
-              {t("Podrás volver a acceder al conectar esta base de datos en otra instalación de Modus.")}
-            </p>
+            {!existing && (
+              <p className="w-full text-[11.5px] leading-[17px] text-[var(--muted)]">
+                {t("Podrás volver a acceder al conectar esta base de datos en otra instalación de Modus.")}
+              </p>
+            )}
           </div>
         </header>
-        <TursoProfileForm />
+        <TursoProfileForm existing={existing} />
       </section>
     </OnboardingFrame>
   );

@@ -9,7 +9,7 @@ const INPUT_CLASS =
 const FIELD_CLASS =
   "flex h-[34px] w-full items-center gap-[6px] rounded-[7px] bg-[var(--surface)] pl-[10px] pr-[3px] outline outline-1 -outline-offset-[0.5px] outline-[var(--border)] has-[input:focus]:shadow-[0px_0px_3px_#007AFF33] has-[input:focus]:outline-2 has-[input:focus]:-outline-offset-[1px] has-[input:focus]:outline-[#007AFF]";
 
-export function TursoProfileForm() {
+export function TursoProfileForm({ existing = false }: { existing?: boolean }) {
   const t = useT();
   const router = useRouter();
   const firstName = useRef<HTMLInputElement>(null);
@@ -42,7 +42,8 @@ export function TursoProfileForm() {
         body: JSON.stringify({
           usuario: String(form.get("usuario") ?? ""),
           password: String(form.get("password") ?? ""),
-          confirmation: String(form.get("confirmation") ?? ""),
+          confirmation: existing ? String(form.get("password") ?? "") : String(form.get("confirmation") ?? ""),
+          ...(existing ? { login: true } : {}),
         }),
       });
       if (response.ok) {
@@ -50,7 +51,7 @@ export function TursoProfileForm() {
         return;
       }
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(result?.error ?? t("No se pudo crear el perfil. Inténtalo de nuevo."));
+      setError(result?.error ?? (existing ? t("No se pudo iniciar sesión. Inténtalo de nuevo.") : t("No se pudo crear el perfil. Inténtalo de nuevo.")));
     } catch {
       setError(t("No se pudo conectar con el servidor. Inténtalo de nuevo."));
     }
@@ -59,7 +60,7 @@ export function TursoProfileForm() {
 
   return (
     <form
-      aria-label={t("Crear perfil en Turso")}
+      aria-label={existing ? t("Iniciar sesión en Turso") : t("Crear perfil en Turso")}
       className="flex w-full flex-col items-center"
       onInput={validateConfirmation}
       onSubmit={handleSubmit}
@@ -122,7 +123,7 @@ export function TursoProfileForm() {
             visible: showConfirmation,
             setVisible: setShowConfirmation,
           },
-        ].map((field) => (
+        ].filter((field) => !(existing && field.name === "confirmation")).map((field) => (
           <div
             key={field.id}
             className="flex w-full flex-col items-start gap-[5px]"
@@ -142,7 +143,7 @@ export function TursoProfileForm() {
                 required
                 disabled={pending}
                 minLength={8}
-                autoComplete="new-password"
+                autoComplete={existing ? "current-password" : "new-password"}
                 placeholder={field.placeholder}
                 aria-describedby={
                   field.name === "password"
@@ -175,7 +176,7 @@ export function TursoProfileForm() {
                 </svg>
               </button>
             </div>
-            {field.name === "password" && (
+            {field.name === "password" && !existing && (
               <p
                 id="turso-password-requirement"
                 className="w-full text-[11.5px] leading-[17px] text-[var(--muted)]"
@@ -196,7 +197,7 @@ export function TursoProfileForm() {
         disabled={pending}
         className="mt-6 inline-flex w-fit items-center justify-center rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-[12px] font-semibold leading-[normal] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF] disabled:opacity-60"
       >
-        {pending ? t("Creando perfil…") : t("Crear perfil")}
+        {pending ? (existing ? t("Entrando…") : t("Creando perfil…")) : existing ? t("Iniciar sesión") : t("Crear perfil")}
       </button>
     </form>
   );

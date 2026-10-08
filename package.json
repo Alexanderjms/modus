@@ -13,25 +13,23 @@
     "desktop:dist": "node scripts/build-desktop.mjs --dist",
     "desktop:release": "node scripts/build-desktop.mjs --dist --publish"
   },
-  "dependencies": {
-    "@tanstack/react-query": "^5.104.1",
-    "bootstrap-icons": "^1.13.1",
-    "next": "15.5.27",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
-  },
   "devDependencies": {
+    "@tanstack/react-query": "^5.104.1",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
+    "bootstrap-icons": "^1.13.1",
     "electron": "44.7.0",
     "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "15.5.27",
+    "next": "15.5.27",
     "postcss": "^8.5.6",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwindcss": "3.4.17",
     "typescript": "^5"
   },
@@ -48,8 +46,7 @@
     },
     "files": [
       "electron/**/*",
-      "package.json",
-      "!node_modules"
+      "package.json"
     ],
     "extraResources": [
       {
@@ -89,5 +86,8 @@
       "repo": "modus",
       "releaseType": "release"
     }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

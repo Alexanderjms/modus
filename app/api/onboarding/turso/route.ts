@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     return fail("JSON inválido", 400);
   }
 
+  const login = body.login === true;
   const username = typeof body.usuario === "string" ? body.usuario.trim() : "";
   const password = typeof body.password === "string" ? body.password : "";
   if (!USERNAME_REGEX.test(username)) {
@@ -51,7 +52,8 @@ export async function POST(request: Request) {
     const existing = db.prepare("SELECT id, contrasena FROM usuarios WHERE usuario = ? COLLATE NOCASE").get(username) as
       | { id: number; contrasena: string }
       | undefined;
-    if (pending && (!existing || existing.id === pending.id)) {
+    if (login && !existing) return fail("Usuario o contraseña incorrectos.", 403);
+    if (!login && pending && (!existing || existing.id === pending.id)) {
       const hash = await hashPasswordAsync(password);
       db.prepare("UPDATE usuarios SET usuario = ?, contrasena = ?, ultimo_acceso = ? WHERE id = ?")
         .run(username, hash, new Date().toISOString(), pending.id);

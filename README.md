@@ -173,6 +173,8 @@ Download the latest version from [**Releases**](https://github.com/Alexanderjms/
 | `Modus-<version>-win-x64.exe` | You want a regular installer with Start menu and desktop shortcuts. |
 | `Modus-<version>-win-x64.zip` | You prefer a portable copy: extract it anywhere and run `Modus.exe`. |
 
+The installed version updates itself: when a new release is published, Modus downloads it in the background and offers to restart. The portable `.zip` does not update automatically.
+
 The app is not code-signed yet, so Windows SmartScreen may ask for confirmation the first time (**More info → Run anyway**). Your data is stored in your user profile folder (`%APPDATA%\Modus\data`) and is kept when you update.
 
 ### Run from source

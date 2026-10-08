@@ -1,6 +1,6 @@
 "use strict";
 
-const { app, BrowserWindow, Menu, dialog, shell, utilityProcess } = require("electron");
+const { app, BrowserWindow, Menu, dialog, session, shell, utilityProcess } = require("electron");
 const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
@@ -8,6 +8,7 @@ const path = require("node:path");
 
 const PREFERRED_PORT = 47315;
 const STARTUP_TIMEOUT_MS = 45000;
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const BACKGROUND = "#f2f2f4";
 
 app.setName("Modus");
@@ -85,6 +86,49 @@ function startServer(port) {
   });
 }
 
+const updateMessages = {
+  es: { title: "Actualización lista", message: (version) => `Modus ${version} está listo para instalarse.`, detail: "Reinicia para actualizar. Tus datos se conservan.", restart: "Reiniciar ahora", later: "Más tarde" },
+  en: { title: "Update ready", message: (version) => `Modus ${version} is ready to install.`, detail: "Restart to update. Your data is kept.", restart: "Restart now", later: "Later" },
+};
+
+async function currentLanguage() {
+  const [cookie] = await session.defaultSession.cookies.get({ name: "modus-lang" });
+  if (cookie?.value === "en" || cookie?.value === "es") return cookie.value;
+  return app.getLocale().toLowerCase().startsWith("es") ? "es" : "en";
+}
+
+// Solo la versión instalada se actualiza sola: la portable (.zip) no incluye el desinstalador.
+function canAutoUpdate() {
+  return app.isPackaged && fs.existsSync(path.join(path.dirname(process.execPath), "Uninstall Modus.exe"));
+}
+
+function setupAutoUpdate() {
+  if (!canAutoUpdate()) return;
+  const { autoUpdater } = require("electron-updater");
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on("error", (error) => console.error("[updater]", error?.message ?? error));
+  autoUpdater.on("update-downloaded", async (info) => {
+    const text = updateMessages[await currentLanguage()];
+    const { response } = await dialog.showMessageBox(mainWindow ?? undefined, {
+      type: "info",
+      title: text.title,
+      message: text.message(info.version),
+      detail: text.detail,
+      buttons: [text.restart, text.later],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0) {
+      app.isQuitting = true;
+      autoUpdater.quitAndInstall();
+    }
+  });
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  check();
+  setInterval(check, UPDATE_CHECK_INTERVAL_MS).unref();
+}
+
 function isInternal(url) {
   try {
     return new URL(url).origin === origin;
@@ -111,6 +155,7 @@ function createWindow() {
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
   });
   mainWindow.once("ready-to-show", () => mainWindow.show());
+  mainWindow.on("page-title-updated", (event) => event.preventDefault());
   mainWindow.on("closed", () => { mainWindow = null; });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (isInternal(url)) return { action: "allow" };
@@ -134,6 +179,7 @@ async function boot() {
     startServer(port);
     await waitForServer(port);
     if (mainWindow) await mainWindow.loadURL(`${origin}/`);
+    setupAutoUpdate();
   } catch (error) {
     dialog.showErrorBox("Modus", error instanceof Error ? error.message : String(error));
     app.quit();

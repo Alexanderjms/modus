@@ -281,6 +281,7 @@ Modus se distribuye también como aplicación de escritorio para **Windows x64**
 | Instancia única | Abrir Modus por segunda vez enfoca la ventana existente. |
 | Enlaces externos | Se abren en el navegador del sistema; la ventana solo navega por `127.0.0.1`. |
 | Firma | Los binarios aún no están firmados, así que SmartScreen puede pedir confirmación. |
+| Actualizaciones | La versión instalada consulta el último release de GitHub al abrir y cada 6 horas (`electron-updater`), descarga la nueva en segundo plano y ofrece reiniciar para instalarla. La versión portable (`.zip`) no se actualiza sola. |
 
 ### Compilar en local
 
@@ -299,6 +300,8 @@ pnpm desktop:start     # abre la app ya compilada (tras pnpm desktop:build)
 3. El flujo `.github/workflows/release.yml` compila en Windows y publica el instalador y el `.zip` en **Releases**.
 
 También se puede publicar desde tu equipo con `GH_TOKEN` definido y `pnpm desktop:release`.
+
+Si creas el release a mano en GitHub, sube **también `latest.yml`** (y, si quieres descargas más ligeras, el `.blockmap`): sin él las instalaciones existentes no detectan la versión nueva. El número de `version` debe ser mayor que el anterior.
 
 Las claves de proveedores y los tokens de ChatGPT se cifran con Windows DPAPI, por eso la aplicación de escritorio se limita a Windows.
 
