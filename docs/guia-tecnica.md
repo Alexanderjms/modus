@@ -184,7 +184,7 @@ No existe sincronización bidireccional automática entre la base SQLite y Turso
 - **Local:** perfil con nombre y PIN opcional. El PIN admite de 4 a 12 dígitos y se puede cambiar o quitar desde **Perfil**, verificando el actual cuando corresponda.
 - **Turso:** perfil con usuario y contraseña, inicio y cierre de sesión. No utiliza el PIN local como contraseña de la nube.
 - **Protección:** PIN y contraseñas se almacenan como hashes scrypt, no como texto plano. Tras cinco fallos se aplica una espera progresiva, desde 30 segundos hasta 15 minutos.
-- **Sesiones:** se recuerdan en el dispositivo: la cookie dura 180 días y el servidor guarda solo el hash del token en `sessions.json` (carpeta de datos), así que abrir o reiniciar Modus no vuelve a pedir acceso. Se pide acceso al configurar el almacenamiento (local o Turso), cuando caduca la sesión o al **cerrar sesión**, que la invalida.
+- **Sesiones:** con **Turso** la sesión se recuerda en el dispositivo: la cookie dura 180 días y el servidor guarda solo el hash del token en `sessions.json` (carpeta de datos), así que abrir o reiniciar Modus no vuelve a pedir acceso hasta que caduque o se **cierre sesión**. Con **PIN local** el PIN se pide cada vez que se abre Modus: esas sesiones solo viven en memoria y la cookie no es persistente.
 - **Alcance:** el PIN protege el acceso de la aplicación, pero no cifra SQLite, los adjuntos ni una copia de seguridad. No lo consideres protección frente a alguien con acceso a los archivos o al proceso del servidor.
 
 El menú de usuario reúne **Perfil**, **Proveedores**, **Tavily · Búsqueda web** y la acción de cerrar sesión cuando está disponible.

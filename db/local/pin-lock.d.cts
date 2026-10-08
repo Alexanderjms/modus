@@ -6,13 +6,13 @@ export function hasPin(): boolean;
 export function isUnlocked(token?: string | null): boolean;
 export function lockKind(): "pin" | "password" | null;
 
-export function createSession(userId?: number): string;
+export function createSession(userId?: number, persist?: boolean): string;
 export function endSession(token?: string | null): void;
 export function getSessionUserId(token?: string | null): number | null;
 export function getCloudUserId(): number | null;
 
 export function unlock(payload?: { pin?: string; username?: string; password?: string }):
-  | { ok: true; token: string; retryAfter?: undefined }
+  | { ok: true; token: string; persistent: boolean; retryAfter?: undefined }
   | { ok: false; token?: undefined; retryAfter?: number };
 
 export function changePin(payload: {

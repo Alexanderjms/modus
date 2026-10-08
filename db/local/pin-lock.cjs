@@ -26,17 +26,20 @@ const state = (globalThis.__modusPinLock ??= {
 const tokenKey = (token) => crypto.createHash("sha256").update(token).digest("hex");
 const sessionsFile = () => path.join(getDataDir(), "sessions.json");
 
-// Las sesiones se guardan en disco (solo el hash del token) para que reiniciar la app no pida acceso otra vez.
+// Las sesiones de Turso se guardan en disco (solo el hash del token) para no pedir acceso al reiniciar la app.
+// Las del PIN local son volátiles: el PIN se pide cada vez que se abre Modus.
 function loadSessions() {
   if (state.loaded) return;
   state.loaded = true;
   state.created ??= new Map();
+  state.persistent ??= new Set();
   try {
     const saved = JSON.parse(fs.readFileSync(sessionsFile(), "utf8"));
     const now = Date.now();
     for (const [key, entry] of Object.entries(saved)) {
       if (!entry || now - entry.createdAt > SESSION_MAX_AGE * 1000) continue;
       state.sessions.add(key);
+      state.persistent.add(key);
       state.created.set(key, entry.createdAt);
       if (entry.userId != null) {
         state.users.set(key, entry.userId);
@@ -48,7 +51,7 @@ function loadSessions() {
 
 function saveSessions() {
   const saved = {};
-  for (const key of state.sessions) saved[key] = { userId: state.users.get(key) ?? null, createdAt: state.created.get(key) ?? Date.now() };
+  for (const key of state.persistent) saved[key] = { userId: state.users.get(key) ?? null, createdAt: state.created.get(key) ?? Date.now() };
   try {
     fs.mkdirSync(path.dirname(sessionsFile()), { recursive: true });
     fs.writeFileSync(sessionsFile(), JSON.stringify(saved), { mode: 0o600 });
@@ -102,17 +105,18 @@ function checkPin(pin, hash) {
   return { ok: true };
 }
 
-function createSession(userId) {
+function createSession(userId, persist = true) {
   loadSessions();
   const token = crypto.randomBytes(32).toString("hex");
   const key = tokenKey(token);
   state.sessions.add(key);
   state.created.set(key, Date.now());
+  if (persist) state.persistent.add(key);
   if (userId != null) {
     state.users.set(key, userId);
     state.lastUserId = userId;
   }
-  saveSessions();
+  if (persist) saveSessions();
   return token;
 }
 
@@ -134,6 +138,7 @@ function endSession(token) {
     state.sessions.delete(key);
     state.users.delete(key);
     state.created.delete(key);
+    state.persistent.delete(key);
     if (userId != null && state.lastUserId === userId && ![...state.users.values()].includes(userId)) state.lastUserId = null;
     saveSessions();
   }
@@ -166,7 +171,7 @@ function unlock(payload) {
       }
       state.failures = 0;
       const token = createSession(user.id);
-      return { ok: true, token };
+      return { ok: true, token, persistent: true };
     } finally {
       db.close();
     }
@@ -178,8 +183,8 @@ function unlock(payload) {
     if (!result.ok) return result;
   }
   state.failures = 0;
-  const token = createSession();
-  return { ok: true, token };
+  const token = createSession(undefined, false);
+  return { ok: true, token, persistent: false };
 }
 
 function changePin({ currentPin, newPin }) {

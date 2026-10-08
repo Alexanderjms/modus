@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     httpOnly: true,
     sameSite: "strict",
     path: "/",
-    maxAge: SESSION_MAX_AGE,
+    ...(result.persistent ? { maxAge: SESSION_MAX_AGE } : {}),
   });
   return Response.json({ ok: true }, { headers: NO_STORE });
 }
