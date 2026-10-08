@@ -27,7 +27,7 @@ mkdirSync(stage, { recursive: true });
 for (const entry of ["app", "db", "public", "middleware.ts", "next.config.mjs", "tsconfig.json", "postcss.config.mjs", "tailwind.config.ts", "package.json", "pnpm-lock.yaml"]) {
   cpSync(join(root, entry), join(stage, entry), { recursive: true });
 }
-writeFileSync(join(stage, "pnpm-workspace.yaml"), "allowBuilds:\n  electron: false\n  electron-winstaller: false\n  unrs-resolver: false\n");
+writeFileSync(join(stage, "pnpm-workspace.yaml"), "allowBuilds:\n  electron: false\n  electron-winstaller: false\n  unrs-resolver: false\nminimumReleaseAgeExclude:\n  - electron\n");
 
 run("pnpm", ["install", "--frozen-lockfile", "--config.node-linker=hoisted"], stage);
 run("node", [join("node_modules", "next", "dist", "bin", "next"), "build"], stage, { MODUS_DESKTOP: "1" });
