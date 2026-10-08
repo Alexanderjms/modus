@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+<title>Modus</title>
+<style>
+  :root {
+    --page: #f2f2f4;
+    --foreground: #1d1d1f;
+    --muted: #6e6e73;
+    --track: #dcdce1;
+    --accent: #007aff;
+    --glow-a: #e3d8f4;
+    --glow-b: #cfe0f7;
+    --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #121318;
+      --foreground: #f5f5f7;
+      --muted: #a5a5af;
+      --track: #2c2d36;
+      --glow-a: #2a2147;
+      --glow-b: #12294a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background:
+      radial-gradient(60% 55% at 28% 22%, var(--glow-a), transparent 70%),
+      radial-gradient(55% 50% at 78% 82%, var(--glow-b), transparent 70%),
+      var(--page);
+    color: var(--foreground);
+    font: 500 13px/1.4 "Segoe UI", system-ui, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    animation: enter 520ms var(--ease) both;
+  }
+  img {
+    width: 88px;
+    height: 88px;
+    filter: drop-shadow(0 8px 16px #00000033);
+  }
+  h1 {
+    margin: 4px 0 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .bar {
+    position: relative;
+    width: 132px;
+    height: 3px;
+    margin-top: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--track);
+  }
+  .bar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 42%;
+    border-radius: inherit;
+    background: var(--accent);
+    animation: slide 1.25s var(--ease) infinite;
+  }
+  @keyframes enter {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes slide {
+    from { transform: translateX(-110%); }
+    to { transform: translateX(260%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    main { animation: none; }
+    .bar::after { width: 100%; animation: none; opacity: 0.55; }
+  }
+</style>
+</head>
+<body>
+  <main role="status" aria-live="polite">
+    <img src="splash-logo.png" alt="" />
+    <h1>Modus</h1>
+    <p id="message">Preparando tu espacio…</p>
+    <div class="bar" aria-hidden="true"></div>
+  </main>
+  <script>
+    const lang = new URLSearchParams(location.search).get("lang");
+    if (lang === "en") {
+      document.documentElement.lang = "en";
+      document.getElementById("message").textContent = "Getting your workspace ready…";
+    }
+  </script>
+</body>
+</html>

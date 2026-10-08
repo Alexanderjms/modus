@@ -1,6 +1,6 @@
 "use strict";
 
-const { app, BrowserWindow, Menu, dialog, session, shell, utilityProcess } = require("electron");
+const { app, BrowserWindow, Menu, dialog, nativeTheme, session, shell, utilityProcess } = require("electron");
 const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
@@ -9,7 +9,6 @@ const path = require("node:path");
 const PREFERRED_PORT = 47315;
 const STARTUP_TIMEOUT_MS = 45000;
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
-const BACKGROUND = "#f2f2f4";
 
 app.setName("Modus");
 if (!app.commandLine.hasSwitch("user-data-dir")) app.setPath("userData", path.join(app.getPath("appData"), "Modus"));
@@ -18,9 +17,7 @@ let serverProcess = null;
 let mainWindow = null;
 let origin = "";
 
-const splash = `data:text/html;charset=utf-8,${encodeURIComponent(
-  `<!doctype html><meta charset="utf-8"><body style="margin:0;display:grid;place-items:center;height:100vh;background:${BACKGROUND};font:600 15px system-ui,sans-serif;color:#1d1d1f">Modus</body>`,
-)}`;
+const backgroundColor = () => (nativeTheme.shouldUseDarkColors ? "#121318" : "#f2f2f4");
 
 function serverEntry() {
   return app.isPackaged
@@ -149,7 +146,7 @@ function createWindow() {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: BACKGROUND,
+    backgroundColor: backgroundColor(),
     title: "Modus",
     icon: path.join(__dirname, "icon.png"),
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
@@ -167,7 +164,7 @@ function createWindow() {
     event.preventDefault();
     openExternal(url);
   });
-  void mainWindow.loadURL(splash);
+  void mainWindow.loadFile(path.join(__dirname, "splash.html"), { query: { lang: app.getLocale().toLowerCase().startsWith("es") ? "es" : "en" } });
 }
 
 async function boot() {
