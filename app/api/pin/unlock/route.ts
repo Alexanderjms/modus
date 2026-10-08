@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { validateLoopbackSecurity } from "../../../../db/local/providers.cjs";
-import { UNLOCK_COOKIE, unlock } from "../../../../db/local/pin-lock.cjs";
+import { SESSION_MAX_AGE, UNLOCK_COOKIE, unlock } from "../../../../db/local/pin-lock.cjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +47,7 @@ export async function POST(request: Request) {
     httpOnly: true,
     sameSite: "strict",
     path: "/",
+    maxAge: SESSION_MAX_AGE,
   });
   return Response.json({ ok: true }, { headers: NO_STORE });
 }

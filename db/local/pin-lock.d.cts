@@ -1,4 +1,5 @@
 export const UNLOCK_COOKIE: string;
+export const SESSION_MAX_AGE: number;
 export const USERNAME_REGEX: RegExp;
 
 export function hasPin(): boolean;

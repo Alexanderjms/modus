@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { validateLoopbackSecurity } from "../../../../db/local/providers.cjs";
 import { applySchema } from "../../../../db/local/migrate.cjs";
 import { loadTursoConfig, setStorageMode } from "../../../../db/local/storage.cjs";
-import { UNLOCK_COOKIE, USERNAME_REGEX, createSession } from "../../../../db/local/pin-lock.cjs";
+import { SESSION_MAX_AGE, UNLOCK_COOKIE, USERNAME_REGEX, createSession } from "../../../../db/local/pin-lock.cjs";
 import { openTurso } from "../../../../db/cloud/turso-db.cjs";
 import { PENDING_PASSWORD, hashPasswordAsync, verifyPassword } from "../../../../db/password.cjs";
 
@@ -84,6 +84,7 @@ export async function POST(request: Request) {
     httpOnly: true,
     sameSite: "strict",
     path: "/",
+    maxAge: SESSION_MAX_AGE,
   });
   return Response.json({ ok: true }, { status: 201, headers: NO_STORE });
 }

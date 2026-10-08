@@ -2,12 +2,14 @@
 
 const crypto = require("node:crypto");
 const fs = require("node:fs");
+const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
-const { getDatabase, getDefaultDbPath } = require("./db.cjs");
+const { getDatabase, getDefaultDbPath, getDataDir } = require("./db.cjs");
 const { hashPin, isValidPinFormat, verifyPin } = require("./pin.cjs");
 const { hashPassword, verifyPassword } = require("../password.cjs");
 
 const UNLOCK_COOKIE = "modus-unlock";
+const SESSION_MAX_AGE = 180 * 24 * 60 * 60;
 const USERNAME_REGEX = /^[a-zA-Z0-9._-]{3,32}$/;
 const MAX_PIN_LENGTH = 12;
 const FREE_ATTEMPTS = 5;
@@ -20,6 +22,38 @@ const state = (globalThis.__modusPinLock ??= {
   failures: 0,
   lockedUntil: 0,
 });
+
+const tokenKey = (token) => crypto.createHash("sha256").update(token).digest("hex");
+const sessionsFile = () => path.join(getDataDir(), "sessions.json");
+
+// Las sesiones se guardan en disco (solo el hash del token) para que reiniciar la app no pida acceso otra vez.
+function loadSessions() {
+  if (state.loaded) return;
+  state.loaded = true;
+  state.created ??= new Map();
+  try {
+    const saved = JSON.parse(fs.readFileSync(sessionsFile(), "utf8"));
+    const now = Date.now();
+    for (const [key, entry] of Object.entries(saved)) {
+      if (!entry || now - entry.createdAt > SESSION_MAX_AGE * 1000) continue;
+      state.sessions.add(key);
+      state.created.set(key, entry.createdAt);
+      if (entry.userId != null) {
+        state.users.set(key, entry.userId);
+        state.lastUserId = entry.userId;
+      }
+    }
+  } catch {}
+}
+
+function saveSessions() {
+  const saved = {};
+  for (const key of state.sessions) saved[key] = { userId: state.users.get(key) ?? null, createdAt: state.created.get(key) ?? Date.now() };
+  try {
+    fs.mkdirSync(path.dirname(sessionsFile()), { recursive: true });
+    fs.writeFileSync(sessionsFile(), JSON.stringify(saved), { mode: 0o600 });
+  } catch {}
+}
 
 function readPinHash() {
   const dbPath = process.env.MODUS_SQLITE_PATH || getDefaultDbPath();
@@ -40,7 +74,8 @@ function hasPin() {
 }
 
 function isUnlocked(token) {
-  return typeof token === "string" && state.sessions.has(token);
+  loadSessions();
+  return typeof token === "string" && state.sessions.has(tokenKey(token));
 }
 
 function lockoutSeconds() {
@@ -68,29 +103,39 @@ function checkPin(pin, hash) {
 }
 
 function createSession(userId) {
+  loadSessions();
   const token = crypto.randomBytes(32).toString("hex");
-  state.sessions.add(token);
+  const key = tokenKey(token);
+  state.sessions.add(key);
+  state.created.set(key, Date.now());
   if (userId != null) {
-    state.users.set(token, userId);
+    state.users.set(key, userId);
     state.lastUserId = userId;
   }
+  saveSessions();
   return token;
 }
 
 function getSessionUserId(token) {
-  return typeof token === "string" ? state.users.get(token) ?? null : null;
+  loadSessions();
+  return typeof token === "string" ? state.users.get(tokenKey(token)) ?? null : null;
 }
 
 function getCloudUserId() {
+  loadSessions();
   return state.lastUserId ?? null;
 }
 
 function endSession(token) {
+  loadSessions();
   if (typeof token === "string") {
-    const userId = state.users.get(token);
-    state.sessions.delete(token);
-    state.users.delete(token);
+    const key = tokenKey(token);
+    const userId = state.users.get(key);
+    state.sessions.delete(key);
+    state.users.delete(key);
+    state.created.delete(key);
     if (userId != null && state.lastUserId === userId && ![...state.users.values()].includes(userId)) state.lastUserId = null;
+    saveSessions();
   }
 }
 
@@ -205,6 +250,7 @@ function updateCloudProfile({ userId, username, newPassword }) {
 
 module.exports = {
   UNLOCK_COOKIE,
+  SESSION_MAX_AGE,
   USERNAME_REGEX,
   hasPin,
   isUnlocked,
