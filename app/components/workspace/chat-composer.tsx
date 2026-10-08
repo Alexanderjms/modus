@@ -8,6 +8,7 @@ import { ChatAttachments } from "./chat-attachments";
 import { ChatTaskRefs } from "./chat-task-refs";
 import type { PendingAttachment } from "./use-chat-attachments";
 import attachmentStyles from "./chat-attachments.module.css";
+import { useT } from "../../i18n/provider";
 
 export function ChatComposer({
   draft,
@@ -42,6 +43,7 @@ export function ChatComposer({
   taskRefs: { id: number; title: string }[];
   onRemoveTask: (id: number) => void;
 }) {
+  const t = useT();
   const id = useId();
 
   const readyAttachments = attachments.filter((item) => item.status === "ready" && item.attachment).length;
@@ -53,15 +55,15 @@ export function ChatComposer({
         onSend();
       }}
     >
-      <label className={styles.composerLabel} htmlFor={id}>Mensaje al chat</label>
+      <label className={styles.composerLabel} htmlFor={id}>{t("Mensaje al chat")}</label>
       <ChatAttachments items={attachments} projectId={projectId} disabled={attachmentsDisabled} onRetry={onRetryAttachment} onCancel={onCancelAttachment} onRemove={onRemoveAttachment} />
       <ChatTaskRefs items={taskRefs} disabled={sending} onRemove={onRemoveTask} />
-      {attachmentError && <p className={attachmentStyles.error} role="alert">{attachmentError}</p>}
+      {attachmentError && <p className={attachmentStyles.error} role="alert">{t(attachmentError)}</p>}
       <div>
         <button
           type="button"
-          aria-label="Adjuntar archivos"
-          title="Adjuntar archivos o arrastrarlos aquí (máximo 5, 10 MiB por archivo)"
+          aria-label={t("Adjuntar archivos")}
+          title={t("Adjuntar archivos o arrastrarlos aquí (máximo 5, 10 MiB por archivo)")}
           onClick={openPicker}
           disabled={attachmentsDisabled}
         >
@@ -70,7 +72,7 @@ export function ChatComposer({
         <textarea
           id={id}
           aria-describedby={`${id}-hint`}
-          placeholder="Escribe un mensaje…"
+          placeholder={t("Escribe un mensaje…")}
           rows={1}
           maxLength={4000}
           value={draft}
@@ -90,15 +92,15 @@ export function ChatComposer({
         <button
           type="submit"
           className={styles.send}
-          aria-label={sending ? "Esperando respuesta" : "Enviar mensaje"}
-          title={!canSend ? "Elige un proyecto, proveedor y modelo disponible." : undefined}
+          aria-label={sending ? t("Esperando respuesta") : t("Enviar mensaje")}
+          title={!canSend ? t("Elige un proyecto, proveedor y modelo disponible.") : undefined}
           disabled={(!draft.trim() && !readyAttachments && !taskRefs.length) || !canSend || sending || attachments.some((item) => item.status !== "ready")}
         >
           <i aria-hidden="true" className={sending ? "bi bi-hourglass-split" : "bi bi-send"} />
         </button>
       </div>
-      <p id={`${id}-hint`}>Enter envía · Shift+Enter añade una línea. Los archivos se guardan con el mensaje y se envían al modelo. Arrastra tareas del tablero para dárselas al chat.</p>
-      {!!attachments.length && <p>Quita los adjuntos del borrador para cambiar de chat.</p>}
+      <p id={`${id}-hint`}>{t("Enter envía · Shift+Enter añade una línea. Los archivos se guardan con el mensaje y se envían al modelo. Arrastra tareas del tablero para dárselas al chat.")}</p>
+      {!!attachments.length && <p>{t("Quita los adjuntos del borrador para cambiar de chat.")}</p>}
     </form>
   )}</ChatDropzone>;
 }

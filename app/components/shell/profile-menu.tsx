@@ -2,6 +2,8 @@
 
 import { useId } from "react";
 import styles from "./profile-menu.module.css";
+import { useLang } from "../../i18n/provider";
+import { useUserName } from "../user-context";
 
 export function ProfileMenu({
   id,
@@ -18,6 +20,9 @@ export function ProfileMenu({
   onOpenTavily?: () => void;
   onLogout?: () => void;
 }) {
+  const { lang, setLang, t } = useLang();
+  const userName = useUserName();
+  const displayName = userName ?? t("Perfil");
   const generatedId = useId();
   const menuId = id ?? generatedId;
 
@@ -33,10 +38,10 @@ export function ProfileMenu({
       id={menuId}
       popover="auto"
       className={styles.profileMenu}
-      aria-label="Opciones de Alexander"
+      aria-label={t("Menú de {0}", displayName)}
       onToggle={(event) => onToggle?.(event.newState === "open")}
     >
-      <p>Alexander</p>
+      <p>{displayName}</p>
       <button
         type="button"
         onClick={() => {
@@ -45,7 +50,7 @@ export function ProfileMenu({
         }}
       >
         <i aria-hidden="true" className="bi bi-person" />
-        Perfil
+        {t("Perfil")}
       </button>
       <button
         type="button"
@@ -55,12 +60,31 @@ export function ProfileMenu({
         }}
       >
         <i aria-hidden="true" className="bi bi-key" />
-        Proveedores
+        {t("Proveedores")}
       </button>
       <button type="button" onClick={() => { closeMenu(); onOpenTavily?.(); }}>
         <i aria-hidden="true" className="bi bi-search" />
-        Tavily · Búsqueda web
+        {t("Tavily · Búsqueda web")}
       </button>
+      <div className={styles.language} role="group" aria-label={t("Idioma")}>
+        <i aria-hidden="true" className="bi bi-translate" />
+        <span>{t("Idioma")}</span>
+        <div className={styles.languageOptions}>
+          {(["es", "en"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              lang={option}
+              aria-pressed={lang === option}
+              aria-label={option === "es" ? t("Español") : "English"}
+              className={styles.languageOption}
+              onClick={() => lang !== option && setLang(option)}
+            >
+              {option.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
       {onLogout && (
         <button
           type="button"
@@ -71,7 +95,7 @@ export function ProfileMenu({
           }}
         >
           <i aria-hidden="true" className="bi bi-box-arrow-right" />
-          Cerrar sesión
+          {t("Cerrar sesión")}
         </button>
       )}
     </div>

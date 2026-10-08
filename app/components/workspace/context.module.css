@@ -387,14 +387,6 @@
   white-space: nowrap;
   border: 0;
 }
-.planBody {
-  gap: 12px;
-  padding: 2px 14px 14px;
-}
-.planBody:focus-visible {
-  outline: 2px solid #007aff;
-  outline-offset: -2px;
-}
 @media (hover: hover) and (pointer: fine) {
   .contextSection > header > button:enabled:hover {
     color: var(--foreground);
@@ -442,37 +434,27 @@
   .context {
     width: 100%;
   }
-  .contextBody:not(.planBody) {
+  .contextBody {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  .contextBody:not(.planBody) > section {
+  .contextBody > section {
     flex: 1;
     min-width: 230px;
   }
-  .contextBody:not(.planBody) > section + section {
+  .contextBody > section + section {
     border-top: 0;
     border-left: 1px solid var(--divider-soft);
   }
-  .planBody {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  .planBody > section {
-    flex: 1;
-    min-width: 230px;
-  }
 }
 @media (max-width: 760px) {
-  .contextBody:not(.planBody),
-  .planBody {
+  .contextBody {
     flex-direction: column;
   }
-  .contextBody:not(.planBody) > section,
-  .planBody > section {
+  .contextBody > section {
     min-width: 0;
   }
-  .contextBody:not(.planBody) > section + section {
+  .contextBody > section + section {
     border-top: 1px solid var(--divider-soft);
     border-left: 0;
   }

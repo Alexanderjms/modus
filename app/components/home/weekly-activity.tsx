@@ -9,10 +9,8 @@ import {
   type WeeklyActivityData,
   type WeeklyActivityDay,
 } from "./weekly-activity-data.mjs";
+import { useLang } from "../../i18n/provider";
 
-const monthFormatter = new Intl.DateTimeFormat("es", { month: "short" });
-const fullDateFormatter = new Intl.DateTimeFormat("es", { dateStyle: "full" });
-const tooltipDateFormatter = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const weekdayLabels = ["Lun", "", "Mié", "", "Vie", "", ""];
 
 function levelFor(completed: number, maximum: number) {
@@ -27,6 +25,10 @@ function buildWeeks(days: WeeklyActivityDay[]) {
 }
 
 export function WeeklyActivity({ refreshKey = 0 }: { refreshKey?: number }) {
+  const { lang, t } = useLang();
+  const monthFormatter = useMemo(() => new Intl.DateTimeFormat(lang, { month: "short" }), [lang]);
+  const fullDateFormatter = useMemo(() => new Intl.DateTimeFormat(lang, { dateStyle: "full" }), [lang]);
+  const tooltipDateFormatter = useMemo(() => new Intl.DateTimeFormat(lang, { weekday: "long", day: "numeric", month: "long", year: "numeric" }), [lang]);
   const [activity, setActivity] = useState<WeeklyActivityData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -47,7 +49,7 @@ export function WeeklyActivity({ refreshKey = 0 }: { refreshKey?: number }) {
       labels.push({ column, text: monthFormatter.format(week[0].localDate).replace(".", "") });
     });
     return labels;
-  }, [weeks]);
+  }, [weeks, monthFormatter]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -62,14 +64,14 @@ export function WeeklyActivity({ refreshKey = 0 }: { refreshKey?: number }) {
         });
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         if (!response.ok) {
-          throw new Error(payload?.error || "No se pudo cargar la actividad.");
+          throw new Error(payload?.error || t("No se pudo cargar la actividad."));
         }
         setActivity(parseWeeklyActivity(payload));
       } catch (reason) {
         if (!controller.signal.aborted) {
           setActivity(null);
           setError(
-            reason instanceof Error ? reason.message : "No se pudo cargar la actividad.",
+            reason instanceof Error ? reason.message : t("No se pudo cargar la actividad."),
           );
         }
       } finally {
@@ -90,32 +92,32 @@ export function WeeklyActivity({ refreshKey = 0 }: { refreshKey?: number }) {
     <section className={styles.section} aria-labelledby="weekly-activity-heading">
       <header className={styles.header}>
         <div>
-          <h2 id="weekly-activity-heading">Actividad</h2>
+          <h2 id="weekly-activity-heading">{t("Actividad")}</h2>
           {activity && (
             <p className={styles.notice}>
-              {activity.total} {activity.total === 1 ? "finalización" : "finalizaciones"} en el último año
+              {activity.total} {activity.total === 1 ? t("finalización") : t("finalizaciones")} {t("en el último año")}
               {" · "}
-              {activity.historyNotice}
+              {t(activity.historyNotice)}
             </p>
           )}
         </div>
       </header>
       {loading ? (
-        <div className={styles.skeleton} role="status" aria-label="Cargando actividad">
+        <div className={styles.skeleton} role="status" aria-label={t("Cargando actividad")}>
           <Skeleton variant="rounded" width="100%" height={142} />
         </div>
       ) : error ? (
         <p className={styles.error} role="alert">
-          {error}{" "}
+          {t(error)}{" "}
           <button type="button" onClick={() => setReload((current) => current + 1)}>
-            Reintentar
+            {t("Reintentar")}
           </button>
         </p>
       ) : activity ? (
         <>
           {activity.total === 0 && (
             <p className={styles.empty} role="status">
-              Aún no hay finalizaciones registradas. Completa tareas para llenar la cuadrícula.
+              {t("Aún no hay finalizaciones registradas. Completa tareas para llenar la cuadrícula.")}
             </p>
           )}
           <div className={styles.scroller} ref={scroller} onScroll={() => setTooltip(null)}>
@@ -126,12 +128,12 @@ export function WeeklyActivity({ refreshKey = 0 }: { refreshKey?: number }) {
                 ))}
               </div>
               <div className={styles.weekdays} aria-hidden="true">
-                {weekdayLabels.map((label, index) => <span key={index}>{label}</span>)}
+                {weekdayLabels.map((label, index) => <span key={index}>{t(label)}</span>)}
               </div>
-              <ol className={styles.grid} aria-label="Finalizaciones por día durante el último año">
+              <ol className={styles.grid} aria-label={t("Finalizaciones por día durante el último año")}>
                 {weeks.flatMap((week, column) => week.map((day, row) => {
                   const isToday = column === weeks.length - 1 && row === week.length - 1;
-                  const label = `${fullDateFormatter.format(day.localDate)}: ${day.completed} ${day.completed === 1 ? "finalización" : "finalizaciones"}`;
+                  const label = `${fullDateFormatter.format(day.localDate)}: ${day.completed} ${day.completed === 1 ? t("finalización") : t("finalizaciones")}`;
                   return (
                     <li
                       key={day.date}
@@ -160,16 +162,16 @@ export function WeeklyActivity({ refreshKey = 0 }: { refreshKey?: number }) {
             </div>
           </div>
           <div className={styles.legend} aria-hidden="true">
-            <span>Menos</span>
+            <span>{t("Menos")}</span>
             {[0, 1, 2, 3, 4].map((level) => <i key={level} className={styles.cell} data-level={level} />)}
-            <span>Más</span>
+            <span>{t("Más")}</span>
           </div>
         </>
       ) : null}
       {tooltip && createPortal(
         <div className={styles.tooltip} role="presentation" style={{ left: tooltip.x, top: tooltip.y }}>
-          <strong>{tooltip.count === 0 ? "Sin finalizaciones" : `${tooltip.count} ${tooltip.count === 1 ? "finalización" : "finalizaciones"}`}</strong>
-          <span>{tooltip.today ? "Hoy · " : ""}{tooltip.date}</span>
+          <strong>{tooltip.count === 0 ? t("Sin finalizaciones") : `${tooltip.count} ${tooltip.count === 1 ? t("finalización") : t("finalizaciones")}`}</strong>
+          <span>{tooltip.today ? t("Hoy · ") : ""}{tooltip.date}</span>
         </div>,
         document.body,
       )}

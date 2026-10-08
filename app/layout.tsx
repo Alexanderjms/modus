@@ -7,6 +7,12 @@ import "./globals.css";
 import "./theme.css";
 import "./panels.css";
 import { PinLockScreen } from "./components/pin-lock-screen";
+import { I18nProvider } from "./i18n/provider";
+import { UserProvider } from "./components/user-context";
+import { getLocalProfileName } from "../db/local/profile.cjs";
+import { getCloudProfile, getSessionUserId } from "../db/local/pin-lock.cjs";
+import { getStorageMode } from "../db/local/storage.cjs";
+import { getLang } from "./i18n/server";
 import { isSignedOut } from "../db/local/storage.cjs";
 import { UNLOCK_COOKIE, lockKind, isUnlocked } from "../db/local/pin-lock.cjs";
 
@@ -35,9 +41,18 @@ export default async function RootLayout({
   }
   const unlocked = isUnlocked((await cookies()).get(UNLOCK_COOKIE)?.value);
   const kind = unlocked ? null : lockKind();
+  const lang = await getLang();
+  let userName: string | null = null;
+  if (!kind && !isSignedOut()) {
+    try {
+      userName = getStorageMode() === "turso"
+        ? getCloudProfile(getSessionUserId((await cookies()).get(UNLOCK_COOKIE)?.value))?.username ?? null
+        : getLocalProfileName();
+    } catch {}
+  }
 
   return (
-    <html lang="es" className={geist.variable} suppressHydrationWarning>
+    <html lang={lang} className={geist.variable} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -45,7 +60,11 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className="font-sans">{kind ? <PinLockScreen kind={kind} /> : children}</body>
+      <body className="font-sans">
+        <I18nProvider initialLang={lang}>
+          <UserProvider name={userName}>{kind ? <PinLockScreen kind={kind} /> : children}</UserProvider>
+        </I18nProvider>
+      </body>
     </html>
   );
 }

@@ -32,4 +32,36 @@ function hasProfile() {
   }
 }
 
-module.exports = { hasLocalProfile, hasProfile };
+function openLocalDb(readOnly) {
+  const dbPath = process.env.MODUS_SQLITE_PATH || getDefaultDbPath();
+  if (!fs.existsSync(dbPath)) return null;
+  return new DatabaseSync(dbPath, { readOnly });
+}
+
+function getLocalProfileName() {
+  const db = openLocalDb(true);
+  if (!db) return null;
+  try {
+    const row = db.prepare("SELECT nombre FROM usuarios ORDER BY id LIMIT 1").get();
+    return row ? String(row.nombre) : null;
+  } catch {
+    return null;
+  } finally {
+    db.close();
+  }
+}
+
+function updateLocalProfileName(name) {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed || trimmed.length > 100) return { ok: false, status: 400, error: "El nombre debe tener entre 1 y 100 caracteres." };
+  const db = openLocalDb(false);
+  if (!db) return { ok: false, status: 404, error: "No hay un perfil local configurado." };
+  try {
+    const info = db.prepare("UPDATE usuarios SET nombre = ? WHERE id = (SELECT id FROM usuarios ORDER BY id LIMIT 1)").run(trimmed);
+    return info.changes ? { ok: true } : { ok: false, status: 404, error: "No hay un perfil local configurado." };
+  } finally {
+    db.close();
+  }
+}
+
+module.exports = { hasLocalProfile, hasProfile, getLocalProfileName, updateLocalProfileName };

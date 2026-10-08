@@ -3,11 +3,13 @@ import { StorageSelection } from "./components/storage-selection";
 import { redirect } from "next/navigation";
 import { hasProfile } from "../db/local/profile.cjs";
 import { isSignedOut } from "../db/local/storage.cjs";
+import { getT } from "./i18n/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default function Home() {
+export default async function Home() {
+  const t = await getT();
   if (!isSignedOut() && hasProfile()) redirect("/inicio");
   return (
     <OnboardingFrame>
@@ -18,18 +20,16 @@ export default function Home() {
               id="storage-heading"
               className="w-full text-xl font-bold tracking-[-0.3px] [line-height:normal]"
             >
-              Configura tu almacenamiento
+              {t("Configura tu almacenamiento")}
             </h1>
             <p
               id="storage-question"
               className="w-full text-[13px] font-medium [line-height:normal]"
             >
-              ¿Dónde quieres guardar tus datos?
+              {t("¿Dónde quieres guardar tus datos?")}
             </p>
             <p className="w-full text-[12.5px] leading-[18px] text-[var(--muted)]">
-              Elige cómo almacenar tus proyectos,
-              <br />
-              tareas y conversaciones.
+              {t("Elige cómo almacenar tus proyectos, tareas y conversaciones.")}
             </p>
           </div>
         </header>

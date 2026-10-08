@@ -1,10 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
 import styles from "./context.module.css";
-import planStyles from "./context-plan.module.css";
 import shared from "../workspace.module.css";
-import { ContextPlan } from "./context-plan";
 import { mergeContextSave } from "./context-autosave.mjs";
 import { getContextPanelLoadState } from "./context-load-state.mjs";
 import { ContextSections } from "./context-sections";
@@ -16,11 +14,9 @@ import {
   isValidContextDocument,
   type ContextDocument,
 } from "./context-document.mjs";
-
-const planTabs = ["Resumen", "Estructura", "Cronograma", "Notas"] as const;
+import { useT } from "../../i18n/provider";
 
 export function WorkspaceContext({
-  plan,
   project,
   projectId,
   projectsLoading,
@@ -31,7 +27,6 @@ export function WorkspaceContext({
   closeButtonRef,
   onPendingChangesChange,
 }: {
-  plan: boolean;
   project: string;
   projectId?: number;
   projectsLoading: boolean;
@@ -42,11 +37,10 @@ export function WorkspaceContext({
   closeButtonRef: RefObject<HTMLButtonElement | null>;
   onPendingChangesChange: (pending: boolean) => void;
 }) {
+  const t = useT();
   const id = useId();
   const request = useWorkspaceRequest();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<(typeof planTabs)[number]>("Resumen");
-  const [notes, setNotes] = useState("");
   const [document, setDocument] = useState<ContextDocument>({ context: "", rules: [], resources: [] });
   const [originalDocument, setOriginalDocument] = useState<ContextDocument>(document);
   const [loadState, setLoadState] = useState<"loading" | "error" | "ready" | "no-project">(
@@ -123,10 +117,10 @@ export function WorkspaceContext({
           const message =
             result && typeof result === "object" && "error" in result && typeof result.error === "string"
               ? result.error
-              : "No se pudo cargar el contexto del proyecto.";
+              : t("No se pudo cargar el contexto del proyecto.");
           throw new Error(message);
         }
-        if (!isContextDocument(result)) throw new Error("La respuesta del contexto no es válida.");
+        if (!isContextDocument(result)) throw new Error(t("La respuesta del contexto no es válida."));
         if (controller.signal.aborted || generationRef.current !== generation) return;
         documentRef.current = result;
         setDocument(result);
@@ -134,7 +128,7 @@ export function WorkspaceContext({
         setLoadState("ready");
       } catch (reason) {
         if (!controller.signal.aborted && generationRef.current === generation) {
-          setLoadError(reason instanceof Error ? reason.message : "No se pudo cargar el contexto del proyecto.");
+          setLoadError(reason instanceof Error ? reason.message : t("No se pudo cargar el contexto del proyecto."));
           setLoadState("error");
         }
       }
@@ -188,10 +182,10 @@ export function WorkspaceContext({
         const message =
           result && typeof result === "object" && "error" in result && typeof result.error === "string"
             ? result.error
-            : "No se pudieron guardar los cambios.";
+            : t("No se pudieron guardar los cambios.");
         throw new Error(message);
       }
-      if (!isContextDocument(result)) throw new Error("La respuesta del guardado no es válida.");
+      if (!isContextDocument(result)) throw new Error(t("La respuesta del guardado no es válida."));
       if (
         controller.signal.aborted ||
         generationRef.current !== generation ||
@@ -208,7 +202,7 @@ export function WorkspaceContext({
         generationRef.current === generation &&
         projectIdRef.current === requestProjectId
       ) {
-        setSaveError(reason instanceof Error ? reason.message : "No se pudieron guardar los cambios.");
+        setSaveError(reason instanceof Error ? reason.message : t("No se pudieron guardar los cambios."));
       }
     } finally {
       if (saveController.current === controller) {
@@ -240,22 +234,6 @@ export function WorkspaceContext({
     setSaved(false);
   }
 
-  function selectTab(index: number, event: KeyboardEvent<HTMLButtonElement>) {
-    let nextIndex = index;
-    if (event.key === "ArrowRight") nextIndex = (index + 1) % planTabs.length;
-    else if (event.key === "ArrowLeft")
-      nextIndex = (index - 1 + planTabs.length) % planTabs.length;
-    else if (event.key === "Home") nextIndex = 0;
-    else if (event.key === "End") nextIndex = planTabs.length - 1;
-    else return;
-
-    event.preventDefault();
-    setActiveTab(planTabs[nextIndex]);
-    event.currentTarget.parentElement
-      ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-      [nextIndex]?.focus();
-  }
-
   return (
     <aside
       id="workspace-context"
@@ -267,18 +245,14 @@ export function WorkspaceContext({
     >
       <header className={shared.panelHeader}>
         <div>
-          <h2 id={`${id}-title`}>{plan ? "Plan del proyecto" : "Contexto"}</h2>
-          <p>
-            {plan
-              ? project || "Sin proyecto seleccionado"
-              : "Información que la IA tendrá en cuenta."}
-          </p>
+          <h2 id={`${id}-title`}>{t("Contexto")}</h2>
+          <p>{t("Información que la IA tendrá en cuenta.")}</p>
         </div>
         <button
           ref={closeButtonRef}
           type="button"
           className={shared.iconButton}
-          aria-label="Ocultar contexto"
+          aria-label={t("Ocultar contexto")}
           aria-expanded={!hidden}
           aria-controls="workspace-context"
           onClick={onClose}
@@ -286,74 +260,39 @@ export function WorkspaceContext({
           <i aria-hidden="true" className="bi bi-layout-sidebar-reverse" />
         </button>
       </header>
-      {plan ? (
-        <>
-          <div className={planStyles.tabs} role="tablist" aria-label="Secciones del plan">
-            {planTabs.map((tab, index) => (
-              <button
-                key={tab}
-                type="button"
-                id={`${id}-tab-${index}`}
-                role="tab"
-                aria-selected={activeTab === tab}
-                aria-controls={`${id}-plan-panel`}
-                tabIndex={activeTab === tab ? 0 : -1}
-                onClick={() => setActiveTab(tab)}
-                onKeyDown={(event) => selectTab(index, event)}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-          <div
-            className={`${styles.contextBody} ${styles.planBody}`}
-            id={`${id}-plan-panel`}
-            role="tabpanel"
-            aria-labelledby={`${id}-tab-${planTabs.indexOf(activeTab)}`}
-            tabIndex={0}
-          >
-            <ContextPlan
-              tab={activeTab}
-              notes={notes}
-              onNotesChange={setNotes}
-            />
-          </div>
-        </>
-      ) : (
-        <div className={styles.contextBody}>
-          <ContextSections
-            document={document}
-            projectId={projectId}
-            disabled={!projectId || panelLoadState !== "ready"}
-            hidden={hidden}
-            hasPendingChanges={hasPendingChanges}
-            onDraftPendingChange={setLocalDraftPending}
-            onChange={changeDocument}
-            onResourceUploaded={(uploadedProjectId, resource) => {
-              if (
-                projectIdRef.current !== uploadedProjectId ||
-                loadStateRef.current !== "ready" ||
-                documentRef.current.resources.length >= 50
-              ) return false;
-              changeDocument({
-                ...documentRef.current,
-                resources: [...documentRef.current.resources, resource],
-              });
-              return true;
-            }}
-            onRetrySave={() => void saveDocument()}
-            onRetry={projectsError ? onRetryProjects : () => {
-              if (projectId) void invalidateWorkspaceQueries(queryClient, `/api/projects/${projectId}/context`);
-              setLoadAttempt((attempt) => attempt + 1);
-            }}
-            loadState={panelLoadState}
-            loadError={projectsError || loadError}
-            saving={saving}
-            saveError={saveError}
-            saved={saved}
-          />
-        </div>
-      )}
+      <div className={styles.contextBody}>
+        <ContextSections
+          document={document}
+          projectId={projectId}
+          disabled={!projectId || panelLoadState !== "ready"}
+          hidden={hidden}
+          hasPendingChanges={hasPendingChanges}
+          onDraftPendingChange={setLocalDraftPending}
+          onChange={changeDocument}
+          onResourceUploaded={(uploadedProjectId, resource) => {
+            if (
+              projectIdRef.current !== uploadedProjectId ||
+              loadStateRef.current !== "ready" ||
+              documentRef.current.resources.length >= 50
+            ) return false;
+            changeDocument({
+              ...documentRef.current,
+              resources: [...documentRef.current.resources, resource],
+            });
+            return true;
+          }}
+          onRetrySave={() => void saveDocument()}
+          onRetry={projectsError ? onRetryProjects : () => {
+            if (projectId) void invalidateWorkspaceQueries(queryClient, `/api/projects/${projectId}/context`);
+            setLoadAttempt((attempt) => attempt + 1);
+          }}
+          loadState={panelLoadState}
+          loadError={projectsError || loadError}
+          saving={saving}
+          saveError={saveError}
+          saved={saved}
+        />
+      </div>
     </aside>
   );
 }

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { BootstrapFillIcon } from "./bootstrap-fill-icon";
 import tursoIcon from "../public/turso.svg";
+import { useT } from "../i18n/provider";
 
 type StorageLocation = "local" | "turso";
 
@@ -71,6 +72,7 @@ function StorageOption({
 }
 
 export function StorageSelection() {
+  const t = useT();
   const [storage, setStorage] = useState<StorageLocation>("local");
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -92,7 +94,7 @@ export function StorageSelection() {
         return;
       }
     } catch {}
-    setError("No se pudo continuar. Inténtalo de nuevo.");
+    setError(t("No se pudo continuar. Inténtalo de nuevo."));
     setPending(false);
   }
 
@@ -104,15 +106,15 @@ export function StorageSelection() {
       >
         <StorageOption
           value="local"
-          label="Local"
-          description="En este dispositivo"
+          label={t("Local")}
+          description={t("En este dispositivo")}
           selected={storage === "local"}
           onSelect={setStorage}
         />
         <StorageOption
           value="turso"
-          label="Turso"
-          description="En la nube"
+          label={t("Turso")}
+          description={t("En la nube")}
           selected={storage === "turso"}
           onSelect={setStorage}
         />
@@ -123,11 +125,11 @@ export function StorageSelection() {
         onClick={() => void continueSetup()}
         className="rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-xs font-semibold text-white [line-height:normal] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF] disabled:opacity-60"
       >
-        {pending ? "Continuando…" : "Continuar"}
+        {pending ? t("Continuando…") : t("Continuar")}
       </button>
       {error && (
         <p role="alert" className="w-full text-center text-[12px] leading-[18px] text-[#c2413a]">
-          {error}
+          {t(error)}
         </p>
       )}
     </div>

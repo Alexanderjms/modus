@@ -5,6 +5,7 @@ import styles from "./task-context-menu.module.css";
 import type { TaskPriorityCatalogDto } from "../../api/tasks/route";
 import type { BoardTask } from "./workspace-data";
 import { fallbackPriorityColor } from "./task-card";
+import { useT } from "../../i18n/provider";
 
 const columnOptions: { column: 0 | 1 | 2; label: string }[] = [
   { column: 0, label: "Por hacer" },
@@ -54,6 +55,7 @@ export function TaskContextMenu({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   const popoverRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [confirming, setConfirming] = useState(false);
@@ -63,16 +65,16 @@ export function TaskContextMenu({
   const hasPriority = priorityName !== "" && priorityName !== "sin prioridad";
 
   const blocks: MenuBlock[] = [
-    { kind: "item", item: { key: "open", label: "Abrir detalle", icon: "bi-eye", onSelect: onOpenDetail } },
-    { kind: "item", item: { key: "duplicate", label: "Duplicar", icon: "bi-copy", onSelect: onDuplicate } },
+    { kind: "item", item: { key: "open", label: t("Abrir detalle"), icon: "bi-eye", onSelect: onOpenDetail } },
+    { kind: "item", item: { key: "duplicate", label: t("Duplicar"), icon: "bi-copy", onSelect: onDuplicate } },
     { kind: "separator" },
     {
       kind: "group",
       key: "move",
-      label: "Mover a",
+      label: t("Mover a"),
       items: columnOptions.map((option) => ({
         key: `move-${option.column}`,
-        label: option.label,
+        label: t(option.label),
         icon: "bi-arrow-right",
         radio: true,
         checked: task.column === option.column,
@@ -85,10 +87,10 @@ export function TaskContextMenu({
           {
             kind: "group",
             key: "priority",
-            label: "Prioridad",
+            label: t("Prioridad"),
             items: priorities.map((priority) => ({
               key: `priority-${priority.id}`,
-              label: priority.name,
+              label: t(priority.name),
               icon: "bi-circle-fill",
               color: priority.color ?? fallbackPriorityColor(priority.name.trim().toLocaleLowerCase("es")) ?? "var(--muted)",
               dot: true,
@@ -101,8 +103,8 @@ export function TaskContextMenu({
       : []),
     { kind: "separator" },
     confirming
-      ? { kind: "confirm", key: "confirm", text: `¿Eliminar «${task.title}»?` }
-      : { kind: "item", item: { key: "delete", label: "Eliminar", icon: "bi-trash", danger: true, keepOpen: true, onSelect: () => setConfirming(true) } },
+      ? { kind: "confirm", key: "confirm", text: t("¿Eliminar «{0}»?", task.title) }
+      : { kind: "item", item: { key: "delete", label: t("Eliminar"), icon: "bi-trash", danger: true, keepOpen: true, onSelect: () => setConfirming(true) } },
   ];
 
   useLayoutEffect(() => {
@@ -189,7 +191,7 @@ export function TaskContextMenu({
       className={styles.menu}
       popover="auto"
       role="menu"
-      aria-label={`Acciones para ${task.title}`}
+      aria-label={t("Acciones para {0}", task.title)}
       onKeyDown={handleKeyDown}
       onToggle={(event) => {
         if (!event.currentTarget.matches(":popover-open")) onClose();
@@ -214,7 +216,7 @@ export function TaskContextMenu({
                   className={styles.confirmCancel}
                   onClick={() => setConfirming(false)}
                 >
-                  Cancelar
+                  {t("Cancelar")}
                 </button>
                 <button
                   ref={(button) => { itemRefs.current[itemIndex++] = button; }}
@@ -223,7 +225,7 @@ export function TaskContextMenu({
                   className={styles.confirmDelete}
                   onClick={() => { onDelete(); onClose(); }}
                 >
-                  Eliminar
+                  {t("Eliminar")}
                 </button>
               </div>
             </div>

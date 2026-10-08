@@ -1,6 +1,9 @@
+"use client";
+
 import type { RefObject } from "react";
 import styles from "./context.module.css";
 import type { ContextDocument } from "./context-document.mjs";
+import { useT } from "../../i18n/provider";
 
 export function ContextProjectSection({
   id,
@@ -23,14 +26,15 @@ export function ContextProjectSection({
   onContextChange: (context: string) => void;
   onToggle: () => void;
 }) {
+  const t = useT();
   const panelId = `${id}-context-panel`;
   return (
     <section className={styles.contextSection} aria-labelledby={`${id}-context`}>
       <header>
-        <h3 id={`${id}-context`}>CONTEXTO DEL PROYECTO</h3>
+        <h3 id={`${id}-context`}>{t("CONTEXTO DEL PROYECTO")}</h3>
         <button
           type="button"
-          aria-label={editing ? "Finalizar edición del contexto" : "Editar contexto"}
+          aria-label={editing ? t("Finalizar edición del contexto") : t("Editar contexto")}
           disabled={disabled}
           onClick={onEditingChange}
         >
@@ -41,7 +45,7 @@ export function ContextProjectSection({
           className={styles.sectionToggle}
           aria-expanded={!collapsed}
           aria-controls={panelId}
-          aria-label={`${collapsed ? "Expandir" : "Contraer"} el contexto del proyecto`}
+          aria-label={t("{0} el contexto del proyecto", collapsed ? "Expandir" : "Contraer")}
           onClick={onToggle}
         >
           <i aria-hidden="true" className="bi bi-caret-down-fill" />
@@ -67,14 +71,14 @@ export function ContextProjectSection({
                 value={document.context}
                 disabled={disabled}
                 onChange={(event) => onContextChange(event.target.value)}
-                aria-label="Contexto del proyecto"
-                placeholder="Describe el proyecto para orientar las respuestas de la IA…"
+                aria-label={t("Contexto del proyecto")}
+                placeholder={t("Describe el proyecto para orientar las respuestas de la IA…")}
               />
-              <p className={styles.fieldHint}>{document.context.length}/5000 caracteres</p>
+              <p className={styles.fieldHint}>{document.context.length}{t("/5000 caracteres")}</p>
             </>
           ) : (
             <p className={styles.contextText}>
-              {document.context || "Aún no se ha agregado contexto para este proyecto."}
+              {document.context || t("Aún no se ha agregado contexto para este proyecto.")}
             </p>
           )}
         </div>

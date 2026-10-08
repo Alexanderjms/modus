@@ -3,6 +3,7 @@
 import type { KeyboardEvent } from "react";
 import { parseCalendarDate } from "./date-picker-date.mjs";
 import styles from "./date-picker.module.css";
+import { useT } from "../../i18n/provider";
 
 export function DateCalendarGrid({
   dates,
@@ -27,9 +28,10 @@ export function DateCalendarGrid({
   formatLongLabel: (value: string) => string;
   formatMonth: (year: number, month: number) => string;
 }) {
+  const t = useT();
   return (
     <>
-      <div className={styles.calendarWeekdays} aria-hidden="true">{["L", "M", "X", "J", "V", "S", "D"].map((day, index) => <span key={index}>{day}</span>)}</div>
+      <div className={styles.calendarWeekdays} aria-hidden="true">{["L", "M", "X", "J", "V", "S", "D"].map((day, index) => <span key={index}>{t(day)}</span>)}</div>
       <div className={styles.calendarGrid} role="grid" aria-label={formatMonth(view.year, view.month)}>
         {Array.from({ length: 6 }, (_, week) => <div role="row" className={styles.calendarWeek} key={week}>
           {dates.slice(week * 7, week * 7 + 7).map((date, day) => {
@@ -53,8 +55,8 @@ export function DateCalendarGrid({
         </div>)}
       </div>
       <div className={styles.calendarFooter}>
-        <button type="button" onClick={() => onSelectDate(today)} disabled={!isAvailable(today)}>Hoy</button>
-        <button type="button" onClick={() => onSelectDate("")} disabled={!selectedDate}>Borrar</button>
+        <button type="button" onClick={() => onSelectDate(today)} disabled={!isAvailable(today)}>{t("Hoy")}</button>
+        <button type="button" onClick={() => onSelectDate("")} disabled={!selectedDate}>{t("Borrar")}</button>
       </div>
     </>
   );

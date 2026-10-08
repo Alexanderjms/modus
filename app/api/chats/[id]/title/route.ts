@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { cookies } from "next/headers";
 import { UNLOCK_COOKIE, isUnlocked, lockKind } from "../../../../../db/local/pin-lock.cjs";
 import { OAuthError } from "../../../../../db/local/chatgpt-oauth.cjs";
+import { getLang } from "../../../../i18n/server";
 import {
   jsonResponse,
   withNoStore,
@@ -19,6 +20,11 @@ import { parsePositiveSafeInt, ensureChatsTable } from "../../../../../db/local/
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const TITLE_PROMPT_EN =
+  "You title conversations. You will receive a user first message and an excerpt of the reply. " +
+  "Answer ONLY with a 2 to 5 word title in English summarizing what the user wants to achieve. " +
+  "No quotes, no final period, no emojis, no greetings or explanations. If the message is only a greeting, answer exactly: General conversation.";
 
 const TITLE_PROMPT =
   "Eres un asistente que pone título a conversaciones. Recibirás el primer mensaje de un usuario y un extracto de la respuesta. " +
@@ -129,7 +135,7 @@ export async function POST(
     request.signal,
     20000,
     null,
-    TITLE_PROMPT,
+    (await getLang()) === "en" ? TITLE_PROMPT_EN : TITLE_PROMPT,
   );
   const title = "text" in inference && typeof inference.text === "string" ? cleanTitle(inference.text) : null;
   if (!title) return jsonResponse({ title: null }, 200);

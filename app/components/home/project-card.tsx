@@ -4,9 +4,10 @@ import { type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import styles from "./project-card.module.css";
-import { Icon } from "../icon";
-import type { Project } from "../projects-data";
+import { Icon } from "../ui-icon";
+import { projectTasksLabel, type Project } from "../projects-data";
 import { ProjectActionsMenu, type ProjectAction } from "../projects/project-actions-menu";
+import { useT } from "../../i18n/provider";
 
 export function ProjectCard({
   project,
@@ -23,6 +24,7 @@ export function ProjectCard({
   onEdit: (project: Project) => void;
   pending: boolean;
 }) {
+  const t = useT();
   const router = useRouter();
   const href = `/workspace?project=${encodeURIComponent(project.name)}`;
   return (
@@ -54,7 +56,7 @@ export function ProjectCard({
         <div
           className={styles.progress}
           role="progressbar"
-          aria-label={`Progreso de ${project.name}`}
+          aria-label={t("Progreso de {0}", project.name)}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={project.progress}
@@ -71,15 +73,15 @@ export function ProjectCard({
         <span>{project.progress}%</span>
       </div>
       <div className={styles.meta}>
-        <span>{project.tasks}</span>
+        <span>{projectTasksLabel(project.tasks, t)}</span>
         <span>·</span>
         <span className={styles.doing}>
           <b />
-          {project.doing} en progreso
+          {project.doing} {t("en progreso")}
         </span>
-        <span className={styles.activity}>{project.activity}</span>
+        <span className={styles.activity}>{t(project.activity)}</span>
       </div>
-      {pending && <span className="sr-only" role="status">Procesando {project.name}…</span>}
+      {pending && <span className="sr-only" role="status">{t("Procesando")} {project.name}…</span>}
     </article>
   );
 }

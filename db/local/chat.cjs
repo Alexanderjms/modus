@@ -690,7 +690,17 @@ function validateChatRequest(body) {
 
 const { sanitizeModelProposals } = require("./task-suggestions.cjs");
 
-function buildSystemPrompt(projectName, projectContext = null) {
+const ENGLISH_RULE = `
+
+[LANGUAGE]
+The user interface is set to English. Write every response in English: the "answer" text and every task title, description, subtask and tag name you propose, even when the project context, files or earlier messages are in Spanish. Keep JSON keys and fixed values exactly as specified ("action", "kind", "alta", "media", "baja", "sin prioridad").`;
+
+/**
+ * @param {string} projectName
+ * @param {any} [projectContext]
+ * @param {string} [language]
+ */
+function buildSystemPrompt(projectName, projectContext = null, language = "es") {
   let prompt = `Eres el asistente de IA integrado en Modus para el proyecto "${projectName}". Ayuda al usuario a estructurar, refinar o consultar ideas sobre este proyecto. No modificas las tareas ni la base de datos directamente: propones cambios como sugerencias estructuradas que el usuario acepta o descarta.
 
 [CONTRATO Y DIRECTIVAS DE RIGOR]
@@ -724,7 +734,7 @@ function buildSystemPrompt(projectName, projectContext = null) {
     }
   }
 
-  return prompt;
+  return language === "en" ? prompt + ENGLISH_RULE : prompt;
 }
 
 function parseOpenCodeResponses(parsed) {
@@ -795,8 +805,13 @@ function parseOpenAIChat(parsed) {
   return null;
 }
 
-function buildDecisionSystemPrompt(projectName, projectContext = null) {
-  const basePrompt = buildSystemPrompt(projectName, projectContext);
+/**
+ * @param {string} projectName
+ * @param {any} [projectContext]
+ * @param {string} [language]
+ */
+function buildDecisionSystemPrompt(projectName, projectContext = null, language = "es") {
+  const basePrompt = buildSystemPrompt(projectName, projectContext, language);
 
   const envelopeInstructions = `
 [MODO DE RESPUESTA Y EVALUACIÓN DE BÚSQUEDA WEB]
@@ -856,8 +871,13 @@ O (si el usuario pide cambiar datos de una tarea existente: nombre, descripción
   return `${basePrompt}\n\n${envelopeInstructions}`;
 }
 
-function buildFinalAnswerSystemPrompt(projectName, projectContext = null) {
-  const basePrompt = buildSystemPrompt(projectName, projectContext);
+/**
+ * @param {string} projectName
+ * @param {any} [projectContext]
+ * @param {string} [language]
+ */
+function buildFinalAnswerSystemPrompt(projectName, projectContext = null, language = "es") {
+  const basePrompt = buildSystemPrompt(projectName, projectContext, language);
 
   const envelopeInstructions = `
 [MODO DE RESPUESTA FINAL CON RESULTADOS DE BÚSQUEDA]
@@ -1367,6 +1387,22 @@ async function streamUpstreamText(url, headers, payload, kind, clientSignal, tim
   }
 }
 
+/**
+ * @param {string} provider
+ * @param {string} apiKey
+ * @param {string} model
+ * @param {string} protocol
+ * @param {string|null|undefined} region
+ * @param {any[]} messages
+ * @param {string} projectName
+ * @param {number} projectId
+ * @param {AbortSignal|undefined} [clientSignal]
+ * @param {number} [timeoutMs]
+ * @param {any} [projectContext]
+ * @param {string|null} [customSystemPrompt]
+ * @param {((text: string) => void)|undefined} [onDelta]
+ * @returns {Promise<{ text: string } | { error: Response }>}
+ */
 async function executeInference(provider, apiKey, model, protocol, region, messages, projectName, projectId, clientSignal, timeoutMs = CHAT_TIMEOUT_MS, projectContext = null, customSystemPrompt = null, onDelta = undefined) {
   const baseUrl = getProviderEndpoint(provider, region);
   const systemPrompt = typeof customSystemPrompt === "string" ? customSystemPrompt : buildSystemPrompt(projectName, projectContext);

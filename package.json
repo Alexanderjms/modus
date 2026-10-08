@@ -7,7 +7,11 @@
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
-    "lint": "eslint app eslint.config.mjs tailwind.config.ts"
+    "lint": "eslint app eslint.config.mjs tailwind.config.ts",
+    "desktop:build": "node scripts/build-desktop.mjs",
+    "desktop:start": "electron .",
+    "desktop:dist": "node scripts/build-desktop.mjs --dist",
+    "desktop:release": "node scripts/build-desktop.mjs --dist --publish"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.1",
@@ -23,10 +27,67 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.20",
+    "electron": "44.7.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "15.5.27",
     "postcss": "^8.5.6",
     "tailwindcss": "3.4.17",
     "typescript": "^5"
+  },
+  "description": "Modus: tablero Kanban, contexto de proyecto y asistente de IA.",
+  "author": "Alexanderjms",
+  "homepage": "https://github.com/Alexanderjms/modus",
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.alexanderjms.modus",
+    "productName": "Modus",
+    "copyright": "Modus",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json",
+      "!node_modules"
+    ],
+    "extraResources": [
+      {
+        "from": ".desktop-stage/.next/standalone",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!node_modules"
+        ]
+      },
+      {
+        "from": ".desktop-stage/.next/standalone/node_modules",
+        "to": "server/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "icon": "electron/icon.png",
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "electron/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "shortcutName": "Modus"
+    },
+    "artifactName": "Modus-${version}-${os}-${arch}.${ext}",
+    "publish": {
+      "provider": "github",
+      "owner": "Alexanderjms",
+      "repo": "modus",
+      "releaseType": "release"
+    }
   }
 }

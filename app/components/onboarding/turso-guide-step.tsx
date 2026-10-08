@@ -1,6 +1,7 @@
 "use client";
 
 import styles from "../turso-guide.module.css";
+import { useT } from "../../i18n/provider";
 
 export function TursoGuideStep({
   index,
@@ -15,6 +16,7 @@ export function TursoGuideStep({
   isOpen: boolean;
   onToggle: () => void;
 }) {
+  const t = useT();
   return (
     <li className="relative flex w-full items-start gap-3">
       <span
@@ -66,7 +68,7 @@ export function TursoGuideStep({
                   rel="noreferrer"
                   className="inline-flex min-h-[26px] items-center gap-[5px] rounded-[7px] bg-[var(--surface)] px-[11px] py-[5px] text-xs font-medium leading-4 text-[var(--foreground)] outline outline-1 -outline-offset-[0.5px] outline-[var(--divider)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
                 >
-                  Abrir Turso
+                  {t("Abrir Turso")}
                   <svg
                     aria-hidden="true"
                     viewBox="0 0 24 24"

@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Project } from "../projects-data";
-import { Icon } from "../icon";
+import { Icon } from "../ui-icon";
 import styles from "./menu.module.css";
+import { useT } from "../../i18n/provider";
 
 export type ProjectAction = "archive" | "restore" | "duplicate" | "delete";
 
@@ -19,6 +20,7 @@ export function ProjectActionsMenu({
   onEdit: (project: Project) => void;
   pending: boolean;
 }) {
+  const t = useT();
   const menu = useRef<HTMLDetailsElement>(null);
   const [open, setOpen] = useState(false);
   const href = `/workspace?project=${encodeURIComponent(project.name)}`;
@@ -66,13 +68,13 @@ export function ProjectActionsMenu({
       className={styles.menu}
       onToggle={() => setOpen(menu.current?.open ?? false)}
     >
-      <summary aria-label={`Opciones de ${project.name}`}>
+      <summary aria-label={t("Opciones de {0}", project.name)}>
         <Icon name="three-dots" className={styles.icon} />
       </summary>
       <div className={styles.menuBody}>
         <Link href={href}>
           <Icon name="folder" className={styles.icon} />
-          Abrir
+          {t("Abrir")}
         </Link>
         <button
           type="button"
@@ -83,11 +85,11 @@ export function ProjectActionsMenu({
           }}
         >
           <Icon name="pencil" className={styles.icon} />
-          Editar
+          {t("Editar")}
         </button>
         <button type="button" disabled={pending} onClick={() => act("duplicate")}>
           <Icon name="copy" className={styles.icon} />
-          Duplicar
+          {t("Duplicar")}
         </button>
         <button
           type="button"
@@ -98,7 +100,7 @@ export function ProjectActionsMenu({
             name={project.status === "archived" ? "arrow-counterclockwise" : "archive"}
             className={styles.icon}
           />
-          {project.status === "archived" ? "Restaurar" : "Archivar"}
+          {project.status === "archived" ? t("Restaurar") : t("Archivar")}
         </button>
         <button
           type="button"
@@ -107,7 +109,7 @@ export function ProjectActionsMenu({
           onClick={() => act("delete")}
         >
           <Icon name="trash" className={styles.icon} />
-          Eliminar
+          {t("Eliminar")}
         </button>
       </div>
     </details>

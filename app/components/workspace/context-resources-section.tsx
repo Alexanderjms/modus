@@ -1,9 +1,12 @@
+"use client";
+
 import { createPortal } from "react-dom";
 import type { ChangeEvent, KeyboardEvent, ReactNode, RefObject } from "react";
 import styles from "./context.module.css";
 import resourceStyles from "./context-resources.module.css";
 import shared from "../workspace.module.css";
 import { getContextResourceDomain, isContextFile, isValidContextDocument, type ContextDocument, type ContextResource } from "./context-document.mjs";
+import { useT } from "../../i18n/provider";
 
 type ResourceDraft = { index: number; isNew: boolean; title: string; url: string };
 
@@ -48,24 +51,25 @@ export function ContextResourcesSection({
   onRenderEditor: (index: number, isNew?: boolean) => ReactNode;
   onRetry: (file: File) => void;
 }) {
+  const t = useT();
   return (
     <section className={styles.contextSection} aria-labelledby={`${id}-resources`}>
       <header>
-        <h3 id={`${id}-resources`}>RECURSOS</h3>
+        <h3 id={`${id}-resources`}>{t("RECURSOS")}</h3>
         <button
           type="button"
-          aria-label="Agregar recurso"
+          aria-label={t("Agregar recurso")}
           aria-haspopup="menu"
           aria-expanded={openResourceMenu}
           aria-controls={`${id}-resource-menu`}
-          title={atResourceLimit ? "Máximo 50 recursos." : undefined}
+          title={atResourceLimit ? t("Máximo 50 recursos.") : undefined}
           ref={resourceAddRef}
           disabled={disabled || atResourceLimit || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null}
           onClick={(event) => onBeginMenu(event.currentTarget)}
         >
           <i aria-hidden="true" className="bi bi-plus" />
         </button>
-        {renderSectionToggle("resources", "los recursos")}
+        {renderSectionToggle("resources", t("los recursos"))}
       </header>
       <input ref={fileInputRef} type="file" hidden tabIndex={-1} aria-hidden="true" onChange={onFileChange} />
       <div
@@ -84,15 +88,15 @@ export function ContextResourcesSection({
               id={`${id}-resource-menu`}
               className={resourceStyles.resourceMenu}
               role="menu"
-              aria-label="Agregar recurso"
+              aria-label={t("Agregar recurso")}
               style={{ top: resourceMenuPosition.top, left: resourceMenuPosition.left }}
               onKeyDown={onMenuKeyDown}
             >
               <button type="button" role="menuitem" onClick={onAddUrl}>
-                <i aria-hidden="true" className="bi bi-link-45deg" /><span>URL</span>
+                <i aria-hidden="true" className="bi bi-link-45deg" /><span>{t("URL")}</span>
               </button>
               <button type="button" role="menuitem" onClick={onChooseFile}>
-                <i aria-hidden="true" className="bi bi-paperclip" /><span>Archivo</span>
+                <i aria-hidden="true" className="bi bi-paperclip" /><span>{t("Archivo")}</span>
                 <i aria-hidden="true" className="bi bi-file-earmark" />
               </button>
             </div>,
@@ -108,13 +112,13 @@ export function ContextResourcesSection({
                 return (
                   <li className={`${styles.resourceFields} ${editing ? styles.resourceEditFields : ""}`} key={index}>
                     {confirmDeleteResource?.index === index ? (
-                      <div className={styles.deleteConfirm} role="group" aria-label={`Confirmar ${file ? "quitar archivo" : "eliminar recurso"} ${resource.title || index + 1}`}>
+                      <div className={styles.deleteConfirm} role="group" aria-label={t("Confirmar {0} {1}", t(file ? "quitar archivo" : "eliminar recurso"), resource.title || index + 1)}>
                         <span>{file
-                          ? `¿Quitar «${resource.title}» de Recursos? El archivo almacenado no se eliminará.`
-                          : `¿Eliminar «${resource.title || `recurso ${index + 1}`}»?`}</span>
-                        <button ref={resourceDeleteCancelRef} type="button" onClick={onCancelRemoval}>Cancelar</button>
+                          ? t("¿Quitar «{0}» de Recursos? El archivo almacenado no se eliminará.", resource.title)
+                          : t("¿Eliminar «{0}»?", resource.title || t("recurso {0}", index + 1))}</span>
+                        <button ref={resourceDeleteCancelRef} type="button" onClick={onCancelRemoval}>{t("Cancelar")}</button>
                         <button type="button" className={styles.deleteConfirmAction} disabled={disabled} onClick={onConfirmRemoval}>
-                          {file ? "Quitar de Recursos" : "Eliminar"}
+                          {file ? t("Quitar de Recursos") : t("Eliminar")}
                         </button>
                       </div>
                     ) : file ? (
@@ -129,8 +133,8 @@ export function ContextResourcesSection({
                               else { resourceActionRefs.current.delete(index); resourceDeleteRefs.current.delete(index); }
                             }}
                             type="button" className={styles.removeButton}
-                            aria-label={`Quitar archivo ${resource.title}. El archivo almacenado no se eliminará del servidor.`}
-                            title="Quita el recurso de Modus; el archivo almacenado no se elimina del servidor."
+                            aria-label={t("Quitar archivo {0}. El archivo almacenado no se eliminará del servidor.", resource.title)}
+                            title={t("Quita el recurso de Modus; el archivo almacenado no se elimina del servidor.")}
                             disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null}
                             onClick={() => onBeginRemoval(index)}
                           ><i aria-hidden="true" className="bi bi-trash3" /></button>
@@ -144,12 +148,12 @@ export function ContextResourcesSection({
                             <span className={styles.resourceTitle} title={resource.title}>{resource.title}</span>
                             <span className={styles.resourceDomain}>{domain}</span>
                           </a>
-                        ) : <span className={`${styles.resourceLink} ${styles.invalidResourceLink}`}>{resource.title || "URL pendiente"}</span>}
+                        ) : <span className={`${styles.resourceLink} ${styles.invalidResourceLink}`}>{resource.title || t("URL pendiente")}</span>}
                         <div className={styles.resourceActions}>
-                          <button ref={(element) => { if (element) resourceActionRefs.current.set(index, element); else resourceActionRefs.current.delete(index); }} type="button" aria-label={`Editar recurso ${resource.title || index + 1}`} title="Editar URL" disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null} onClick={() => onEditUrl(index)}>
+                          <button ref={(element) => { if (element) resourceActionRefs.current.set(index, element); else resourceActionRefs.current.delete(index); }} type="button" aria-label={t("Editar recurso {0}", resource.title || index + 1)} title={t("Editar URL")} disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null} onClick={() => onEditUrl(index)}>
                             <i aria-hidden="true" className="bi bi-pencil" />
                           </button>
-                          <button ref={(element) => { if (element) resourceDeleteRefs.current.set(index, element); else resourceDeleteRefs.current.delete(index); }} type="button" className={styles.removeButton} aria-label={`Eliminar recurso ${resource.title || index + 1}`} disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null} onClick={() => onBeginRemoval(index)}>
+                          <button ref={(element) => { if (element) resourceDeleteRefs.current.set(index, element); else resourceDeleteRefs.current.delete(index); }} type="button" className={styles.removeButton} aria-label={t("Eliminar recurso {0}", resource.title || index + 1)} disabled={disabled || uploading || resourceDraft !== null || confirmDeleteResource !== null || confirmDeleteRule !== null} onClick={() => onBeginRemoval(index)}>
                             <i aria-hidden="true" className="bi bi-trash3" />
                           </button>
                         </div>
@@ -160,12 +164,12 @@ export function ContextResourcesSection({
               })}
               {resourceDraft?.isNew && <li className={`${styles.resourceFields} ${styles.resourceEditFields}`} key="new-url">{onRenderEditor(resourceDraft.index, true)}</li>}
             </ul>
-          ) : <p>Aún no hay recursos para este proyecto.</p>}
-          {uploading && <p className={resourceStyles.uploadStatus} role="status">Subiendo {retryFile?.name || "archivo"}…</p>}
+          ) : <p>{t("Aún no hay recursos para este proyecto.")}</p>}
+          {uploading && <p className={resourceStyles.uploadStatus} role="status">{t("Subiendo")} {retryFile?.name || t("archivo")}…</p>}
           {uploadError && (
             <div className={resourceStyles.uploadError}>
-              <p className={styles.errorMessage} role="alert">{uploadError}</p>
-              {retryFile && <button type="button" className={shared.textButton} disabled={uploading || disabled || confirmDeleteResource !== null} onClick={() => onRetry(retryFile)}>Reintentar subida</button>}
+              <p className={styles.errorMessage} role="alert">{t(uploadError)}</p>
+              {retryFile && <button type="button" className={shared.textButton} disabled={uploading || disabled || confirmDeleteResource !== null} onClick={() => onRetry(retryFile)}>{t("Reintentar subida")}</button>}
             </div>
           )}
         </div>

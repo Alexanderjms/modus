@@ -6,6 +6,7 @@
   **Plan projects, manage tasks and work with an AI assistant that proposes — and you approve.**
 
   <p>
+    <a href="https://github.com/Alexanderjms/modus/releases/latest">Download</a> ·
     <a href="#getting-started">Getting started</a> ·
     <a href="docs/guia-tecnica.md">Technical guide</a> ·
     <a href="https://github.com/Alexanderjms/modus/issues">Issues</a>
@@ -13,9 +14,9 @@
 
   <br />
 
-  <img src="docs/media/demo.gif" alt="Modus walkthrough: an AI assistant proposes tasks, the user accepts them all at once, and they appear on the Kanban board" width="860" />
+  <img src="docs/media/demo.gif" alt="Current Modus interface: update a checklist, accept task proposals, switch themes and open provider and Tavily settings" width="960" />
 
-  <sub>Walkthrough · <a href="docs/media/demo.mp4">Watch the full-quality video</a></sub>
+  <sub>Updated walkthrough · Checklist → accept proposals → themes → providers → Tavily<br /><a href="docs/media/demo.mp4">Watch the full-quality video · 1440 × 960</a></sub>
 </div>
 
 <br />
@@ -33,7 +34,9 @@ The assistant reads the context of your project, suggests tasks, subtasks, tags 
 | <img src="docs/media/icons/lock.svg" width="20" height="20" alt="" /> | **Your data, your machine** | Modus runs locally and stores data where you choose. |
 | <img src="docs/media/icons/plug-zap.svg" width="20" height="20" alt="" /> | **Bring your own AI** | Connect the provider and model you already use. |
 
-> **Note:** the application interface is currently in Spanish. The screenshots below reflect the current interface.
+> **Languages:** the interface is available in **English** and **Spanish**. Switch at any time from the user menu; the AI assistant also replies in the selected language. The screenshots below show the Spanish interface.
+
+> **About the demo:** the video and screenshots were captured from the current application with an isolated sample project, **Atlas · Lanzamiento web**. AI proposals are preloaded examples; the recording shows real checklist edits and proposal acceptance, not a live request to an AI provider. No personal projects or credentials are shown.
 
 ## <img src="docs/media/icons/layout-dashboard.svg" width="24" height="24" align="top" alt="" /> Features
 
@@ -42,7 +45,7 @@ The assistant reads the context of your project, suggests tasks, subtasks, tags 
 Organize work across three columns — **To do**, **In progress** and **Done** — and move cards as work advances.
 
 <p align="center">
-  <img src="docs/media/board.png" alt="Kanban board with the assistant panel, task columns and project context" width="900" />
+  <img src="docs/media/board.png" alt="Atlas sample project in the current workspace: pending AI proposals, three Kanban columns, project rules and resources" width="1100" />
 </p>
 
 Each task supports:
@@ -56,7 +59,7 @@ Each task supports:
 | <img src="docs/media/icons/paperclip.svg" width="18" height="18" alt="" /> | Attached files and links |
 
 <p align="center">
-  <img src="docs/media/task.png" alt="Task detail with description, priority, tags, dates and checklist" width="900" />
+  <img src="docs/media/task.png" alt="Updated task editor with description, priority, colored tags, start and end dates, attachments and checklist with Copy all" width="1100" />
 </p>
 
 ### <img src="docs/media/icons/sparkles.svg" width="20" height="20" align="top" alt="" /> AI assistant with review
@@ -66,7 +69,7 @@ Each project has its own conversation. The assistant knows the project descripti
 Proposals arrive as cards you can **accept** or **discard**. Responses stream in as they are written, and proposed tasks appear one by one. Accepting several proposals applies them to the board at the same time.
 
 <p align="center">
-  <img src="docs/media/assistant.png" alt="Assistant panel showing proposed tasks with accept and discard actions" width="360" />
+  <img src="docs/media/assistant.png" alt="Current assistant panel with two example proposals, individual Accept and Discard actions, Accept all and the automatic apply switch" width="360" />
 </p>
 
 The assistant can propose to:
@@ -85,6 +88,10 @@ Prefer a faster flow? Enable **automatic apply** and changes are applied as they
 
 When a question needs outside information, the assistant can search the web and cite its sources. This requires a search API key, which you configure once in your profile menu.
 
+<p align="center">
+  <img src="docs/media/tavily.png" alt="Current Tavily settings: connection status, private API key input, validation and save actions, without exposing credentials" width="900" />
+</p>
+
 ### <img src="docs/media/icons/paperclip.svg" width="20" height="20" align="top" alt="" /> Files in the conversation
 
 Attach images, PDFs, text documents and spreadsheets to a message, or drag a task from the board into the chat to discuss it directly.
@@ -94,7 +101,7 @@ Attach images, PDFs, text documents and spreadsheets to a message, or drag a tas
 The home page lists your projects with their progress and shows a year-long activity grid of completed tasks.
 
 <p align="center">
-  <img src="docs/media/home.png" alt="Home page with project progress and an activity grid" width="900" />
+  <img src="docs/media/home.png" alt="Current home page with the Atlas sample project, task progress and the annual completion activity grid" width="1000" />
 </p>
 
 ### <img src="docs/media/icons/sun-moon.svg" width="20" height="20" align="top" alt="" /> Light and dark themes
@@ -102,7 +109,7 @@ The home page lists your projects with their progress and shows a year-long acti
 The interface follows your preference and adapts from large desktop screens to mobile widths.
 
 <p align="center">
-  <img src="docs/media/board-dark.png" alt="Kanban board in dark theme" width="900" />
+  <img src="docs/media/board-dark.png" alt="The same Atlas workspace in dark theme, including AI proposals, task columns and project context" width="1100" />
 </p>
 
 ## <img src="docs/media/icons/play.svg" width="24" height="24" align="top" alt="" /> How it works
@@ -129,6 +136,10 @@ Connect the account or API key of the service you prefer, then choose the model 
 
 The board works fully without an AI provider.
 
+<p align="center">
+  <img src="docs/media/providers.png" alt="Updated provider settings showing Connect ChatGPT Plus / Pro through OAuth and API key cards, with no account or key configured" width="1000" />
+</p>
+
 ## <img src="docs/media/icons/database.svg" width="24" height="24" align="top" alt="" /> Storage and privacy
 
 Choose where your data lives the first time you open Modus.
@@ -152,6 +163,19 @@ Choose where your data lives the first time you open Modus.
 - Only the content needed to answer a request is sent to the AI provider you select.
 
 ## <img src="docs/media/icons/rocket.svg" width="24" height="24" align="top" alt="" /> Getting started
+
+### Install the desktop app (Windows)
+
+Download the latest version from [**Releases**](https://github.com/Alexanderjms/modus/releases/latest):
+
+| File | Use it when |
+| --- | --- |
+| `Modus-<version>-win-x64.exe` | You want a regular installer with Start menu and desktop shortcuts. |
+| `Modus-<version>-win-x64.zip` | You prefer a portable copy: extract it anywhere and run `Modus.exe`. |
+
+The app is not code-signed yet, so Windows SmartScreen may ask for confirmation the first time (**More info → Run anyway**). Your data is stored in your user profile folder (`%APPDATA%\Modus\data`) and is kept when you update.
+
+### Run from source
 
 **Requirements:** Node.js 24 and pnpm.
 

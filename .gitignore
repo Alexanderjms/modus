@@ -3,9 +3,11 @@ node_modules
 .pnp.js
 
 .next/
+.desktop-stage/
 out/
 build/
 dist/
+release/
 
 .env
 .env*.local

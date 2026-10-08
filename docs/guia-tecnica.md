@@ -24,6 +24,7 @@ El proyecto está en desarrollo; `package.json` declara la versión `0.1.0`. Alg
 - [Asistente de IA](#asistente-de-ia)
 - [Proveedores, OAuth y Tavily](#proveedores-oauth-y-tavily)
 - [Archivos y adjuntos](#archivos-y-adjuntos)
+- [Aplicación de escritorio (Electron)](#aplicación-de-escritorio-electron)
 - [Comandos y comprobaciones](#comandos-y-comprobaciones)
 - [Solución de problemas](#solución-de-problemas)
 - [Arquitectura, datos y seguridad](#arquitectura-datos-y-seguridad)
@@ -268,6 +269,38 @@ Los archivos se almacenan como BLOB en la base activa: en SQLite local o en Turs
 La lectura por la IA depende del formato y del protocolo del modelo. DOCX y XLSX se convierten a texto con un extractor acotado; **cargarlos no garantiza extracción completa de hojas, fórmulas, estilos o contenido**. Las imágenes requieren un modelo compatible; los PDF se incluyen en los protocolos Responses y Anthropic, mientras que en Chat Completions se omiten con una nota. No hay garantía de OCR ni de lectura de todos los adjuntos por todos los modelos.
 
 No adjuntes contraseñas, claves API ni archivos que no estés autorizado a compartir. El contenido utilizado para responder puede enviarse al proveedor de IA, aunque el almacenamiento de proyectos sea local. Para límites técnicos y rutas de archivos consulta [la documentación de datos y API](../db/README.md).
+
+## Aplicación de escritorio (Electron)
+
+Modus se distribuye también como aplicación de escritorio para **Windows x64**: un instalador (NSIS) y una versión portable en `.zip`. Electron arranca el servidor de Next.js (modo `standalone`) en un proceso aparte, solo en `127.0.0.1` y con un puerto fijo (47315, o uno libre si está ocupado), y lo muestra en una ventana. Mantener el puerto estable conserva las cookies y las preferencias del navegador integrado.
+
+| Elemento | Detalle |
+| --- | --- |
+| Datos | `%APPDATA%\Modus\data` (variable `MODUS_DATA_DIR`). Sobrevive a las actualizaciones y desinstalaciones. |
+| Código | `electron/main.cjs` (proceso principal), `scripts/build-desktop.mjs` (empaquetado) y la clave `build` de `package.json`. |
+| Instancia única | Abrir Modus por segunda vez enfoca la ventana existente. |
+| Enlaces externos | Se abren en el navegador del sistema; la ventana solo navega por `127.0.0.1`. |
+| Firma | Los binarios aún no están firmados, así que SmartScreen puede pedir confirmación. |
+
+### Compilar en local
+
+```bash
+pnpm install
+pnpm desktop:dist      # genera release/Modus-<versión>-win-x64.exe y .zip
+pnpm desktop:start     # abre la app ya compilada (tras pnpm desktop:build)
+```
+
+`desktop:build` compila en una carpeta temporal (`.desktop-stage/`) con un `node_modules` plano. Así no toca tu `.next` ni tu instalación, y evita el error `EPERM: symlink` que Next.js produce en Windows sin permisos de enlaces simbólicos.
+
+### Publicar una versión
+
+1. Sube la versión en `package.json`.
+2. Crea y sube la etiqueta: `git tag v0.1.1 && git push origin v0.1.1`.
+3. El flujo `.github/workflows/release.yml` compila en Windows y publica el instalador y el `.zip` en **Releases**.
+
+También se puede publicar desde tu equipo con `GH_TOKEN` definido y `pnpm desktop:release`.
+
+Las claves de proveedores y los tokens de ChatGPT se cifran con Windows DPAPI, por eso la aplicación de escritorio se limita a Windows.
 
 ## Comandos y comprobaciones
 

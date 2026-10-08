@@ -1,6 +1,9 @@
+"use client";
+
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import styles from "./chat.module.css";
+import { useT } from "../../i18n/provider";
 
 const components: Components = {
   a: ({ href, children }) => {
@@ -21,9 +24,10 @@ const components: Components = {
 };
 
 export function ChatMarkdown({ content, taskTitles }: { content: string; taskTitles?: Map<number, string> }) {
+  const t = useT();
   const text = content.replace(/\[tarea:(\d+)\]/g, (_, id: string) => {
     const title = taskTitles?.get(Number(id));
-    return title ? `**${title.replace(/[\\`*_[\]<>]/g, "\\$&")}**` : `tarea #${id}`;
+    return title ? `**${title.replace(/[\\`*_[\]<>]/g, "\\$&")}**` : t("tarea #{0}", id);
   });
   return (
     <div className={styles.markdown}>

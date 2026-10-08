@@ -16,6 +16,7 @@ import {
 } from "./task-detail-sections";
 import styles from "./task-editor.module.css";
 import { useWorkspaceRequest } from "./workspace-query-provider";
+import { useT } from "../../i18n/provider";
 
 export type TaskEditPayload = {
   title: string;
@@ -47,6 +48,7 @@ export function TaskDetailModal({
   savePending?: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const request = useWorkspaceRequest();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -214,7 +216,7 @@ export function TaskDetailModal({
       return;
     }
     if (duplicateKey) {
-      setTagError("Esa etiqueta ya está asociada.");
+      setTagError(t("Esa etiqueta ya está asociada."));
       return;
     }
     setTagKeys((current) => [...current, key]);
@@ -242,7 +244,7 @@ export function TaskDetailModal({
     if (!tagEditTarget || tagActionPending) return;
     const name = tagEditName.trim();
     if (!name) {
-      setTagActionError("Escribe un nombre para la etiqueta.");
+      setTagActionError(t("Escribe un nombre para la etiqueta."));
       return;
     }
     const existingId = tagEditTarget.option.value.startsWith("id:")
@@ -257,7 +259,7 @@ export function TaskDetailModal({
       return tag?.id !== existingId && tag?.name.trim().toLocaleLowerCase("es") === name.toLocaleLowerCase("es");
     });
     if (duplicate) {
-      setTagActionError("Ya existe una etiqueta con ese nombre en el proyecto.");
+      setTagActionError(t("Ya existe una etiqueta con ese nombre en el proyecto."));
       return;
     }
 
@@ -280,15 +282,15 @@ export function TaskDetailModal({
           setExitingTagKeys(next);
         }
         setTagEditTarget(null);
-        setTagActionNotice(`Etiqueta «${name}» actualizada en este formulario.`);
+        setTagActionNotice(t("Etiqueta «{0}» actualizada en este formulario.", name));
         return;
       }
-      if (projectId === undefined || existingId === null) throw new Error("No se pudo identificar la etiqueta del proyecto.");
+      if (projectId === undefined || existingId === null) throw new Error(t("No se pudo identificar la etiqueta del proyecto."));
       const target = tagEditTarget;
       const previous = { name: target.option.label, color: target.option.color || "#007AFF" };
       onTagEdited(existingId, name, tagEditColor);
       setTagEditTarget(null);
-      setTagActionNotice(`Etiqueta «${name}» actualizada en todas las tareas de este proyecto.`);
+      setTagActionNotice(t("Etiqueta «{0}» actualizada en todas las tareas de este proyecto.", name));
       revertTagEdit.current = () => {
         onTagEdited(existingId, previous.name, previous.color);
         setTagActionNotice("");
@@ -302,7 +304,7 @@ export function TaskDetailModal({
         signal: AbortSignal.timeout(45000),
       }).catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "TimeoutError") {
-          throw new Error("El servidor tardó demasiado en guardar la etiqueta. Inténtalo de nuevo.");
+          throw new Error(t("El servidor tardó demasiado en guardar la etiqueta. Inténtalo de nuevo."));
         }
         throw error;
       });
@@ -312,18 +314,18 @@ export function TaskDetailModal({
         tasks?: BoardTask[];
         catalogs?: TaskCatalogsDto;
       };
-      if (!response.ok) throw new Error(data.error || "No se pudo actualizar la etiqueta.");
+      if (!response.ok) throw new Error(data.error || t("No se pudo actualizar la etiqueta."));
       if (!data.tag || data.tag.id !== existingId || !Array.isArray(data.tasks) || !data.catalogs
         || !Array.isArray(data.catalogs.lists) || !Array.isArray(data.catalogs.priorities)
         || !Array.isArray(data.catalogs.statuses) || !Array.isArray(data.catalogs.tags)) {
-        throw new Error("El servidor devolvió una respuesta no válida.");
+        throw new Error(t("El servidor devolvió una respuesta no válida."));
       }
       revertTagEdit.current = null;
       onTagDataChange(data.catalogs, data.tasks);
     } catch (error) {
       revertTagEdit.current?.();
       revertTagEdit.current = null;
-      setTagActionError(error instanceof Error ? error.message : "Error al actualizar la etiqueta.");
+      setTagActionError(error instanceof Error ? error.message : t("Error al actualizar la etiqueta."));
     } finally {
       setTagActionPending(false);
     }
@@ -345,13 +347,13 @@ export function TaskDetailModal({
         setExitingTagKeys(next);
       }
       setTagDeleteTarget(null);
-      setTagActionNotice(`La etiqueta «${tagDeleteTarget.option.label}» se quitó del formulario.`);
+      setTagActionNotice(t("La etiqueta «{0}» se quitó del formulario.", tagDeleteTarget.option.label));
       return;
     }
 
     const id = Number(tagDeleteTarget.option.value.slice(3));
     if (projectId === undefined || !Number.isSafeInteger(id)) {
-      setTagActionError("No se pudo identificar la etiqueta del proyecto.");
+      setTagActionError(t("No se pudo identificar la etiqueta del proyecto."));
       return;
     }
     setTagActionPending(true);
@@ -366,11 +368,11 @@ export function TaskDetailModal({
         tasks?: BoardTask[];
         catalogs?: TaskCatalogsDto;
       };
-      if (!response.ok) throw new Error(data.error || "No se pudo eliminar la etiqueta.");
+      if (!response.ok) throw new Error(data.error || t("No se pudo eliminar la etiqueta."));
       if (!Array.isArray(data.tasks) || !data.catalogs || !Array.isArray(data.catalogs.lists)
         || !Array.isArray(data.catalogs.priorities) || !Array.isArray(data.catalogs.statuses)
         || !Array.isArray(data.catalogs.tags)) {
-        throw new Error("El servidor devolvió una respuesta no válida.");
+        throw new Error(t("El servidor devolvió una respuesta no válida."));
       }
       onTagDataChange(data.catalogs, data.tasks);
       const key = `id:${id}`;
@@ -382,9 +384,9 @@ export function TaskDetailModal({
         setExitingTagKeys(next);
       }
       setTagDeleteTarget(null);
-      setTagActionNotice(`Etiqueta «${tagDeleteTarget.option.label}» eliminada de todas las tareas de este proyecto.`);
+      setTagActionNotice(t("Etiqueta «{0}» eliminada de todas las tareas de este proyecto.", tagDeleteTarget.option.label));
     } catch (error) {
-      setTagActionError(error instanceof Error ? error.message : "Error al eliminar la etiqueta.");
+      setTagActionError(error instanceof Error ? error.message : t("Error al eliminar la etiqueta."));
     } finally {
       setTagActionPending(false);
     }
@@ -396,7 +398,7 @@ export function TaskDetailModal({
     if (!entry) return;
     const next = [...attachmentEntries, entry].join("\n");
     if (next.length > 10000) {
-      setError("Los adjuntos y enlaces no pueden superar 10 000 caracteres.");
+      setError(t("Los adjuntos y enlaces no pueden superar 10 000 caracteres."));
       return;
     }
     setAttachments(next);
@@ -436,7 +438,7 @@ export function TaskDetailModal({
     event.preventDefault();
     if (!task || projectId === undefined || saving || savePending) return;
     if (startDate && endDate && startDate > endDate) {
-      setError("La fecha de fin debe ser igual o posterior a la fecha de inicio.");
+      setError(t("La fecha de fin debe ser igual o posterior a la fecha de inicio."));
       return;
     }
     const removedTags = new Set(exitingTagKeysRef.current);
@@ -449,11 +451,11 @@ export function TaskDetailModal({
     const pendingAttachment = attachmentDraft.trim();
     const savedAttachments = pendingAttachment ? [...attachmentEntries, pendingAttachment].join("\n") : attachments.trim();
     if (savedAttachments.length > 10000) {
-      setError("Los adjuntos y enlaces no pueden superar 10 000 caracteres.");
+      setError(t("Los adjuntos y enlaces no pueden superar 10 000 caracteres."));
       return;
     }
     if (!savedSubtasks) {
-      setError("Cada subtarea necesita un nombre o debe quitarse antes de guardar.");
+      setError(t("Cada subtarea necesita un nombre o debe quitarse antes de guardar."));
       return;
     }
     setSaving(true);
@@ -490,41 +492,41 @@ export function TaskDetailModal({
     <Modal
       open={Boolean(task)}
       onClose={onClose}
-      title={displayedTask?.title ?? "Detalle de tarea"}
+      title={displayedTask?.title ?? t("Detalle de tarea")}
       className={styles.taskEditorDialog}
       pending={saving || savePending}
-      submitLabel={saving || savePending ? "Guardando…" : "Guardar cambios"}
+      submitLabel={saving || savePending ? t("Guardando…") : t("Guardar cambios")}
       submitDisabled={!title.trim() || !catalogs}
       onSubmit={(event) => void submit(event)}
     >
       {displayedTask && (
         <div className={styles.taskEditor}>
-          {error && <p className={styles.editorError} role="alert">{error}</p>}
+          {error && <p className={styles.editorError} role="alert">{t(error)}</p>}
           <fieldset className={styles.editorFormFields} disabled={saving || savePending || !catalogs}>
             {!catalogs ? (
-            <div className={styles.catalogSkeleton} role="status" aria-label="Cargando catálogos">
+            <div className={styles.catalogSkeleton} role="status" aria-label={t("Cargando catálogos")}>
               <span /><span /><span />
             </div>
             ) : (
             <>
               <div className={styles.editorGrid}>
                 <label className={`${styles.editorField} ${styles.editorWide}`}>
-                  <span>Nombre <i aria-hidden="true">*</i></span>
+                  <span>{t("Nombre")} <i aria-hidden="true">*</i></span>
                   <input required maxLength={255} value={title} onChange={(event) => setTitle(event.target.value)} />
                 </label>
                 <label className={`${styles.editorField} ${styles.editorWide}`}>
-                  <span>Descripción</span>
+                  <span>{t("Descripción")}</span>
                   <textarea rows={3} maxLength={5000} value={description} onChange={(event) => setDescription(event.target.value)} />
                 </label>
                 <div className={styles.editorField}>
-                  <span>Prioridad</span>
+                  <span>{t("Prioridad")}</span>
                   <ChatPicker
-                    label="Prioridad"
+                    label={t("Prioridad")}
                     value={priorityKey}
                     options={[
-                      { value: "", label: "Sin prioridad" },
-                      ...(priorityKey.startsWith("current:") ? [{ value: priorityKey, label: `${priorityKey.slice(8)} (actual)`, color: task?.priorityColor || fallbackPriorityColor(priorityKey.slice(8).trim().toLocaleLowerCase("es")) }] : []),
-                      ...catalogs.priorities.map((item) => ({ value: String(item.id), label: item.name, color: item.color || fallbackPriorityColor(item.name.trim().toLocaleLowerCase("es")) })),
+                      { value: "", label: t("Sin prioridad") },
+                      ...(priorityKey.startsWith("current:") ? [{ value: priorityKey, label: t("{0} (actual)", t(priorityKey.slice(8))), color: task?.priorityColor || fallbackPriorityColor(priorityKey.slice(8).trim().toLocaleLowerCase("es")) }] : []),
+                      ...catalogs.priorities.map((item) => ({ value: String(item.id), label: t(item.name), color: item.color || fallbackPriorityColor(item.name.trim().toLocaleLowerCase("es")) })),
                     ]}
                     onChange={setPriorityKey}
                     size="form"
@@ -553,12 +555,12 @@ export function TaskDetailModal({
                   onFinishRemoval={finishTagRemoval}
                 />
                 <div className={styles.editorField}>
-                  <span>Fecha de inicio</span>
-                  <DatePicker label="Fecha de inicio" value={startDate} max={endDate || undefined} invalid={Boolean(error && startDate && endDate && startDate > endDate)} onChange={setStartDate} disabled={saving || savePending || !catalogs} suspended={!task || saving || savePending} />
+                  <span>{t("Fecha de inicio")}</span>
+                  <DatePicker label={t("Fecha de inicio")} value={startDate} max={endDate || undefined} invalid={Boolean(error && startDate && endDate && startDate > endDate)} onChange={setStartDate} disabled={saving || savePending || !catalogs} suspended={!task || saving || savePending} />
                 </div>
                 <div className={styles.editorField}>
-                  <span>Fecha de fin</span>
-                  <DatePicker label="Fecha de fin" value={endDate} min={startDate || undefined} invalid={Boolean(error && startDate && endDate && startDate > endDate)} onChange={setEndDate} disabled={saving || savePending || !catalogs} suspended={!task || saving || savePending} />
+                  <span>{t("Fecha de fin")}</span>
+                  <DatePicker label={t("Fecha de fin")} value={endDate} min={startDate || undefined} invalid={Boolean(error && startDate && endDate && startDate > endDate)} onChange={setEndDate} disabled={saving || savePending || !catalogs} suspended={!task || saving || savePending} />
                 </div>
                 <TaskAttachmentsSection
                   entries={attachmentEntries}
@@ -596,29 +598,29 @@ export function TaskDetailModal({
     <Modal
       open={tagEditTarget !== null}
       onClose={() => { if (!tagActionPending) { setTagEditTarget(null); setTagActionError(""); } }}
-      title="Editar etiqueta"
+      title={t("Editar etiqueta")}
       onSubmit={(event) => void submitTagEdit(event)}
-      submitLabel={tagActionPending ? "Guardando…" : "Guardar etiqueta"}
+      submitLabel={tagActionPending ? t("Guardando…") : t("Guardar etiqueta")}
       submitDisabled={!tagEditName.trim()}
       pending={tagActionPending}
       className={styles.tagActionDialog}
     >
       <div className={styles.tagActionFields}>
         <label className={styles.editorField}>
-          <span>Nombre</span>
+          <span>{t("Nombre")}</span>
           <input autoFocus required maxLength={80} value={tagEditName} onChange={(event) => setTagEditName(event.target.value)} />
         </label>
         <label className={styles.editorField}>
-          <span>Color</span>
-          <input type="color" aria-label="Color de etiqueta" value={tagEditColor} onChange={(event) => setTagEditColor(event.target.value)} />
+          <span>{t("Color")}</span>
+          <input type="color" aria-label={t("Color de etiqueta")} value={tagEditColor} onChange={(event) => setTagEditColor(event.target.value)} />
         </label>
-        {tagActionError && <p className={styles.editorError} role="alert">{tagActionError}</p>}
+        {tagActionError && <p className={styles.editorError} role="alert">{t(tagActionError)}</p>}
       </div>
     </Modal>
     <Modal
       open={tagDeleteTarget !== null}
       onClose={() => { if (!tagActionPending) { setTagDeleteTarget(null); setTagActionError(""); } }}
-      title="Eliminar etiqueta"
+      title={t("Eliminar etiqueta")}
       descriptionId="task-tag-delete-description"
       showFooter={false}
       pending={tagActionPending}
@@ -627,14 +629,14 @@ export function TaskDetailModal({
       <div className={styles.tagDeleteContent}>
         <p id="task-tag-delete-description">
           {tagDeleteTarget?.draftKey
-            ? `«${tagDeleteTarget.option.label}» solo existe en este formulario y se quitará de los cambios sin guardar.`
-            : `«${tagDeleteTarget?.option.label ?? "Esta etiqueta"}» se quitará de todas las tareas de este proyecto. Esta acción no se puede deshacer.`}
+            ? t("«{0}» solo existe en este formulario y se quitará de los cambios sin guardar.", tagDeleteTarget.option.label)
+            : t("«{0}» se quitará de todas las tareas de este proyecto. Esta acción no se puede deshacer.", tagDeleteTarget?.option.label ?? "Esta etiqueta")}
         </p>
-        {tagActionError && <p className={styles.editorError} role="alert">{tagActionError}</p>}
+        {tagActionError && <p className={styles.editorError} role="alert">{t(tagActionError)}</p>}
         <div className={styles.tagDeleteActions}>
-          <button type="button" className={styles.tagCancelButton} disabled={tagActionPending} onClick={() => { setTagDeleteTarget(null); setTagActionError(""); }}>Cancelar</button>
+          <button type="button" className={styles.tagCancelButton} disabled={tagActionPending} onClick={() => { setTagDeleteTarget(null); setTagActionError(""); }}>{t("Cancelar")}</button>
           <button type="button" className={styles.tagDeleteButton} disabled={tagActionPending} onClick={() => void confirmTagDelete()}>
-            {tagActionPending ? "Eliminando…" : "Eliminar etiqueta"}
+            {tagActionPending ? t("Eliminando…") : t("Eliminar etiqueta")}
           </button>
         </div>
       </div>

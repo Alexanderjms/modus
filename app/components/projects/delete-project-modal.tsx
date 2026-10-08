@@ -2,9 +2,10 @@
 
 import { useId, type FormEvent } from "react";
 import type { Project } from "../projects-data";
-import { Icon } from "../icon";
+import { Icon } from "../ui-icon";
 import { Modal } from "../shell/modal";
 import styles from "./delete-project-modal.module.css";
+import { useT } from "../../i18n/provider";
 
 export function DeleteProjectModal({
   project,
@@ -19,6 +20,7 @@ export function DeleteProjectModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const t = useT();
   const descriptionId = useId();
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -30,9 +32,9 @@ export function DeleteProjectModal({
     <Modal
       open={project !== null}
       onClose={onClose}
-      title="Eliminar proyecto"
+      title={t("Eliminar proyecto")}
       descriptionId={descriptionId}
-      submitLabel={pending ? "Eliminando…" : "Eliminar proyecto"}
+      submitLabel={pending ? t("Eliminando…") : t("Eliminar proyecto")}
       submitClassName={styles.destructiveButton}
       onSubmit={submit}
       pending={pending}
@@ -43,10 +45,9 @@ export function DeleteProjectModal({
           <Icon name="trash" />
         </span>
         <p id={descriptionId} className={styles.description}>
-          ¿Quieres eliminar <strong>{project?.name}</strong>? También se eliminarán sus listas y tareas.
-          Esta acción no se puede deshacer.
+          {t("¿Quieres eliminar")} <strong>{project?.name}</strong>{t("? También se eliminarán sus listas y tareas. Esta acción no se puede deshacer.")}
         </p>
-        {error && <p className={styles.error} role="alert">{error}</p>}
+        {error && <p className={styles.error} role="alert">{t(error)}</p>}
       </div>
     </Modal>
   );

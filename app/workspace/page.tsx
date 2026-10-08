@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Workspace } from "../components/workspace";
+import { getT } from "../i18n/server";
 
-export const metadata: Metadata = { title: "Workspace | Modus" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getT())("Workspace | Modus") };
+}
 
 export default async function WorkspacePage({
   searchParams,

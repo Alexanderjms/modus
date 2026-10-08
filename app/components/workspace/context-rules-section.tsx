@@ -1,8 +1,11 @@
+"use client";
+
 import { createPortal } from "react-dom";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import styles from "./context.module.css";
 import ruleStyles from "./context-rules.module.css";
 import type { ContextDocument } from "./context-document.mjs";
+import { useT } from "../../i18n/provider";
 
 export function ContextRulesSection({
   id,
@@ -65,21 +68,22 @@ export function ContextRulesSection({
   onDeleteRule: (index: number) => void;
   renderSectionToggle: (key: string, label: string) => ReactNode;
 }) {
+  const t = useT();
   return (
     <section className={styles.contextSection} aria-labelledby={`${id}-rules`}>
       <header>
-        <h3 id={`${id}-rules`}>REGLAS A SEGUIR</h3>
+        <h3 id={`${id}-rules`}>{t("REGLAS A SEGUIR")}</h3>
         <button
           type="button"
-          aria-label="Agregar regla"
-          title={atRuleLimit ? "Máximo 50 reglas." : undefined}
+          aria-label={t("Agregar regla")}
+          title={atRuleLimit ? t("Máximo 50 reglas.") : undefined}
           ref={addRuleRef}
           disabled={disabled || atRuleLimit || addingRule || editingRule !== null || confirmDeleteRule !== null || confirmDeleteResource !== null}
           onClick={onAddRule}
         >
           <i aria-hidden="true" className="bi bi-plus" />
         </button>
-        {renderSectionToggle("rules", "las reglas a seguir")}
+        {renderSectionToggle("rules", t("las reglas a seguir"))}
       </header>
       <div
         id={`${id}-rules-panel`}
@@ -97,7 +101,7 @@ export function ContextRulesSection({
                 <li className={`${styles.ruleRow} ${editingRule === index ? styles.ruleEditRow : ""}`} key={index}>
                   {editingRule === index ? (
                     <>
-                      <label className={styles.srOnly} htmlFor={`${id}-rule-${index}`}>Editar regla {index + 1}</label>
+                      <label className={styles.srOnly} htmlFor={`${id}-rule-${index}`}>{t("Editar regla")} {index + 1}</label>
                       <input
                         ref={ruleInputRef}
                         id={`${id}-rule-${index}`}
@@ -118,23 +122,23 @@ export function ContextRulesSection({
                         onChange={(event) => onRuleDraftChange(event.target.value)}
                       />
                       <div className={styles.ruleEditActions}>
-                        <button type="button" aria-label="Cancelar edición" onClick={onCancelRule}>
+                        <button type="button" aria-label={t("Cancelar edición")} onClick={onCancelRule}>
                           <i aria-hidden="true" className="bi bi-x" />
                         </button>
-                        <button type="button" aria-label="Confirmar regla" onClick={onConfirmRule}>
+                        <button type="button" aria-label={t("Confirmar regla")} onClick={onConfirmRule}>
                           <i aria-hidden="true" className="bi bi-check" />
                         </button>
                       </div>
                       {showValidation && !ruleDraft.trim() && (
-                        <p className={ruleStyles.inlineRuleError} role="alert">Escribe una regla antes de confirmar.</p>
+                        <p className={ruleStyles.inlineRuleError} role="alert">{t("Escribe una regla antes de confirmar.")}</p>
                       )}
                     </>
                   ) : confirmDeleteRule === index ? (
-                    <div className={styles.deleteConfirm} role="group" aria-label={`Confirmar eliminación de regla ${index + 1}`}>
-                      <span>¿Eliminar esta regla?</span>
-                      <button type="button" ref={deleteCancelRef} onClick={() => onCancelDelete(index)}>Cancelar</button>
+                    <div className={styles.deleteConfirm} role="group" aria-label={t("Confirmar eliminación de regla {0}", index + 1)}>
+                      <span>{t("¿Eliminar esta regla?")}</span>
+                      <button type="button" ref={deleteCancelRef} onClick={() => onCancelDelete(index)}>{t("Cancelar")}</button>
                       <button type="button" className={styles.deleteConfirmAction} onClick={() => onConfirmDelete(index)}>
-                        Eliminar
+                        {t("Eliminar")}
                       </button>
                     </div>
                   ) : (
@@ -147,7 +151,7 @@ export function ContextRulesSection({
                         }}
                         type="button"
                         className={styles.ruleActionsButton}
-                        aria-label={`Acciones para regla ${index + 1}`}
+                        aria-label={t("Acciones para regla {0}", index + 1)}
                         aria-haspopup="menu"
                         aria-expanded={openRuleMenu === index}
                         aria-controls={`${id}-rule-actions`}
@@ -162,7 +166,7 @@ export function ContextRulesSection({
               ))}
               {addingRule && (
                 <li className={`${styles.ruleRow} ${styles.ruleEditRow}`}>
-                  <label className={styles.srOnly} htmlFor={`${id}-new-rule`}>Nueva regla</label>
+                  <label className={styles.srOnly} htmlFor={`${id}-new-rule`}>{t("Nueva regla")}</label>
                   <input
                     ref={ruleInputRef}
                     id={`${id}-new-rule`}
@@ -183,20 +187,20 @@ export function ContextRulesSection({
                     onChange={(event) => onRuleDraftChange(event.target.value)}
                   />
                   <div className={styles.ruleEditActions}>
-                    <button type="button" aria-label="Cancelar regla" onClick={onCancelRule}>
+                    <button type="button" aria-label={t("Cancelar regla")} onClick={onCancelRule}>
                       <i aria-hidden="true" className="bi bi-x" />
                     </button>
-                    <button type="button" aria-label="Confirmar regla" onClick={onConfirmRule}>
+                    <button type="button" aria-label={t("Confirmar regla")} onClick={onConfirmRule}>
                       <i aria-hidden="true" className="bi bi-check" />
                     </button>
                   </div>
                   {showValidation && !ruleDraft.trim() && (
-                    <p className={ruleStyles.inlineRuleError} role="alert">Escribe una regla antes de confirmar.</p>
+                    <p className={ruleStyles.inlineRuleError} role="alert">{t("Escribe una regla antes de confirmar.")}</p>
                   )}
                 </li>
               )}
             </ul>
-          ) : <p>Aún no hay reglas para este proyecto.</p>}
+          ) : <p>{t("Aún no hay reglas para este proyecto.")}</p>}
         </div>
       </div>
       {openRuleMenu !== null && typeof window !== "undefined" && createPortal(
@@ -205,13 +209,13 @@ export function ContextRulesSection({
           id={`${id}-rule-actions`}
           className={ruleStyles.ruleMenu}
           role="menu"
-          aria-label={`Acciones para regla ${openRuleMenu + 1}`}
+          aria-label={t("Acciones para regla {0}", openRuleMenu + 1)}
           style={{ top: menuPosition.top, left: menuPosition.left }}
           onKeyDown={onMenuKeyDown}
         >
-          <button type="button" role="menuitem" onClick={() => onEditRule(openRuleMenu)}>Editar</button>
+          <button type="button" role="menuitem" onClick={() => onEditRule(openRuleMenu)}>{t("Editar")}</button>
           <button type="button" role="menuitem" className={ruleStyles.ruleMenuDelete} onClick={() => onDeleteRule(openRuleMenu)}>
-            Eliminar
+            {t("Eliminar")}
           </button>
         </div>,
         globalThis.document.body,

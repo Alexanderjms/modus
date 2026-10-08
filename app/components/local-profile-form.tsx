@@ -4,11 +4,13 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { LocalStoragePreparation } from "./local-storage-preparation";
 import styles from "./turso-guide.module.css";
+import { useT } from "../i18n/provider";
 
 const INPUT_CLASS =
   "h-[34px] w-full rounded-[7px] bg-[var(--surface)] px-[10px] py-0 text-[12.5px] leading-[normal] text-[var(--foreground)] caret-[#007AFF] outline outline-1 -outline-offset-[0.5px] outline-[var(--border)] focus:shadow-[0px_0px_3px_#007AFF33] focus:outline-2 focus:-outline-offset-[1px] focus:outline-[#007AFF]";
 
 export function LocalProfileForm() {
+  const t = useT();
   const router = useRouter();
   const nameInput = useRef<HTMLInputElement>(null);
   const pinInput = useRef<HTMLInputElement>(null);
@@ -22,7 +24,7 @@ export function LocalProfileForm() {
   const [screen, setScreen] = useState<"form" | "confirm" | "pending">("form");
   const [error, setError] = useState("");
   const [progress, setProgress] = useState(0);
-  const [progressMessage, setProgressMessage] = useState("Iniciando la creación…");
+  const [progressMessage, setProgressMessage] = useState(t("Iniciando la creación…"));
 
   useEffect(() => {
     if (screen === "form") nameInput.current?.focus();
@@ -37,17 +39,17 @@ export function LocalProfileForm() {
     event.preventDefault();
     setError("");
     if (!name.trim()) {
-      setError("Introduce tu nombre.");
+      setError(t("Introduce tu nombre."));
       nameInput.current?.focus();
       return;
     }
     if (pinEnabled && !/^[0-9]+$/.test(pin)) {
-      setError("Introduce un PIN formado solo por números.");
+      setError(t("Introduce un PIN formado solo por números."));
       pinInput.current?.focus();
       return;
     }
     if (pinEnabled && pin !== pinConfirmation) {
-      setError("Los PIN deben coincidir.");
+      setError(t("Los PIN deben coincidir."));
       confirmationInput.current?.focus();
       return;
     }
@@ -59,7 +61,7 @@ export function LocalProfileForm() {
     requestPending.current = true;
     setError("");
     setProgress(0);
-    setProgressMessage("Iniciando la creación…");
+    setProgressMessage(t("Iniciando la creación…"));
     setScreen("pending");
 
     let succeeded = false;
@@ -89,10 +91,10 @@ export function LocalProfileForm() {
         } | null;
         throw fail(
           response.status === 409
-            ? "Ya existe un perfil local y no se sobrescribió."
+            ? t("Ya existe un perfil local y no se sobrescribió.")
             : typeof result?.error === "string"
               ? result.error
-              : "No se pudo crear el almacenamiento local. Inténtalo de nuevo.",
+              : t("No se pudo crear el almacenamiento local. Inténtalo de nuevo."),
         );
       }
 
@@ -105,11 +107,11 @@ export function LocalProfileForm() {
         try {
           await response.body?.cancel();
         } catch {}
-        throw fail("La respuesta del servidor no contiene avances válidos. Inténtalo de nuevo.");
+        throw fail(t("La respuesta del servidor no contiene avances válidos. Inténtalo de nuevo."));
       }
 
       const reader = response.body?.getReader();
-      if (!reader) throw fail("No se recibió el progreso de creación. Inténtalo de nuevo.");
+      if (!reader) throw fail(t("No se recibió el progreso de creación. Inténtalo de nuevo."));
 
       const decoder = new TextDecoder("utf-8", { fatal: true });
       let buffer = "";
@@ -117,22 +119,22 @@ export function LocalProfileForm() {
       let completionMessage: string | null = null;
 
       const consumeLine = (line: string) => {
-        if (!line.trim()) throw fail("La respuesta de creación contiene una línea inválida.");
+        if (!line.trim()) throw fail(t("La respuesta de creación contiene una línea inválida."));
 
         let event: unknown;
         try {
           event = JSON.parse(line);
         } catch {
-          throw fail("La respuesta de creación contiene datos inválidos.");
+          throw fail(t("La respuesta de creación contiene datos inválidos."));
         }
 
         if (!event || typeof event !== "object" || Array.isArray(event)) {
-          throw fail("La respuesta de creación contiene un evento inesperado.");
+          throw fail(t("La respuesta de creación contiene un evento inesperado."));
         }
 
         const record = event as Record<string, unknown>;
         if (completionMessage !== null) {
-          throw fail("La respuesta de creación continuó después de completarse.");
+          throw fail(t("La respuesta de creación continuó después de completarse."));
         }
 
         if (record.type === "progress") {
@@ -143,7 +145,7 @@ export function LocalProfileForm() {
             (record.progress as number) > 99 ||
             typeof record.message !== "string"
           ) {
-            throw fail("La respuesta contiene un avance inválido.");
+            throw fail(t("La respuesta contiene un avance inválido."));
           }
           lastProgress = record.progress as number;
           setProgress(lastProgress);
@@ -157,7 +159,7 @@ export function LocalProfileForm() {
             typeof record.message !== "string" ||
             record.message !== "Almacenamiento local creado."
           ) {
-            throw fail("La respuesta de finalización no es válida.");
+            throw fail(t("La respuesta de finalización no es válida."));
           }
           completionMessage = record.message as string;
           return;
@@ -170,16 +172,16 @@ export function LocalProfileForm() {
             (record.status as number) < 400 ||
             (record.status as number) > 599
           ) {
-            throw fail("La respuesta contiene un error inválido.");
+            throw fail(t("La respuesta contiene un error inválido."));
           }
           throw fail(
             record.status === 409
-              ? "Ya existe un perfil local y no se sobrescribió."
+              ? t("Ya existe un perfil local y no se sobrescribió.")
               : (record.error as string),
           );
         }
 
-        throw fail("La respuesta de creación contiene un tipo de evento inesperado.");
+        throw fail(t("La respuesta de creación contiene un tipo de evento inesperado."));
       };
 
       try {
@@ -189,7 +191,7 @@ export function LocalProfileForm() {
           try {
             buffer += decoder.decode(value, { stream: true });
           } catch {
-            throw fail("La respuesta contiene texto UTF-8 inválido.");
+            throw fail(t("La respuesta contiene texto UTF-8 inválido."));
           }
           const lines = buffer.split("\n");
           buffer = lines.pop() ?? "";
@@ -198,13 +200,13 @@ export function LocalProfileForm() {
         try {
           buffer += decoder.decode();
         } catch {
-          throw fail("La respuesta terminó con texto UTF-8 incompleto.");
+          throw fail(t("La respuesta terminó con texto UTF-8 incompleto."));
         }
         if (buffer.length > 0) {
-          throw fail("La respuesta de creación terminó de forma incompleta.");
+          throw fail(t("La respuesta de creación terminó de forma incompleta."));
         }
         if (completionMessage === null) {
-          throw fail("La respuesta terminó antes de confirmar la creación.");
+          throw fail(t("La respuesta terminó antes de confirmar la creación."));
         }
       } catch (cause) {
         try {
@@ -225,8 +227,8 @@ export function LocalProfileForm() {
       setError(
         failureMessage ||
           (cause instanceof Error && cause.message
-            ? "La conexión se interrumpió durante la creación. Inténtalo de nuevo."
-            : "No se pudo conectar para crear el almacenamiento. Inténtalo de nuevo."),
+            ? t("La conexión se interrumpió durante la creación. Inténtalo de nuevo.")
+            : t("No se pudo conectar para crear el almacenamiento. Inténtalo de nuevo.")),
       );
       setScreen("confirm");
     } finally {
@@ -254,44 +256,43 @@ export function LocalProfileForm() {
           tabIndex={-1}
           className="w-full text-center text-[16px] font-semibold leading-[normal] text-[var(--foreground)] outline-none"
         >
-          Revisa el almacenamiento local
+          {t("Revisa el almacenamiento local")}
         </h2>
 
         <dl className="flex w-full flex-col gap-3 text-[12.5px]">
           <div className="flex items-center justify-between gap-4">
-            <dt className="text-[var(--muted)]">Nombre</dt>
+            <dt className="text-[var(--muted)]">{t("Nombre")}</dt>
             <dd className="min-w-0 break-words text-right font-medium text-[var(--foreground)]">
               {name.trim()}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-4">
-            <dt className="text-[var(--muted)]">Protección con PIN</dt>
+            <dt className="text-[var(--muted)]">{t("Protección con PIN")}</dt>
             <dd className="font-medium text-[var(--foreground)]">
-              {pinEnabled ? "Activada" : "Desactivada"}
+              {pinEnabled ? t("Activada") : t("Desactivada")}
             </dd>
           </div>
         </dl>
 
         <div className="w-full text-left">
           <p className="mb-2 text-[11px] font-semibold text-[var(--muted)]">
-            Al continuar, Modus realizará este proceso:
+            {t("Al continuar, Modus realizará este proceso:")}
           </p>
           <ol className="list-decimal space-y-1 pl-5 text-[12px] leading-[18px] text-[var(--foreground)]">
-            <li>Crear el archivo SQLite local.</li>
-            <li>Crear las tablas y relaciones.</li>
-            <li>Cargar los estados y prioridades iniciales.</li>
-            <li>Guardar el nombre y, si activaste el PIN, su hash.</li>
+            <li>{t("Crear el archivo SQLite local.")}</li>
+            <li>{t("Crear las tablas y relaciones.")}</li>
+            <li>{t("Cargar los estados y prioridades iniciales.")}</li>
+            <li>{t("Guardar el nombre y, si activaste el PIN, su hash.")}</li>
           </ol>
         </div>
 
         <p className="w-full text-[11.5px] leading-[17px] text-[var(--muted)]">
-          Tus datos se guardarán localmente en tu equipo, sin enviarse a internet.
-          Tú tendrás el control de tus archivos y su seguridad.
+          {t("Tus datos se guardarán localmente en tu equipo, sin enviarse a internet. Tú tendrás el control de tus archivos y su seguridad.")}
         </p>
 
         {error && (
           <p role="alert" className="w-full text-[12px] leading-[18px] text-[#c2413a]">
-            {error}
+            {t(error)}
           </p>
         )}
 
@@ -304,14 +305,14 @@ export function LocalProfileForm() {
             }}
             className="rounded-[7px] px-[11px] py-[5px] text-[12px] font-semibold text-[var(--muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
           >
-            Editar
+            {t("Editar")}
           </button>
           <button
             type="button"
             onClick={createStorage}
             className="inline-flex w-fit items-center justify-center rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-[12px] font-semibold leading-[normal] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
           >
-            Crear almacenamiento local
+            {t("Crear almacenamiento local")}
           </button>
         </div>
       </section>
@@ -321,7 +322,7 @@ export function LocalProfileForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      aria-label="Perfil local"
+      aria-label={t("Perfil local")}
       className="flex w-full flex-col items-center gap-6"
     >
       <div className="flex w-full flex-col items-start gap-[5px]">
@@ -329,7 +330,7 @@ export function LocalProfileForm() {
           htmlFor="local-profile-name"
           className="text-[11px] font-semibold leading-[normal] text-[var(--muted)]"
         >
-          Nombre
+          {t("Nombre")}
         </label>
         <input
           ref={nameInput}
@@ -340,7 +341,7 @@ export function LocalProfileForm() {
           maxLength={100}
           pattern={".*\\S.*"}
           autoComplete="given-name"
-          placeholder="Tu nombre"
+          placeholder={t("Tu nombre")}
           value={name}
           onChange={(event) => setName(event.currentTarget.value)}
           className={INPUT_CLASS}
@@ -349,7 +350,7 @@ export function LocalProfileForm() {
 
       <div className="flex w-full flex-col items-start">
         <p className="mb-2 text-[11px] font-semibold leading-[normal] text-[var(--muted)]">
-          Protección local
+          {t("Protección local")}
         </p>
         <div className="flex w-full items-center gap-[10px]">
           <button
@@ -387,13 +388,13 @@ export function LocalProfileForm() {
               id="local-pin-label"
               className="text-[12.5px] leading-[normal] text-[var(--foreground)]"
             >
-              Proteger Modus con un PIN
+              {t("Proteger Modus con un PIN")}
             </p>
             <p
               id="local-pin-help"
               className="text-[11.5px] leading-[normal] text-[var(--muted)]"
             >
-              Guardar el hash de un PIN junto al perfil local.
+              {t("Guardar el hash de un PIN junto al perfil local.")}
             </p>
           </div>
         </div>
@@ -407,7 +408,7 @@ export function LocalProfileForm() {
           <div className="min-h-0 overflow-hidden">
             <fieldset
               disabled={!pinEnabled}
-              aria-label="Configura tu PIN"
+              aria-label={t("Configura tu PIN")}
               className="flex w-full flex-col gap-4 pb-px pt-6"
             >
               <div className="flex w-full flex-col gap-[5px]">
@@ -415,7 +416,7 @@ export function LocalProfileForm() {
                   htmlFor="local-pin"
                   className="text-[11px] font-semibold leading-[normal] text-[var(--muted)]"
                 >
-                  PIN
+                  {t("PIN")}
                 </label>
                 <input
                   id="local-pin"
@@ -425,14 +426,14 @@ export function LocalProfileForm() {
                   pattern="[0-9]+"
                   required
                   autoComplete="new-password"
-                  placeholder="Introduce tu PIN"
+                  placeholder={t("Introduce tu PIN")}
                   value={pin}
                   onChange={(event) => {
                     const value = event.currentTarget.value;
                     setPin(value);
                     confirmationInput.current?.setCustomValidity(
                       pinConfirmation && value !== pinConfirmation
-                        ? "Los PIN deben coincidir."
+                        ? t("Los PIN deben coincidir.")
                         : "",
                     );
                   }}
@@ -444,7 +445,7 @@ export function LocalProfileForm() {
                   htmlFor="local-pin-confirmation"
                   className="text-[11px] font-semibold leading-[normal] text-[var(--muted)]"
                 >
-                  Confirmar PIN
+                  {t("Confirmar PIN")}
                 </label>
                 <input
                   id="local-pin-confirmation"
@@ -454,13 +455,13 @@ export function LocalProfileForm() {
                   pattern="[0-9]+"
                   required
                   autoComplete="new-password"
-                  placeholder="Repite tu PIN"
+                  placeholder={t("Repite tu PIN")}
                   value={pinConfirmation}
                   onChange={(event) => {
                     const value = event.currentTarget.value;
                     setPinConfirmation(value);
                     event.currentTarget.setCustomValidity(
-                      value && value !== pin ? "Los PIN deben coincidir." : "",
+                      value && value !== pin ? t("Los PIN deben coincidir.") : "",
                     );
                   }}
                   className={INPUT_CLASS}
@@ -473,7 +474,7 @@ export function LocalProfileForm() {
 
       {error && (
         <p role="alert" className="w-full text-[12px] leading-[18px] text-[#c2413a]">
-          {error}
+          {t(error)}
         </p>
       )}
 
@@ -481,7 +482,7 @@ export function LocalProfileForm() {
         type="submit"
         className="inline-flex w-fit items-center justify-center rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-[12px] font-semibold leading-[normal] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
       >
-        Continuar
+        {t("Continuar")}
       </button>
     </form>
   );

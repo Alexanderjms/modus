@@ -7,6 +7,7 @@ import headerStyles from "../shell/header.module.css";
 import shared from "../workspace.module.css";
 import { Skeleton } from "../skeleton";
 import type { Project } from "../projects-data";
+import { useT } from "../../i18n/provider";
 
 export function ProjectSelector({
   project,
@@ -21,6 +22,7 @@ export function ProjectSelector({
   error: string;
   onSelect: (project: string) => void;
 }) {
+  const t = useT();
   const details = useRef<HTMLDetailsElement>(null);
   const [query, setQuery] = useState("");
 
@@ -50,16 +52,16 @@ export function ProjectSelector({
           if (event.currentTarget.open) setQuery("");
         }}
       >
-        <summary aria-label="Seleccionar proyecto">
+        <summary aria-label={t("Seleccionar proyecto")}>
           <i aria-hidden="true" className="bi bi-folder" />
           <span>
             {project ||
               (loading ? (
                 <Skeleton variant="text" width={96} />
               ) : error ? (
-                "Error al cargar proyectos"
+                t("Error al cargar proyectos")
               ) : (
-                "Sin proyecto seleccionado"
+                t("Sin proyecto seleccionado")
               ))}
           </span>
           <i aria-hidden="true" className="bi bi-chevron-down" />
@@ -69,13 +71,13 @@ export function ProjectSelector({
             <i aria-hidden="true" className="bi bi-search" />
             <input
               type="search"
-              aria-label="Buscar proyecto"
-              placeholder="Buscar proyecto…"
+              aria-label={t("Buscar proyecto")}
+              placeholder={t("Buscar proyecto…")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
           </label>
-          <h2>RECIENTES</h2>
+          <h2>{t("RECIENTES")}</h2>
           {projects
             .filter(({ name }) =>
               name
@@ -103,7 +105,7 @@ export function ProjectSelector({
               </button>
             ))}
           {loading ? (
-            <div role="status" aria-label="Cargando proyectos…">
+            <div role="status" aria-label={t("Cargando proyectos…")}>
               {[0, 1, 2].map((key) => (
                 <div className={styles.projectSkeleton} key={key}>
                   <Skeleton variant="circular" width={14} height={14} />
@@ -123,15 +125,15 @@ export function ProjectSelector({
               >
                 {error ||
                   (query
-                    ? "Sin proyectos que coincidan."
-                    : "Aún no hay proyectos.")}
+                    ? t("Sin proyectos que coincidan.")
+                    : t("Aún no hay proyectos."))}
               </p>
             )
           )}
           <div className={styles.projectMenuActions}>
             <Link className={styles.allProjects} href="/proyectos">
               <i aria-hidden="true" className="bi bi-grid" />
-              <span>Ver todos los proyectos</span>
+              <span>{t("Ver todos los proyectos")}</span>
               <i
                 aria-hidden="true"
                 className={`bi bi-arrow-right ${styles.actionArrow}`}

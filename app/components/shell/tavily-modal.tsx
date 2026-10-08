@@ -5,6 +5,7 @@ import { Modal } from "./modal";
 import { Skeleton } from "../skeleton";
 import type { TavilyStatus } from "../../../db/local/tavily.cjs";
 import styles from "./profile-modals.module.css";
+import { useT } from "../../i18n/provider";
 
 async function readStatus(response: Response) {
   const result: unknown = await response.json().catch(() => null);
@@ -21,6 +22,7 @@ async function readStatus(response: Response) {
 }
 
 export function TavilyModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   const [status, setStatus] = useState<TavilyStatus | null>(null);
   const [key, setKey] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,7 +50,7 @@ export function TavilyModal({ open, onClose }: { open: boolean; onClose: () => v
     fetch("/api/tavily", { cache: "no-store", signal: controller.signal })
       .then(readStatus)
       .then((next) => { if (!controller.signal.aborted) setStatus(next); })
-      .catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "No se pudo cargar Tavily."); })
+      .catch((reason: unknown) => { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : t("No se pudo cargar Tavily.")); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [open, reload]);
@@ -77,9 +79,9 @@ export function TavilyModal({ open, onClose }: { open: boolean; onClose: () => v
       setStatus(next);
       if (action !== "validate") setKey("");
       setConfirmRemove(false);
-      setNotice(action === "remove" ? next.source === "environment" ? "Clave del perfil eliminada. La búsqueda web seguirá usando la clave configurada en el servidor." : "API key eliminada. La búsqueda web de Tavily ya no está configurada." : action === "save" ? "API key validada y guardada de forma segura." : key.trim() ? "La nueva API key es válida. Pulsa Guardar para utilizarla." : "La API key de Tavily es válida.");
+      setNotice(action === "remove" ? next.source === "environment" ? t("Clave del perfil eliminada. La búsqueda web seguirá usando la clave configurada en el servidor.") : t("API key eliminada. La búsqueda web de Tavily ya no está configurada.") : action === "save" ? t("API key validada y guardada de forma segura.") : key.trim() ? t("La nueva API key es válida. Pulsa Guardar para utilizarla.") : t("La API key de Tavily es válida."));
     } catch (reason) {
-      if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "No se pudo gestionar Tavily.");
+      if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : t("No se pudo gestionar Tavily."));
     } finally {
       busy.current = false;
       if (actionController.current === controller) actionController.current = null;
@@ -88,36 +90,36 @@ export function TavilyModal({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   return (
-    <Modal open={open} onClose={() => { if (!busy.current) { setKey(""); onClose(); } }} title="Tavily · Búsqueda web" pending={pending !== null}
-      submitLabel={pending === "save" ? "Validando y guardando…" : status?.source === "saved" ? "Actualizar API key" : "Guardar API key"}
+    <Modal open={open} onClose={() => { if (!busy.current) { setKey(""); onClose(); } }} title={t("Tavily · Búsqueda web")} pending={pending !== null}
+      submitLabel={pending === "save" ? t("Validando y guardando…") : status?.source === "saved" ? t("Actualizar API key") : t("Guardar API key")}
       submitDisabled={loading || !status?.storageAvailable || !key.trim() || confirmRemove}
       onSubmit={(event) => { event.preventDefault(); void act("save"); }}>
       <div className={`${styles.form} ${styles.tavilyForm}`}>
         <div className={styles.providerHeader}>
-          <span className={styles.providerName}>Tavily</span>
+          <span className={styles.providerName}>{t("Tavily")}</span>
           <span className={`${styles.providerBadge} ${status?.configured ? styles.active : ""}`}>
-            {loading ? <Skeleton variant="text" width={70} height={9} /> : !status ? "No disponible" : status.source === "saved" ? "Clave guardada" : status.source === "environment" ? "Clave del servidor" : "Sin configurar"}
+            {loading ? <Skeleton variant="text" width={70} height={9} /> : !status ? t("No disponible") : status.source === "saved" ? t("Clave guardada") : status.source === "environment" ? t("Clave del servidor") : t("Sin configurar")}
           </span>
         </div>
-        {status?.source === "saved" && status.updatedAt && <p className={styles.keyHelp}>Guardada el <time dateTime={status.updatedAt}>{new Date(status.updatedAt).toLocaleString()}</time></p>}
-        <p className={styles.securityNote}>Permite al chat buscar información en la web. La clave guardada nunca se muestra; introduce una nueva para reemplazarla. Guardar valida la clave antes de sustituir la actual.</p>
+        {status?.source === "saved" && status.updatedAt && <p className={styles.keyHelp}>{t("Guardada el")} <time dateTime={status.updatedAt}>{new Date(status.updatedAt).toLocaleString()}</time></p>}
+        <p className={styles.securityNote}>{t("Permite al chat buscar información en la web. La clave guardada nunca se muestra; introduce una nueva para reemplazarla. Guardar valida la clave antes de sustituir la actual.")}</p>
         <div className={styles.field}>
-          <label htmlFor={`${id}-key`} className={styles.label}>API key de Tavily</label>
+          <label htmlFor={`${id}-key`} className={styles.label}>{t("API key de Tavily")}</label>
           <input id={`${id}-key`} aria-describedby={`${id}-key-help${error && status ? ` ${id}-error` : ""}`} className={styles.input} type="password" autoComplete="off" spellCheck={false} maxLength={4096}
             value={key} disabled={loading || pending !== null || !status?.storageAvailable || confirmRemove} onChange={(event) => { setKey(event.target.value); setError(""); setNotice(""); }}
-            placeholder={status?.source === "saved" ? "Introduce una nueva clave para reemplazar la guardada" : "Introduce tu API key"} />
-          <span id={`${id}-key-help`} className={styles.keyHelp}>{status?.source === "saved" ? "La clave actual se conserva hasta validar y guardar el reemplazo." : "La clave solo se envía para validación y almacenamiento seguro."}</span>
+            placeholder={status?.source === "saved" ? t("Introduce una nueva clave para reemplazar la guardada") : t("Introduce tu API key")} />
+          <span id={`${id}-key-help`} className={styles.keyHelp}>{status?.source === "saved" ? t("La clave actual se conserva hasta validar y guardar el reemplazo.") : t("La clave solo se envía para validación y almacenamiento seguro.")}</span>
         </div>
         <div className={styles.connectionActions}>
-          <button type="button" className={styles.retryButton} disabled={loading || pending !== null || !status || (!key.trim() && (!status.configured || (status.source === "saved" && !status.storageAvailable))) || confirmRemove} onClick={() => void act("validate")}>{pending === "validate" ? "Validando…" : key.trim() ? "Validar API key" : status?.source === "environment" ? "Validar clave del servidor" : "Validar clave guardada"}</button>
-          {status?.source === "saved" && !confirmRemove && <button type="button" className={styles.removeButton} disabled={loading || pending !== null} onClick={() => { setConfirmRemove(true); setError(""); setNotice(""); }}>Quitar API key</button>}
+          <button type="button" className={styles.retryButton} disabled={loading || pending !== null || !status || (!key.trim() && (!status.configured || (status.source === "saved" && !status.storageAvailable))) || confirmRemove} onClick={() => void act("validate")}>{pending === "validate" ? t("Validando…") : key.trim() ? t("Validar API key") : status?.source === "environment" ? t("Validar clave del servidor") : t("Validar clave guardada")}</button>
+          {status?.source === "saved" && !confirmRemove && <button type="button" className={styles.removeButton} disabled={loading || pending !== null} onClick={() => { setConfirmRemove(true); setError(""); setNotice(""); }}>{t("Quitar API key")}</button>}
         </div>
-        {status?.source === "environment" && <p className={styles.keyHelp}>Al guardar una nueva API key, se utilizará en lugar de la actual.</p>}
-        {status && !status.storageAvailable && <p className={styles.warningMessage}>El almacenamiento seguro requiere Windows DPAPI. No puedes guardar, reemplazar ni utilizar claves cifradas desde este sistema.{status.source === "environment" && " Puedes validar la clave definida en el servidor."}</p>}
-        {key.trim() && <p className={styles.keyHelp}>Validar comprueba la nueva clave sin guardarla ni reemplazar la actual.</p>}
-        {confirmRemove && <div className={styles.removeConfirm} role="group" aria-label="Confirmar eliminación de API key"><span>¿Quitar la clave guardada? Si existe una clave del servidor, seguirá utilizándose.</span><button ref={confirmButton} type="button" className={styles.removeButton} disabled={pending !== null} onClick={() => void act("remove")}>{pending === "remove" ? "Quitando…" : "Confirmar y quitar"}</button><button type="button" className={styles.retryButton} disabled={pending !== null} onClick={() => setConfirmRemove(false)}>Cancelar</button></div>}
-        {error && <p id={`${id}-error`} role="alert" className={styles.errorMessage}>{error}{!status && <button type="button" className={styles.retryButton} disabled={loading} onClick={() => setReload((value) => value + 1)}>Reintentar</button>}</p>}
-        {notice && <p role="status" aria-live="polite" className={styles.statusMessage}>{notice}{status?.updatedAt && <span className={styles.keyHelp}> Actualizada: <time dateTime={status.updatedAt}>{new Date(status.updatedAt).toLocaleString()}</time></span>}</p>}
+        {status?.source === "environment" && <p className={styles.keyHelp}>{t("Al guardar una nueva API key, se utilizará en lugar de la actual.")}</p>}
+        {status && !status.storageAvailable && <p className={styles.warningMessage}>{t("El almacenamiento seguro requiere Windows DPAPI. No puedes guardar, reemplazar ni utilizar claves cifradas desde este sistema.")}{status.source === "environment" && t(" Puedes validar la clave definida en el servidor.")}</p>}
+        {key.trim() && <p className={styles.keyHelp}>{t("Validar comprueba la nueva clave sin guardarla ni reemplazar la actual.")}</p>}
+        {confirmRemove && <div className={styles.removeConfirm} role="group" aria-label={t("Confirmar eliminación de API key")}><span>{t("¿Quitar la clave guardada? Si existe una clave del servidor, seguirá utilizándose.")}</span><button ref={confirmButton} type="button" className={styles.removeButton} disabled={pending !== null} onClick={() => void act("remove")}>{pending === "remove" ? t("Quitando…") : t("Confirmar y quitar")}</button><button type="button" className={styles.retryButton} disabled={pending !== null} onClick={() => setConfirmRemove(false)}>{t("Cancelar")}</button></div>}
+        {error && <p id={`${id}-error`} role="alert" className={styles.errorMessage}>{t(error)}{!status && <button type="button" className={styles.retryButton} disabled={loading} onClick={() => setReload((value) => value + 1)}>{t("Reintentar")}</button>}</p>}
+        {notice && <p role="status" aria-live="polite" className={styles.statusMessage}>{t(notice)}{status?.updatedAt && <span className={styles.keyHelp}> {t("Actualizada:")} <time dateTime={status.updatedAt}>{new Date(status.updatedAt).toLocaleString()}</time></span>}</p>}
       </div>
     </Modal>
   );

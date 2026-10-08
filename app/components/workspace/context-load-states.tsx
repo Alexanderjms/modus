@@ -1,13 +1,17 @@
+"use client";
+
 import { Skeleton } from "../skeleton";
 import styles from "./context.module.css";
 import stateStyles from "./context-load-save.module.css";
 import shared from "../workspace.module.css";
+import { useT } from "../../i18n/provider";
 
 export function ContextSkeleton() {
+  const t = useT();
   return (
     <>
       <p className={styles.srOnly} role="status">
-        Cargando contexto del proyecto…
+        {t("Cargando contexto del proyecto…")}
       </p>
       <section className={styles.contextSection}>
         <header className={stateStyles.skeletonHeader}>
@@ -56,19 +60,20 @@ export function ContextLoadMessage({
   message: string;
   onRetry: () => void;
 }) {
+  const t = useT();
   if (kind === "no-project") {
     return (
       <p className={stateStyles.panelMessage} role="status">
-        Selecciona un proyecto para editar su contexto.
+        {t("Selecciona un proyecto para editar su contexto.")}
       </p>
     );
   }
 
   return (
     <div className={stateStyles.panelMessage} role="alert">
-      <p>{message || "No se pudo cargar el contexto."}</p>
+      <p>{message || t("No se pudo cargar el contexto.")}</p>
       <button type="button" className={shared.textButton} onClick={onRetry}>
-        Reintentar
+        {t("Reintentar")}
       </button>
     </div>
   );

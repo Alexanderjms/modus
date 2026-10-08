@@ -7,7 +7,7 @@ import { AppShell } from "./app-shell";
 import styles from "./home-dashboard.module.css";
 import { Skeleton } from "./skeleton";
 import { ProjectCard } from "./home/project-card";
-import { Icon } from "./icon";
+import { Icon } from "./ui-icon";
 import { EmptyState } from "./empty-state";
 import { CreateProjectModal } from "./projects/create-project-modal";
 import { DeleteProjectModal } from "./projects/delete-project-modal";
@@ -15,10 +15,14 @@ import { type ProjectAction } from "./projects/project-actions-menu";
 import { deleteProject, mutateProject } from "./projects/project-actions";
 import { WeeklyActivity } from "./home/weekly-activity";
 import { initialProjects, type Project } from "./projects-data";
+import { useT } from "../i18n/provider";
+import { useUserName } from "./user-context";
 
 type MutationAction = Exclude<ProjectAction, "delete">;
 
 export function HomeDashboard() {
+  const t = useT();
+  const userName = useUserName();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -52,14 +56,14 @@ export function HomeDashboard() {
           projects?: Project[];
           error?: string;
         };
-        if (!response.ok) throw new Error(result.error || "No se pudieron cargar los proyectos.");
-        if (!Array.isArray(result.projects)) throw new Error("La respuesta no incluye los proyectos.");
+        if (!response.ok) throw new Error(result.error || t("No se pudieron cargar los proyectos."));
+        if (!Array.isArray(result.projects)) throw new Error(t("La respuesta no incluye los proyectos."));
         if (mutationVersion.current === version) setProjects(result.projects);
         else setReload((current) => current + 1);
       } catch (reason) {
         if (!controller.signal.aborted && mutationVersion.current === version) {
           setLoadError(
-            reason instanceof Error ? reason.message : "No se pudieron cargar los proyectos.",
+            reason instanceof Error ? reason.message : t("No se pudieron cargar los proyectos."),
           );
         }
       } finally {
@@ -98,7 +102,7 @@ export function HomeDashboard() {
       setActionError({
         project,
         action,
-        message: reason instanceof Error ? reason.message : "No se pudo actualizar el proyecto.",
+        message: reason instanceof Error ? reason.message : t("No se pudo actualizar el proyecto."),
       });
     } finally {
       pendingIdsRef.current.delete(project.id);
@@ -119,7 +123,7 @@ export function HomeDashboard() {
       setDeletingProject(null);
       setActivityRefresh((current) => current + 1);
     } catch (reason) {
-      setDeleteError(reason instanceof Error ? reason.message : "No se pudo eliminar el proyecto.");
+      setDeleteError(reason instanceof Error ? reason.message : t("No se pudo eliminar el proyecto."));
     } finally {
       pendingIdsRef.current.delete(project.id);
       setPendingIds(new Set(pendingIdsRef.current));
@@ -144,13 +148,13 @@ export function HomeDashboard() {
       <main className={styles.main}>
         <div className={styles.greeting}>
           <div>
-            <h1>Buenos días, Alex</h1>
-            <p>Esto es lo que tienes para hoy.</p>
+            <h1>{userName ? t("Hola, {0}", userName) : t("Hola")}</h1>
+            <p>{t("Esto es lo que tienes para hoy.")}</p>
           </div>
           {!loading && !loadError && projects.length === 0 && (
             <button className={styles.primary} onClick={() => setCreateOpen(true)}>
               <Icon name="plus" />
-              Nuevo proyecto
+              {t("Nuevo proyecto")}
             </button>
           )}
         </div>
@@ -158,25 +162,25 @@ export function HomeDashboard() {
           <>
             {loadError && projects.length > 0 && (
               <p className={styles.empty} role="alert">
-                {loadError}{" "}
+                {t(loadError)}{" "}
                 <button
                   className={styles.textButton}
                   type="button"
                   onClick={() => setReload((current) => current + 1)}
                 >
-                  Reintentar
+                  {t("Reintentar")}
                 </button>
               </p>
             )}
             {actionError && (
               <p className={styles.empty} role="alert">
-                {actionError.message}{" "}
+                {t(actionError.message)}{" "}
                 <button
                   className={styles.textButton}
                   type="button"
                   onClick={() => executeAction(actionError.project, actionError.action)}
                 >
-                  Reintentar
+                  {t("Reintentar")}
                 </button>
               </p>
             )}
@@ -185,13 +189,13 @@ export function HomeDashboard() {
               className={styles.continue}
             >
               <div className={styles.sectionHeader}>
-                <h2 id="continue-heading">Continuar trabajando</h2>
+                <h2 id="continue-heading">{t("Continuar trabajando")}</h2>
                 <Link
                   href="/proyectos"
                   className={styles.textButton}
-                  aria-label="Ver todos los proyectos"
+                  aria-label={t("Ver todos los proyectos")}
                 >
-                  Ver todos
+                  {t("Ver todos")}
                   <Icon
                     name="chevron-right"
                     className={styles.textButtonIcon}
@@ -201,7 +205,7 @@ export function HomeDashboard() {
               <div
                 className={styles.projects}
                 role={loading ? "status" : undefined}
-                aria-label={loading ? "Cargando proyectos" : undefined}
+                aria-label={loading ? t("Cargando proyectos") : undefined}
               >
                 {loading ? (
                   [0, 1, 2].map((key) => (
@@ -221,7 +225,7 @@ export function HomeDashboard() {
                   ))
                 ) : (
                   <p className={styles.empty}>
-                    No hay proyectos que coincidan con la búsqueda.
+                    {t("No hay proyectos que coincidan con la búsqueda.")}
                   </p>
                 )}
               </div>
@@ -229,20 +233,20 @@ export function HomeDashboard() {
           </>
         ) : loadError ? (
           <p className={styles.empty} role="alert">
-            {loadError}{" "}
+            {t(loadError)}{" "}
             <button
               className={styles.textButton}
               type="button"
               onClick={() => setReload((current) => current + 1)}
             >
-              Reintentar
+              {t("Reintentar")}
             </button>
           </p>
         ) : (
           <EmptyState
             icon="folder-plus"
-            title="Aún no tienes proyectos"
-            description="Crea tu primer proyecto para organizar tareas, conversaciones y contexto en un solo lugar."
+            title={t("Aún no tienes proyectos")}
+            description={t("Crea tu primer proyecto para organizar tareas, conversaciones y contexto en un solo lugar.")}
             onCreate={() => setCreateOpen(true)}
           />
         )}
@@ -250,8 +254,8 @@ export function HomeDashboard() {
         <span className="sr-only" role="status">
           {!loading && !loadError && search
             ? visibleProjects.length
-              ? `Resultados para ${query}`
-              : `Sin resultados para ${query}`
+              ? t("Resultados para {0}", query)
+              : t("Sin resultados para {0}", query)
             : ""}
         </span>
       </main>

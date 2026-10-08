@@ -1,15 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useT } from "../i18n/provider";
 
 export function OnboardingBackButton() {
+  const t = useT();
   const router = useRouter();
 
   return (
     <button
       type="button"
-      aria-label="Volver atrás"
-      title="Volver atrás"
+      aria-label={t("Volver atrás")}
+      title={t("Volver atrás")}
       onClick={() =>
         window.history.length > 1 ? router.back() : router.push("/")
       }

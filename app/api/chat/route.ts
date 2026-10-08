@@ -24,6 +24,7 @@ import {
   getOpenCodeProtocolForModel,
   MAX_CHAT_BODY_BYTES,
 } from "../../../db/local/chat.cjs";
+import { getLang } from "../../i18n/server";
 import { injectTaskContext } from "../../../db/local/chat-tasks.cjs";
 import { attachFilesToMessages } from "../../../db/local/chat-attachments.cjs";
 import { getProjectContext } from "../../../db/local/project-context.cjs";
@@ -213,6 +214,7 @@ export async function POST(request: Request) {
     effectiveProtocol = "responses";
   }
 
+  const lang = await getLang();
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -287,7 +289,7 @@ export async function POST(request: Request) {
 
         send({ type: "thinking" });
 
-        const decisionPrompt = buildDecisionSystemPrompt(projectRow!.nombre, projectContext);
+        const decisionPrompt = buildDecisionSystemPrompt(projectRow!.nombre, projectContext, lang);
         const decisionInference = await executeInference(
           provider,
           apiKey,
@@ -415,7 +417,7 @@ export async function POST(request: Request) {
           compiledPrompt: `${projectContext?.compiledPrompt ?? ""}${formatWebSearchContext(search.results)}`,
         };
 
-        const finalPrompt = buildFinalAnswerSystemPrompt(projectRow!.nombre, contextWithSearch as any);
+        const finalPrompt = buildFinalAnswerSystemPrompt(projectRow!.nombre, contextWithSearch as any, lang);
 
         const finalInference = await executeInference(
           provider,

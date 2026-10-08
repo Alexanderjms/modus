@@ -2,7 +2,8 @@
 
 import toolbarStyles from "./toolbar.module.css";
 import { SortMenu } from "./sort-menu";
-import { Icon } from "../icon";
+import { Icon } from "../ui-icon";
+import { useT } from "../../i18n/provider";
 
 const filters = ["Todos", "Activos", "Completados", "Archivados"] as const;
 
@@ -21,12 +22,13 @@ export function ProjectsToolbar({
   sort: string;
   setSort: (value: string) => void;
 }) {
+  const t = useT();
   return (
     <div className={toolbarStyles.toolbar}>
       <div
         className={toolbarStyles.filters}
         role="group"
-        aria-label="Filtrar proyectos"
+        aria-label={t("Filtrar proyectos")}
       >
         {filters.map((name, index) => (
           <button
@@ -34,7 +36,7 @@ export function ProjectsToolbar({
             aria-pressed={filter === index}
             onClick={() => setFilter(index)}
           >
-            {name}
+            {t(name)}
           </button>
         ))}
       </div>
@@ -42,8 +44,8 @@ export function ProjectsToolbar({
         <Icon name="search" className={toolbarStyles.icon} />
         <input
           type="search"
-          aria-label="Buscar proyectos"
-          placeholder="Buscar proyectos…"
+          aria-label={t("Buscar proyectos")}
+          placeholder={t("Buscar proyectos…")}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />

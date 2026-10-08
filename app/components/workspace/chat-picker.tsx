@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import styles from "./chat-picker.module.css";
 import { Skeleton } from "../skeleton";
+import { useT } from "../../i18n/provider";
 
 export type ChatPickerOption = {
   value: string;
@@ -16,7 +17,8 @@ export type ChatPickerOption = {
 };
 
 function FreeBadge() {
-  return <span className={styles.freeBadge}><i aria-hidden="true" /><span>FREE</span></span>;
+  const t = useT();
+  return <span className={styles.freeBadge}><i aria-hidden="true" /><span>{t("FREE")}</span></span>;
 }
 
 function placePopover(trigger: HTMLElement, popover: HTMLElement) {
@@ -75,6 +77,7 @@ export function ChatPicker({
   suspended?: boolean;
   emptyLabel?: string;
 }) {
+  const t = useT();
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -197,9 +200,9 @@ export function ChatPicker({
         type="button"
         className={`${styles.trigger} ${open ? styles.expanded : ""}`}
         aria-label={`${label}: ${
-          loading ? "Cargando" : multipleValues !== undefined
-            ? multipleValues.length ? `${multipleValues.length} seleccionadas` : "Seleccionar"
-            : `${selected?.label ?? (value ? "No disponible" : "Seleccionar")}${selected?.badge ? `, ${selected.badge}` : ""}`
+          loading ? t("Cargando") : multipleValues !== undefined
+            ? multipleValues.length ? t("{0} seleccionadas", multipleValues.length) : t("Seleccionar")
+            : `${selected?.label ?? (value ? t("No disponible") : t("Seleccionar"))}${selected?.badge ? `, ${selected.badge}` : ""}`
         }`}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -241,9 +244,9 @@ export function ChatPicker({
               <span className={styles.triggerLabel}>
                 {multipleValues !== undefined
                   ? multipleValues.length
-                    ? `${multipleValues.length} seleccionadas`
-                    : "Seleccionar"
-                  : selected?.label ?? (value ? "Opción no disponible" : "Seleccionar")}
+                    ? t("{0} seleccionadas", multipleValues.length)
+                    : t("Seleccionar")
+                  : selected?.label ?? (value ? t("Opción no disponible") : t("Seleccionar"))}
               </span>
               {selected?.badge && <FreeBadge />}
             </>
@@ -277,8 +280,8 @@ export function ChatPicker({
           <i aria-hidden="true" className="bi bi-search" />
           <input
             type="search"
-            aria-label={`Buscar ${searchName}`}
-            placeholder={`Buscar ${searchName}…`}
+            aria-label={t("Buscar {0}", searchName)}
+            placeholder={t("Buscar {0}…", searchName)}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -320,7 +323,7 @@ export function ChatPicker({
                 {option.color && <span className={styles.colorDot} style={{ backgroundColor: option.color }} aria-hidden="true" />}
                 <span className={styles.optionText}>
                   <span>{option.label}</span>
-                  {option.detail && <small>{option.detail}</small>}
+                  {option.detail && <small>{t(option.detail)}</small>}
                 </span>
                 {option.badge && <FreeBadge />}
                 {!optionActions && isSelected && <i aria-hidden="true" className="bi bi-check2" />}
@@ -340,7 +343,7 @@ export function ChatPicker({
                   }}
                   type="button"
                   className={styles.optionActionsTrigger}
-                  aria-label={`Opciones de ${option.label}`}
+                  aria-label={t("Opciones de {0}", option.label)}
                   aria-haspopup="menu"
                   aria-expanded={actionOption?.value === option.value}
                   disabled={optionActions.disabled}
@@ -351,7 +354,7 @@ export function ChatPicker({
               </div>
             ) : select;
           })}
-          {!filtered.length && <p className={styles.empty}>{options.length ? "Sin coincidencias." : emptyLabel ?? "Sin coincidencias."}</p>}
+          {!filtered.length && <p className={styles.empty}>{options.length ? t("Sin coincidencias.") : emptyLabel ?? t("Sin coincidencias.")}</p>}
         </div>
         {optionActions && (
           <div
@@ -359,7 +362,7 @@ export function ChatPicker({
             className={styles.optionMenu}
             popover="auto"
             role="menu"
-            aria-label={actionOption ? `Opciones de ${actionOption.label}` : undefined}
+            aria-label={actionOption ? t("Opciones de {0}", actionOption.label) : undefined}
             onToggle={(event) => {
               if (!event.currentTarget.matches(":popover-open")) {
                 if (optionMenuRef.current?.contains(document.activeElement)) {
@@ -383,13 +386,13 @@ export function ChatPicker({
               if (actionOption) optionActions.onSelect(actionOption, "rename");
               close(true);
             }}>
-              <i aria-hidden="true" className="bi bi-pencil" /> {optionActions?.labels?.rename ?? "Renombrar"}
+              <i aria-hidden="true" className="bi bi-pencil" /> {optionActions?.labels?.rename ?? t("Renombrar")}
             </button>
             <button type="button" role="menuitem" className={styles.deleteOption} onClick={() => {
               if (actionOption) optionActions.onSelect(actionOption, "delete");
               close(true);
             }}>
-              <i aria-hidden="true" className="bi bi-trash3" /> {optionActions?.labels?.delete ?? "Eliminar"}
+              <i aria-hidden="true" className="bi bi-trash3" /> {optionActions?.labels?.delete ?? t("Eliminar")}
             </button>
           </div>
         )}

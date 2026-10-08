@@ -11,6 +11,7 @@ import { FileTypeIcon } from "./file-type-icon";
 import { SuggestionBulkBar } from "./suggestion-bulk-bar";
 import { ChatMarkdown } from "./chat-markdown";
 import { TaskSuggestionCard, type SuggestionTargetTask, type TaskSuggestionDraft, type TaskSuggestionView } from "./task-suggestion-card";
+import { useT } from "../../i18n/provider";
 
 export function ChatTranscript({
   messages,
@@ -53,11 +54,12 @@ export function ChatTranscript({
   onUndoDiscardSuggestion: (suggestion: TaskSuggestionView) => void;
   projectId?: number;
 }) {
+  const t = useT();
   const streaming = !!pendingMessage && !saving && (!!streamingText || streamingSuggestions.length > 0);
 
   if (loading) {
     return (
-      <div className={styles.skeletonMessages} role="status" aria-label="Cargando historial…">
+      <div className={styles.skeletonMessages} role="status" aria-label={t("Cargando historial…")}>
         {[0, 1, 2, 3].map((key) => (
           <div key={key} className={styles.skeletonBubble}>
             <Skeleton variant="text" width={64} height={8} />
@@ -73,8 +75,8 @@ export function ChatTranscript({
       {messages.length === 0 ? (
         <div className={styles.emptyState}>
           <i aria-hidden="true" className="bi bi-stars" />
-          <p>{!hasProject ? "Selecciona un proyecto" : "¿En qué te ayudo?"}</p>
-          <span>Elige proveedor y modelo. Las respuestas no cambian tus tareas.</span>
+          <p>{!hasProject ? t("Selecciona un proyecto") : t("¿En qué te ayudo?")}</p>
+          <span>{t("Elige proveedor y modelo. Las respuestas no cambian tus tareas.")}</span>
         </div>
       ) : (
         messages.map((item, index) => (
@@ -84,16 +86,16 @@ export function ChatTranscript({
               item.role === "user" ? styles.userMessage : styles.assistantMessage
             }`}
           >
-            <strong>{item.role === "user" ? "Tú" : "Asistente"}</strong>
+            <strong>{item.role === "user" ? t("Tú") : t("Asistente")}</strong>
             {item.role === "assistant" ? <ChatMarkdown content={item.content} taskTitles={taskTitles} /> : <p>{item.content}</p>}
-            {item.role === "user" && !!item.tasks?.length && <ul className={styles.messageTasks} aria-label="Tareas adjuntas">{item.tasks.map((task) => <li key={task.id} title={task.title}>
+            {item.role === "user" && !!item.tasks?.length && <ul className={styles.messageTasks} aria-label={t("Tareas adjuntas")}>{item.tasks.map((task) => <li key={task.id} title={task.title}>
               <i aria-hidden="true" className="bi bi-check2-square" /><span>{task.title}</span>
             </li>)}</ul>}
-            {item.role === "user" && !!item.attachments?.length && projectId && <ul className={styles.messageAttachments} aria-label="Archivos adjuntos">{item.attachments.map((attachment) => {
+            {item.role === "user" && !!item.attachments?.length && projectId && <ul className={styles.messageAttachments} aria-label={t("Archivos adjuntos")}>{item.attachments.map((attachment) => {
               const url = attachmentUrl(attachment.id, projectId);
               return <li key={attachment.id}><a href={url} target="_blank" rel="noreferrer">
                 {attachment.type.startsWith("image/") ? <img src={url} alt="" loading="lazy" /> : <FileTypeIcon name={attachment.name} size={18} />}
-                <span>{attachment.name} · {Math.max(1, Math.ceil(attachment.size / 1024))} KiB</span>
+                <span>{attachment.name} · {Math.max(1, Math.ceil(attachment.size / 1024))} {t("KiB")}</span>
               </a></li>;
             })}</ul>}
             {item.role === "assistant" && item.suggestions?.map((suggestion) => {
@@ -124,7 +126,7 @@ export function ChatTranscript({
       )}
       {streaming && (
         <article className={`${styles.message} ${styles.assistantMessage}`} aria-live="polite">
-          <strong>Asistente</strong>
+          <strong>{t("Asistente")}</strong>
           {streamingText && <ChatMarkdown content={streamingText} taskTitles={taskTitles} />}
           {streamingSuggestions.map((suggestion) => {
             const view = suggestion as TaskSuggestionView;
@@ -146,15 +148,15 @@ export function ChatTranscript({
       )}
       {(pendingMessage || saving) && !streaming && (
         <p className={styles.pending} role="status">
-          {saving ? "Guardando historial…" : searching ? (
+          {saving ? t("Guardando historial…") : searching ? (
             <>
               <SearchingOrb />
-              Buscando en la web…
+              {t("Buscando en la web…")}
             </>
           ) : (
             <>
               <ThinkingOrb />
-              Thinking…
+              {t("Pensando…")}
             </>
           )}
         </p>

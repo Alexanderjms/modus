@@ -4,8 +4,10 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { EyeIcon } from "./onboarding/eye-icon";
+import { useT } from "../i18n/provider";
 
 export function TursoCredentialsForm() {
+  const t = useT();
   const router = useRouter();
   const [showToken, setShowToken] = useState(false);
   const [pending, setPending] = useState(false);
@@ -31,9 +33,9 @@ export function TursoCredentialsForm() {
         return;
       }
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(result?.error ?? "No se pudo conectar con Turso. Inténtalo de nuevo.");
+      setError(result?.error ?? t("No se pudo conectar con Turso. Inténtalo de nuevo."));
     } catch {
-      setError("No se pudo conectar con el servidor. Inténtalo de nuevo.");
+      setError(t("No se pudo conectar con el servidor. Inténtalo de nuevo."));
     }
     setPending(false);
   }
@@ -42,7 +44,7 @@ export function TursoCredentialsForm() {
     <form
       onSubmit={handleSubmit}
       className="flex w-full flex-col items-center"
-      aria-label="Credenciales de Turso"
+      aria-label={t("Credenciales de Turso")}
     >
       <div className="flex w-full flex-col gap-4">
         <div className="flex w-full flex-col items-start gap-[5px]">
@@ -50,7 +52,7 @@ export function TursoCredentialsForm() {
             htmlFor="turso-database-url"
             className="text-[11px] font-semibold leading-[14px] text-[var(--muted)]"
           >
-            Database URL
+            {t("Database URL")}
           </label>
           <div className="flex h-[34px] w-full items-center gap-[6px] rounded-[7px] bg-[var(--surface)] px-[10px] outline outline-1 -outline-offset-[0.5px] outline-[var(--border)] has-[input:focus]:shadow-[0px_0px_3px_#007AFF33] has-[input:focus]:outline-2 has-[input:focus]:-outline-offset-[1px] has-[input:focus]:outline-[#007AFF]">
             <input
@@ -61,7 +63,7 @@ export function TursoCredentialsForm() {
               autoComplete="url"
               spellCheck={false}
               disabled={pending}
-              placeholder="libsql://tu-base.turso.io"
+              placeholder={t("libsql://tu-base.turso.io")}
               className="h-full min-w-0 flex-1 bg-transparent p-0 text-[12.5px] font-normal leading-normal text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
             />
           </div>
@@ -72,7 +74,7 @@ export function TursoCredentialsForm() {
             htmlFor="turso-auth-token"
             className="text-[11px] font-semibold leading-[14px] text-[var(--muted)]"
           >
-            Auth Token
+            {t("Auth Token")}
           </label>
           <div className="flex h-[34px] w-full items-center gap-[6px] rounded-[7px] bg-[var(--surface)] pl-[10px] pr-[3px] outline outline-1 -outline-offset-[0.5px] outline-[var(--border)] has-[input:focus]:shadow-[0px_0px_3px_#007AFF33] has-[input:focus]:outline-2 has-[input:focus]:-outline-offset-[1px] has-[input:focus]:outline-[#007AFF]">
             <input
@@ -82,13 +84,13 @@ export function TursoCredentialsForm() {
               required
               autoComplete="off"
               disabled={pending}
-              placeholder="Pega tu Auth Token"
+              placeholder={t("Pega tu Auth Token")}
               className="h-full min-w-0 flex-1 bg-transparent p-0 text-[12.5px] font-normal leading-normal text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] placeholder:opacity-100"
             />
             <button
               type="button"
               aria-label={
-                showToken ? "Ocultar Auth Token" : "Mostrar Auth Token"
+                showToken ? t("Ocultar Auth Token") : t("Mostrar Auth Token")
               }
               aria-pressed={showToken}
               onClick={() => setShowToken((visible) => !visible)}
@@ -102,7 +104,7 @@ export function TursoCredentialsForm() {
 
       {error && (
         <p role="alert" className="mt-4 w-full text-[12px] leading-[18px] text-[#c2413a]">
-          {error}
+          {t(error)}
         </p>
       )}
 
@@ -111,7 +113,7 @@ export function TursoCredentialsForm() {
         disabled={pending}
         className="mt-6 inline-flex h-[26px] w-fit items-center justify-center rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-[12px] font-semibold leading-4 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF] disabled:opacity-60"
       >
-        {pending ? "Conectando…" : "Probar conexión"}
+        {pending ? t("Conectando…") : t("Probar conexión")}
       </button>
     </form>
   );

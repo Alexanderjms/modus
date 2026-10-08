@@ -3,6 +3,7 @@
 import styles from "./profile-modals.module.css";
 import { Skeleton } from "../skeleton";
 import type { ProviderId } from "./provider-data.mjs";
+import { useT } from "../../i18n/provider";
 
 export function ProviderCard({
   id,
@@ -29,6 +30,7 @@ export function ProviderCard({
   onKeyChange: (value: string) => void;
   onToggleRemoval: () => void;
 }) {
+  const t = useT();
   return (
     <div className={styles.providerCard}>
       <div className={styles.providerHeader}>
@@ -47,23 +49,23 @@ export function ProviderCard({
           {loading ? (
             <Skeleton variant="text" width={56} height={9} />
           ) : configured ? (
-            "Clave guardada"
+            t("Clave guardada")
           ) : (
-            "Sin configurar"
+            t("Sin configurar")
           )}
         </span>
       </div>
       <label htmlFor={`provider-key-${id}`} className={styles.keyLabel}>
-        API key
+        {t("API key")}
       </label>
       <input
         id={`provider-key-${id}`}
-        aria-label={`${name} API key`}
+        aria-label={t("{0} API key", name)}
         type="password"
         autoComplete="off"
         maxLength={4096}
         placeholder={
-          configured ? "Clave guardada · introduce una nueva para reemplazar" : placeholder
+          configured ? t("Clave guardada · introduce una nueva para reemplazar") : placeholder
         }
         value={value}
         disabled={!canEdit || isRemoved}
@@ -78,7 +80,7 @@ export function ProviderCard({
           disabled={!canEdit}
           aria-pressed={isRemoved}
         >
-          {isRemoved ? "Cancelar eliminación" : "Eliminar clave guardada"}
+          {isRemoved ? t("Cancelar eliminación") : t("Eliminar clave guardada")}
         </button>
       )}
     </div>

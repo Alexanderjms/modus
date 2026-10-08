@@ -13,6 +13,7 @@ import type { TaskChange } from "./optimistic-suggestion";
 import { useWorkspaceRequest } from "./workspace-query-provider";
 import { useQueryClient } from "@tanstack/react-query";
 import { invalidateWorkspaceQueries } from "./workspace-query.mjs";
+import { useT } from "../../i18n/provider";
 
 function applyMove(list: BoardTask[], taskId: number, column: 0 | 1 | 2, beforeTaskId: number | null): BoardTask[] {
   const moving = list.find((task) => task.id === taskId);
@@ -56,6 +57,7 @@ export function Board({
   chatTrigger: RefObject<HTMLButtonElement | null>;
   contextTrigger: RefObject<HTMLButtonElement | null>;
 }) {
+  const t = useT();
   const request = useWorkspaceRequest();
   const queryClient = useQueryClient();
   const [tasks, setTasks] = useState<BoardTask[]>([]);
@@ -147,15 +149,15 @@ export function Board({
         };
         if (controller.signal.aborted) return;
         if (!res.ok) {
-          throw new Error(data.error || "No se pudieron cargar las tareas.");
+          throw new Error(data.error || t("No se pudieron cargar las tareas."));
         }
-        if (!Array.isArray(data.tasks)) throw new Error("La respuesta no incluye las tareas.");
-        if (!data.catalogs) throw new Error("La respuesta no incluye los catálogos de tareas.");
+        if (!Array.isArray(data.tasks)) throw new Error(t("La respuesta no incluye las tareas."));
+        if (!data.catalogs) throw new Error(t("La respuesta no incluye los catálogos de tareas."));
         setTasks(data.tasks);
         setCatalogs(data.catalogs);
       } catch (err) {
         if (!controller.signal.aborted) {
-          setTasksError(err instanceof Error ? err.message : "Error al cargar tareas");
+          setTasksError(err instanceof Error ? err.message : t("Error al cargar tareas"));
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -223,9 +225,9 @@ export function Board({
           body: JSON.stringify({ projectId: requestedProjectId, column, title }),
         });
         const data = (await res.json().catch(() => ({}))) as { task?: BoardTask; error?: string };
-        if (!res.ok) return discard(data.error || "No se pudo crear la tarea.");
+        if (!res.ok) return discard(data.error || t("No se pudo crear la tarea."));
         const createdTask = data.task;
-        if (!createdTask) return discard("El servidor no devolvió la tarea creada.");
+        if (!createdTask) return discard(t("El servidor no devolvió la tarea creada."));
         tempIds.current.set(tempId, createdTask.id);
         if (!sameScope()) return;
         setTasks((prev) => {
@@ -235,7 +237,7 @@ export function Board({
           return prev.some((task) => task.id === createdTask.id) ? prev : [...prev, createdTask];
         });
       } catch {
-        discard("Error de red al intentar crear la tarea.");
+        discard(t("Error de red al intentar crear la tarea."));
       }
     });
     return true;
@@ -250,7 +252,7 @@ export function Board({
     if (activeProjectId.current !== requestedProjectId || tasksProjectId !== requestedProjectId) return null;
     const feedbackKey = `${requestedProjectId}:${taskId}`;
     const currentTask = tasks.find((task) => task.id === taskId);
-    if (!currentTask) return "La tarea ya no está disponible en este proyecto.";
+    if (!currentTask) return t("La tarea ya no está disponible en este proyecto.");
     if (beforeTaskId === taskId) return null;
     const requestedVersion = projectVersion.current;
     const sameScope = () => activeProjectId.current === requestedProjectId && projectVersion.current === requestedVersion;
@@ -270,7 +272,7 @@ export function Board({
     return enqueue(async () => {
       const realId = resolveId(taskId);
       const realBefore = beforeTaskId === null ? null : resolveId(beforeTaskId);
-      if (realId < 0 || (realBefore !== null && realBefore < 0)) return fail("La tarea no se pudo crear.");
+      if (realId < 0 || (realBefore !== null && realBefore < 0)) return fail(t("La tarea no se pudo crear."));
       try {
         const res = await request("/api/tasks", {
           method: "PATCH",
@@ -283,9 +285,9 @@ export function Board({
           clearFeedback();
           return null;
         }
-        if (!res.ok) return fail(data.error || "No se pudo mover la tarea.");
+        if (!res.ok) return fail(data.error || t("No se pudo mover la tarea."));
         if (!data.task || data.task.id !== realId || data.task.column !== column || !Array.isArray(data.tasks)) {
-          return fail("El servidor devolvió una tarea no válida.");
+          return fail(t("El servidor devolvió una tarea no válida."));
         }
         if (isLastOp()) setTasks(data.tasks);
         clearFeedback();
@@ -295,7 +297,7 @@ export function Board({
           clearFeedback();
           return null;
         }
-        return fail("Error de red al mover la tarea. Inténtalo de nuevo.");
+        return fail(t("Error de red al mover la tarea. Inténtalo de nuevo."));
       }
     });
   };
@@ -307,10 +309,10 @@ export function Board({
     payload: TaskEditPayload,
   ): Promise<string | null> => {
     if (activeProjectId.current !== requestedProjectId || tasksProjectId !== requestedProjectId) {
-      return "La tarea ya no está disponible en este proyecto.";
+      return t("La tarea ya no está disponible en este proyecto.");
     }
     const currentTask = tasks.find((task) => task.id === taskId);
-    if (!currentTask || taskId < 0) return "La tarea ya no está disponible en este proyecto.";
+    if (!currentTask || taskId < 0) return t("La tarea ya no está disponible en este proyecto.");
     const requestedVersion = projectVersion.current;
     const sameScope = () => activeProjectId.current === requestedProjectId && projectVersion.current === requestedVersion;
 
@@ -357,12 +359,12 @@ export function Board({
           body: JSON.stringify({ projectId: requestedProjectId, taskId: resolveId(taskId), ...payload }),
         });
         const data = (await res.json().catch(() => ({}))) as { task?: BoardTask; tasks?: BoardTask[]; error?: string };
-        if (!res.ok) throw new Error(data.error || "No se pudo guardar la tarea.");
-        if (!data.task || !Array.isArray(data.tasks)) throw new Error("El servidor devolvió una respuesta no válida.");
+        if (!res.ok) throw new Error(data.error || t("No se pudo guardar la tarea."));
+        if (!data.task || !Array.isArray(data.tasks)) throw new Error(t("El servidor devolvió una respuesta no válida."));
         if (sameScope() && isLastOp()) setTasks(data.tasks);
       } catch (error) {
         if (sameScope()) resync();
-        alert(`No se pudieron guardar los cambios de la tarea. ${error instanceof Error ? error.message : "Error desconocido."}`);
+        alert(t("No se pudieron guardar los cambios de la tarea. {0}", error instanceof Error ? error.message : "Error desconocido."));
       }
     });
     return null;
@@ -408,14 +410,14 @@ export function Board({
         const data = (await res.json().catch(() => ({}))) as { task?: BoardTask; tasks?: BoardTask[]; error?: string };
         if (activeProjectId.current !== requestedProjectId || projectVersion.current !== requestedVersion) return;
         if (!res.ok || !data.task || !Array.isArray(data.tasks)) {
-          alert(data.error || "No se pudo duplicar la tarea.");
+          alert(data.error || t("No se pudo duplicar la tarea."));
           return;
         }
         markTaskEntering(data.task.id);
         if (isLastOp()) setTasks(data.tasks);
         else resync();
       } catch {
-        alert("Error de red al intentar duplicar la tarea.");
+        alert(t("Error de red al intentar duplicar la tarea."));
       }
     });
   };
@@ -441,13 +443,13 @@ export function Board({
         if (!sameScope()) return;
         if (!res.ok || !Array.isArray(data.tasks)) {
           resync();
-          alert(data.error || "No se pudo eliminar la tarea.");
+          alert(data.error || t("No se pudo eliminar la tarea."));
           return;
         }
         if (isLastOp()) setTasks(data.tasks);
       } catch {
         if (sameScope()) resync();
-        alert("Error de red al intentar eliminar la tarea.");
+        alert(t("Error de red al intentar eliminar la tarea."));
       }
     });
   };

@@ -11,6 +11,7 @@ import {
 } from "react";
 import styles from "./task-card.module.css";
 import type { BoardTask } from "./workspace-data";
+import { useT } from "../../i18n/provider";
 
 export function TaskCard({
   task,
@@ -35,6 +36,7 @@ export function TaskCard({
   onKeyboardMove?: (taskId: number, key: "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight") => void;
   onContextMenu?: (taskId: number, point: { x: number; y: number }, anchor: { left: number; top: number; bottom: number }) => void;
 }) {
+  const t = useT();
   const [isDragging, setIsDragging] = useState(false);
   const [canDrag, setCanDrag] = useState(false);
   const [dropPosition, setDropPosition] = useState<"before" | "after" | "">("");
@@ -43,7 +45,7 @@ export function TaskCard({
   const completedSubtasks = task.subtasks.filter(isSubtaskCompleted).length;
   const priorityName = task.priority.trim().toLocaleLowerCase("es");
   const hasPriority = priorityName !== "" && priorityName !== "sin prioridad";
-  const priorityLabel = hasPriority ? `Prioridad ${priorityName}` : "Sin prioridad";
+  const priorityLabel = hasPriority ? t("Prioridad {0}", t(priorityName)) : t("Sin prioridad");
   const priorityColor = hasPriority ? task.priorityColor || fallbackPriorityColor(priorityName) : undefined;
   const tagSummary = task.tags.map(({ name }) => name).join(", ");
 
@@ -137,7 +139,7 @@ export function TaskCard({
       role="button"
       tabIndex={0}
       data-entering={animateEntry || undefined}
-      aria-label={`Abrir detalle de ${task.title}.${tagSummary ? ` Etiquetas: ${tagSummary}.` : ""} ${priorityLabel}. ${completedSubtasks} de ${task.subtasks.length} subtareas completadas. Arrastra para reordenar. Alt más flechas: mover arriba, abajo o entre columnas.`}
+      aria-label={t("Abrir detalle de {0}.{1} {2}. {3} de {4} subtareas completadas. Arrastra para reordenar. Alt más flechas: mover arriba, abajo o entre columnas.", task.title, tagSummary ? ` ${t("Etiquetas: {0}.", tagSummary)}` : "", priorityLabel, completedSubtasks, task.subtasks.length)}
       aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight"
       aria-busy={movePending || undefined}
       draggable={canDrag && projectId !== undefined && !movePending}
@@ -170,10 +172,10 @@ export function TaskCard({
       }}
     >
       <h3>{task.title}</h3>
-      {movePending && <span className={styles.moveStatus} role="status">Guardando cambio…</span>}
-      {moveError && <p className={styles.moveError} role="alert">{moveError}</p>}
+      {movePending && <span className={styles.moveStatus} role="status">{t("Guardando cambio…")}</span>}
+      {moveError && <p className={styles.moveError} role="alert">{t(moveError)}</p>}
       {task.tags.length > 0 && (
-        <ul className={styles.tags} aria-label="Etiquetas">
+        <ul className={styles.tags} aria-label={t("Etiquetas")}>
           {task.tags.map((tag) => (
             <li key={tag.id} style={{ "--tag-hue": getTaskTagHue(tag.name), ...(tag.color ? { "--tag-color": tag.color } : {}) } as CSSProperties}>
               <span>{tag.name}</span>

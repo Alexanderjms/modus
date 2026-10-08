@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import styles from "./suggestion-bulk-bar.module.css";
+import { useT } from "../../i18n/provider";
 
 export function SuggestionBulkBar({
   count,
@@ -12,6 +13,7 @@ export function SuggestionBulkBar({
   disabled: boolean;
   onAcceptAll: () => Promise<string | null>;
 }) {
+  const t = useT();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,15 +26,15 @@ export function SuggestionBulkBar({
   }
 
   return (
-    <div className={styles.bar} role="group" aria-label="Acciones para todas las propuestas">
+    <div className={styles.bar} role="group" aria-label={t("Acciones para todas las propuestas")}>
       <span className={styles.label}>
         <i aria-hidden="true" className="bi bi-stars" />
-        {count} propuestas pendientes
+        {count} {t("propuestas pendientes")}
       </span>
       <button type="button" disabled={disabled || running} aria-busy={running || undefined} onClick={() => void run()}>
-        {running ? "Aplicando…" : "Aceptar todo"}
+        {running ? t("Aplicando…") : t("Aceptar todo")}
       </button>
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert">{t(error)}</p>}
     </div>
   );
 }

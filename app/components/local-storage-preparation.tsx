@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import logo from "../public/Logo.png";
+import { useT } from "../i18n/provider";
 
 export function LocalStoragePreparation({
   progress,
@@ -11,6 +12,7 @@ export function LocalStoragePreparation({
   progress: number;
   message: string;
 }) {
+  const t = useT();
   const title = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export function LocalStoragePreparation({
     >
       <Image
         src={logo}
-        alt="Modus"
+        alt={t("Modus")}
         width={32}
         height={32}
         priority
@@ -37,16 +39,16 @@ export function LocalStoragePreparation({
         tabIndex={-1}
         className="w-full text-xl font-bold leading-[normal] tracking-[-0.3px]"
       >
-        Preparando almacenamiento
+        {t("Preparando almacenamiento")}
       </h1>
       <div className="flex w-full flex-col gap-2">
         <div
           role="progressbar"
-          aria-label="Progreso de creación del almacenamiento local"
+          aria-label={t("Progreso de creación del almacenamiento local")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={progress}
-          aria-valuetext={`${progress}% — ${message}`}
+          aria-valuetext={`${progress}% — ${t(message)}`}
           className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--toggle-track)]"
         >
           <div
@@ -56,7 +58,7 @@ export function LocalStoragePreparation({
         </div>
         <div className="flex items-start justify-between gap-3 text-left text-[11.5px] leading-[17px] text-[var(--muted)]">
           <span role="status" aria-live="polite" aria-atomic="true">
-            {message}
+            {t(message)}
           </span>
           <span className="shrink-0 tabular-nums">{progress}%</span>
         </div>

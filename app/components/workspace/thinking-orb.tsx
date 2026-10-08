@@ -1,4 +1,7 @@
+"use client";
+
 import styles from "./thinking-orb.module.css";
+import { useT } from "../../i18n/provider";
 
 const N = 3;
 const PITCH = 6;
@@ -43,8 +46,9 @@ const CELLS = (() => {
 })();
 
 export function ThinkingOrb() {
+  const t = useT();
   return (
-    <span className={styles.glyph} role="img" aria-label="Thinking…">
+    <span className={styles.glyph} role="img" aria-label={t("Pensando…")}>
       <span className={styles.lattice}>
         {CELLS.map((cell) => (
           <span

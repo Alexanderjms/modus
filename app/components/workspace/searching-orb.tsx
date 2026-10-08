@@ -1,4 +1,7 @@
+"use client";
+
 import styles from "./searching-orb.module.css";
+import { useT } from "../../i18n/provider";
 
 const N = 3;
 const PITCH = 6;
@@ -20,8 +23,9 @@ const CELLS = (() => {
 })();
 
 export function SearchingOrb() {
+  const t = useT();
   return (
-    <span className={styles.glyph} role="img" aria-label="Searching…">
+    <span className={styles.glyph} role="img" aria-label={t("Buscando…")}>
       <span className={styles.lattice}>
         {CELLS.map((cell) => (
           <span

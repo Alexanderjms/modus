@@ -4,6 +4,7 @@ import type { ChatProtocol, ChatProviderId } from "../../chat-contract";
 import styles from "./chat.module.css";
 import { ChatPicker, type ChatPickerOption } from "./chat-picker";
 import { protocols, regions } from "./chat-data.mjs";
+import { useT } from "../../i18n/provider";
 
 export function ChatSettings({
   provider,
@@ -40,11 +41,12 @@ export function ChatSettings({
   onModelChange: (value: string) => void;
   onProtocolChange: (value: string) => void;
 }) {
+  const t = useT();
   return (
     <div className={styles.settingsTop}>
       <div className={styles.providerField}>
         <ChatPicker
-          label="Proveedor"
+          label={t("Proveedor")}
           value={provider}
           options={providerOptions}
           disabled={busy || providersLoading}
@@ -54,7 +56,7 @@ export function ChatSettings({
       </div>
       {provider === "bedrock" && (
         <select
-          aria-label="Región de Bedrock"
+          aria-label={t("Región de Bedrock")}
           value={region}
           disabled={busy}
           onChange={(event) => onRegionChange(event.target.value)}
@@ -66,7 +68,7 @@ export function ChatSettings({
       )}
       <div className={styles.modelField}>
         <ChatPicker
-          label="Modelo"
+          label={t("Modelo")}
           value={model}
           options={modelOptions}
           disabled={!provider || modelsLoading || busy || !!modelsError || modelsCount === 0}
@@ -76,12 +78,12 @@ export function ChatSettings({
       </div>
       {needsProtocol && (
         <select
-          aria-label="Formato API"
+          aria-label={t("Formato API")}
           value={protocol}
           disabled={busy}
           onChange={(event) => onProtocolChange(event.target.value)}
         >
-          <option value="">Elige un formato</option>
+          <option value="">{t("Elige un formato")}</option>
           {protocols.map(({ id, name }) => (
             <option key={id} value={id}>{name}</option>
           ))}

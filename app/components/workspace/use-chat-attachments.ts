@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ChatAttachment } from "../../chat-contract";
+import { useT } from "../../i18n/provider";
 import { attachmentError, attachmentUrl, maxAttachments, validAttachment } from "../../chat-attachments.mjs";
 
 export type PendingAttachment = {
@@ -15,6 +16,7 @@ export type PendingAttachment = {
 };
 
 export function useChatAttachments(projectId: number | undefined) {
+  const t = useT();
   const [items, setItems] = useState<PendingAttachment[]>([]);
   const [error, setError] = useState("");
   const current = useRef<PendingAttachment[]>([]);
@@ -67,8 +69,8 @@ export function useChatAttachments(projectId: number | undefined) {
     if (!projectId) { setError("Selecciona un proyecto para adjuntar archivos."); return; }
     for (const file of files) {
       const validation = attachmentError(file);
-      if (validation) { setError(`${file.name}: ${validation}`); continue; }
-      if (current.current.length >= maxAttachments) { setError(`Puedes adjuntar hasta ${maxAttachments} archivos por mensaje.`); break; }
+      if (validation) { setError(`${file.name}: ${t(validation)}`); continue; }
+      if (current.current.length >= maxAttachments) { setError(t("Puedes adjuntar hasta {0} archivos por mensaje.", maxAttachments)); break; }
       const item: PendingAttachment = {
         key: crypto.randomUUID(), file,
         preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,

@@ -10,6 +10,7 @@ import { fallbackPriorityColor } from "./task-card";
 import { TaskSubtasksSection, TaskTagsSection, type EditableSubtask } from "./task-detail-sections";
 import styles from "./task-editor.module.css";
 import cardStyles from "./task-suggestion-card.module.css";
+import { useT } from "../../i18n/provider";
 
 type Tag = { name: string; color?: string };
 type Priority = NonNullable<TaskSuggestionChanges["priority"]>;
@@ -30,21 +31,21 @@ const priorityNames: Record<Priority, string> = { alta: "Alta", media: "Media", 
 
 const norm = (value: string) => value.trim().toLocaleLowerCase("es");
 
-export function describeChanges(changes: TaskSuggestionChanges): [string, string][] {
+export function describeChanges(changes: TaskSuggestionChanges, t: (key: string) => string): [string, string][] {
   const rows: [string, string][] = [];
-  if (changes.title !== undefined) rows.push(["Nombre", changes.title]);
-  if (changes.description !== undefined) rows.push(["Descripción", changes.description || "Sin descripción"]);
-  if (changes.priority !== undefined) rows.push(["Prioridad", priorityNames[changes.priority]]);
-  if (changes.startDate !== undefined) rows.push(["Inicio", changes.startDate ?? "Sin fecha"]);
-  if (changes.endDate !== undefined) rows.push(["Fin", changes.endDate ?? "Sin fecha"]);
-  if (changes.column !== undefined) rows.push(["Columna", columnNames[changes.column]]);
-  if (changes.addTags?.length) rows.push(["Añadir etiquetas", changes.addTags.map(({ name }) => name).join(", ")]);
-  if (changes.removeTags?.length) rows.push(["Quitar etiquetas", changes.removeTags.join(", ")]);
-  if (changes.addSubtasks?.length) rows.push(["Añadir subtareas", changes.addSubtasks.map(({ title }) => title).join(" · ")]);
-  if (changes.removeSubtasks?.length) rows.push(["Quitar subtareas", changes.removeSubtasks.join(" · ")]);
-  if (changes.completeSubtasks?.length) rows.push(["Completar subtareas", changes.completeSubtasks.join(" · ")]);
-  if (changes.reopenSubtasks?.length) rows.push(["Reabrir subtareas", changes.reopenSubtasks.join(" · ")]);
-  if (changes.renameSubtasks?.length) rows.push(["Renombrar subtareas", changes.renameSubtasks.map(({ from, to }) => `${from} → ${to}`).join(" · ")]);
+  if (changes.title !== undefined) rows.push([t("Nombre"), changes.title]);
+  if (changes.description !== undefined) rows.push([t("Descripción"), changes.description || t("Sin descripción")]);
+  if (changes.priority !== undefined) rows.push([t("Prioridad"), t(priorityNames[changes.priority])]);
+  if (changes.startDate !== undefined) rows.push([t("Inicio"), changes.startDate ?? t("Sin fecha")]);
+  if (changes.endDate !== undefined) rows.push([t("Fin"), changes.endDate ?? t("Sin fecha")]);
+  if (changes.column !== undefined) rows.push([t("Columna"), t(columnNames[changes.column])]);
+  if (changes.addTags?.length) rows.push([t("Añadir etiquetas"), changes.addTags.map(({ name }) => name).join(", ")]);
+  if (changes.removeTags?.length) rows.push([t("Quitar etiquetas"), changes.removeTags.join(", ")]);
+  if (changes.addSubtasks?.length) rows.push([t("Añadir subtareas"), changes.addSubtasks.map(({ title }) => title).join(" · ")]);
+  if (changes.removeSubtasks?.length) rows.push([t("Quitar subtareas"), changes.removeSubtasks.join(" · ")]);
+  if (changes.completeSubtasks?.length) rows.push([t("Completar subtareas"), changes.completeSubtasks.join(" · ")]);
+  if (changes.reopenSubtasks?.length) rows.push([t("Reabrir subtareas"), changes.reopenSubtasks.join(" · ")]);
+  if (changes.renameSubtasks?.length) rows.push([t("Renombrar subtareas"), changes.renameSubtasks.map(({ from, to }) => `${from} → ${to}`).join(" · ")]);
   return rows;
 }
 
@@ -133,6 +134,7 @@ export function TaskEditReview({
   pending: boolean;
   onSubmit: (changes: TaskSuggestionChanges) => Promise<string | null>;
 }) {
+  const t = useT();
   const [form, setForm] = useState<FormState | null>(null);
   const [newTag, setNewTag] = useState("");
   const [newTagColor, setNewTagColor] = useState("#007AFF");
@@ -187,10 +189,10 @@ export function TaskEditReview({
       return;
     }
     const title = form.title.trim();
-    if (!title || title.length > 255) return setError("El nombre debe tener entre 1 y 255 caracteres.");
-    if (form.description.length > 2000) return setError("La descripción no puede superar 2000 caracteres.");
+    if (!title || title.length > 255) return setError(t("El nombre debe tener entre 1 y 255 caracteres."));
+    if (form.description.length > 2000) return setError(t("La descripción no puede superar 2000 caracteres."));
     if (form.startDate && form.endDate && form.startDate > form.endDate) {
-      return setError("La fecha de inicio no puede ser posterior a la de fin.");
+      return setError(t("La fecha de inicio no puede ser posterior a la de fin."));
     }
 
     const diff: TaskSuggestionChanges = {};
@@ -210,7 +212,7 @@ export function TaskEditReview({
       .filter(({ name }) => !target.tags.some((tag) => norm(tag.name) === norm(name)))
       .map(({ name, color }) => (color ? { name, color } : { name }));
     const removeTags = target.tags.filter(({ name }) => !finalTags.some((tag) => norm(tag.name) === norm(name))).map(({ name }) => name);
-    if (addTags.length > 10 || removeTags.length > 10) return setError("Se admiten hasta 10 cambios de etiquetas por propuesta.");
+    if (addTags.length > 10 || removeTags.length > 10) return setError(t("Se admiten hasta 10 cambios de etiquetas por propuesta."));
     if (addTags.length) diff.addTags = addTags;
     if (removeTags.length) diff.removeTags = removeTags;
 
@@ -218,9 +220,9 @@ export function TaskEditReview({
     const rows = draft ? [...form.subtasks, { localKey: "draft:input", title: draft, completed: false }] : form.subtasks;
     const kept = rows.filter((row) => row.localKey.startsWith("db:"));
     const added = rows.filter((row) => !row.localKey.startsWith("db:")).map((row) => row.title.trim()).filter(Boolean);
-    if (kept.some((row) => !row.title.trim())) return setError("Las subtareas existentes no pueden quedar sin nombre.");
+    if (kept.some((row) => !row.title.trim())) return setError(t("Las subtareas existentes no pueden quedar sin nombre."));
     if (added.length > 20 || rows.some((row) => row.title.length > 255)) {
-      return setError("Se admiten hasta 20 subtareas nuevas de máximo 255 caracteres.");
+      return setError(t("Se admiten hasta 20 subtareas nuevas de máximo 255 caracteres."));
     }
     const original = (row: EditableSubtask) => target.subtasks[Number(row.localKey.slice(3))];
     const removeSubtasks = target.subtasks.filter((_, index) => !kept.some((row) => row.localKey === `db:${index}`)).map((item) => item.title);
@@ -228,7 +230,7 @@ export function TaskEditReview({
     const completeSubtasks = kept.filter((row) => row.completed && !original(row).completed).map((row) => original(row).title);
     const reopenSubtasks = kept.filter((row) => !row.completed && original(row).completed).map((row) => original(row).title);
     if ([removeSubtasks, renameSubtasks, completeSubtasks, reopenSubtasks].some((list) => list.length > 20)) {
-      return setError("Se admiten hasta 20 cambios por lista de subtareas.");
+      return setError(t("Se admiten hasta 20 cambios por lista de subtareas."));
     }
     if (added.length) diff.addSubtasks = added.map((item) => ({ title: item }));
     if (removeSubtasks.length) diff.removeSubtasks = removeSubtasks;
@@ -236,7 +238,7 @@ export function TaskEditReview({
     if (completeSubtasks.length) diff.completeSubtasks = completeSubtasks;
     if (reopenSubtasks.length) diff.reopenSubtasks = reopenSubtasks;
 
-    if (Object.keys(diff).length === 0) return setError("No hay cambios que aplicar.");
+    if (Object.keys(diff).length === 0) return setError(t("No hay cambios que aplicar."));
     const failure = await onSubmit(diff);
     if (failure) setError(failure);
   }
@@ -245,39 +247,39 @@ export function TaskEditReview({
     <Modal
       open={open}
       onClose={onClose}
-      title="Revisar cambios"
+      title={t("Revisar cambios")}
       className={styles.taskEditorDialog}
-      submitLabel={pending ? "Aplicando…" : "Aplicar cambios"}
+      submitLabel={pending ? t("Aplicando…") : t("Aplicar cambios")}
       pending={pending}
       submitDisabled={!!form && !form.title.trim()}
       onSubmit={(event) => void submit(event)}
     >
       <div className={styles.taskEditor}>
-        {error && <p className={styles.editorError} role="alert">{error}</p>}
+        {error && <p className={styles.editorError} role="alert">{t(error)}</p>}
         {!form || !catalogs ? (
           <div className={cardStyles.fields}>
             <p className={cardStyles.notice}>
-              No se pudo cargar la tarea actual ({targetLabel}); se aplicarán los cambios propuestos tal cual.
+              {t("No se pudo cargar la tarea actual (")}{targetLabel}{t("); se aplicarán los cambios propuestos tal cual.")}
             </p>
-            <dl className={cardStyles.changes} aria-label="Cambios propuestos">
-              {describeChanges(changes).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+            <dl className={cardStyles.changes} aria-label={t("Cambios propuestos")}>
+              {describeChanges(changes, t).map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
             </dl>
           </div>
         ) : (
           <fieldset className={styles.editorFormFields} disabled={pending}>
             <div className={styles.editorGrid}>
               <label className={`${styles.editorField} ${styles.editorWide}`}>
-                <span>Nombre <i aria-hidden="true">*</i></span>
+                <span>{t("Nombre")} <i aria-hidden="true">*</i></span>
                 <input required maxLength={255} value={form.title} onChange={(event) => patch({ title: event.target.value })} />
               </label>
               <label className={`${styles.editorField} ${styles.editorWide}`}>
-                <span>Descripción</span>
+                <span>{t("Descripción")}</span>
                 <textarea rows={3} maxLength={2000} value={form.description} onChange={(event) => patch({ description: event.target.value })} />
               </label>
               <div className={styles.editorField}>
-                <span>Prioridad</span>
+                <span>{t("Prioridad")}</span>
                 <ChatPicker
-                  label="Prioridad"
+                  label={t("Prioridad")}
                   value={form.priorityKey}
                   options={[
                     { value: "", label: "Sin prioridad" },
@@ -310,19 +312,19 @@ export function TaskEditReview({
                 onFinishRemoval={() => {}}
               />
               <div className={styles.editorField}>
-                <span>Fecha de inicio</span>
-                <DatePicker label="Fecha de inicio" value={form.startDate} max={form.endDate || undefined} invalid={Boolean(error && form.startDate && form.endDate && form.startDate > form.endDate)} onChange={(value) => patch({ startDate: value })} disabled={pending} suspended={!open || pending} />
+                <span>{t("Fecha de inicio")}</span>
+                <DatePicker label={t("Fecha de inicio")} value={form.startDate} max={form.endDate || undefined} invalid={Boolean(error && form.startDate && form.endDate && form.startDate > form.endDate)} onChange={(value) => patch({ startDate: value })} disabled={pending} suspended={!open || pending} />
               </div>
               <div className={styles.editorField}>
-                <span>Fecha de fin</span>
-                <DatePicker label="Fecha de fin" value={form.endDate} min={form.startDate || undefined} invalid={Boolean(error && form.startDate && form.endDate && form.startDate > form.endDate)} onChange={(value) => patch({ endDate: value })} disabled={pending} suspended={!open || pending} />
+                <span>{t("Fecha de fin")}</span>
+                <DatePicker label={t("Fecha de fin")} value={form.endDate} min={form.startDate || undefined} invalid={Boolean(error && form.startDate && form.endDate && form.startDate > form.endDate)} onChange={(value) => patch({ endDate: value })} disabled={pending} suspended={!open || pending} />
               </div>
               <div className={`${styles.editorField} ${styles.editorWide}`}>
-                <span>Columna</span>
+                <span>{t("Columna")}</span>
                 <ChatPicker
-                  label="Columna"
+                  label={t("Columna")}
                   value={form.column}
-                  options={columnNames.map((name, index) => ({ value: String(index), label: name }))}
+                  options={columnNames.map((name, index) => ({ value: String(index), label: t(name) }))}
                   onChange={(value) => patch({ column: value })}
                   size="form"
                 />

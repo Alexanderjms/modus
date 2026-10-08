@@ -12,6 +12,7 @@ import type { Project } from "../projects-data";
 import iconCatalog from "bootstrap-icons/font/bootstrap-icons.json";
 import { Modal } from "../shell/modal";
 import styles from "./create-project-modal.module.css";
+import { useT } from "../../i18n/provider";
 
 const icons = [
   ["folder-fill", "Carpeta"],
@@ -76,6 +77,7 @@ function ProjectStatusPicker({
   modalOpen: boolean;
   onChange: (value: string) => void;
 }) {
+  const t = useT();
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -134,18 +136,18 @@ function ProjectStatusPicker({
 
   return (
     <div className={styles.field}>
-      <span className={styles.fieldLabel}>Estado</span>
+      <span className={styles.fieldLabel}>{t("Estado")}</span>
       <button
         ref={triggerRef}
         type="button"
         className={`${styles.statusTrigger} ${menuOpen ? styles.expanded : ""}`}
-        aria-label={`Estado: ${selected.label}`}
+        aria-label={t("Estado: {0}", t(selected.label))}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-controls={`${id}-menu`}
         onClick={() => menuOpen ? closeMenu() : openMenu()}
       >
-        <span>{selected.label}</span>
+        <span>{t(selected.label)}</span>
         <i aria-hidden="true" className="bi bi-chevron-down" />
       </button>
       <div
@@ -154,7 +156,7 @@ function ProjectStatusPicker({
         className={styles.statusPopover}
         popover="auto"
         role="menu"
-        aria-label="Opciones de estado"
+        aria-label={t("Opciones de estado")}
         onKeyDown={moveFocus}
         onToggle={(event) => {
           const isOpen = event.currentTarget.matches(":popover-open");
@@ -188,7 +190,7 @@ function ProjectStatusPicker({
               closeMenu(true);
             }}
           >
-            <span>{option.label}</span>
+            <span>{t(option.label)}</span>
             {value === option.value && (
               <i aria-hidden="true" className="bi bi-check2" />
             )}
@@ -212,6 +214,7 @@ export function CreateProjectModal({
   onUpdated?: (project: Project) => void;
   project?: Project;
 }) {
+  const t = useT();
   const formId = useId();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -263,12 +266,12 @@ export function CreateProjectModal({
     event.preventDefault();
     if (pendingRef.current) return;
     if (!name.trim()) {
-      setError("Escribe un nombre para el proyecto.");
+      setError(t("Escribe un nombre para el proyecto."));
       nameRef.current?.focus();
       return;
     }
     if (!icon) {
-      setError("Selecciona un icono para el proyecto.");
+      setError(t("Selecciona un icono para el proyecto."));
       iconSearchRef.current?.focus();
       return;
     }
@@ -293,9 +296,9 @@ export function CreateProjectModal({
       };
       const expectedStatus = project ? 200 : 201;
       if (response.status !== expectedStatus) {
-        throw new Error(result.error || `No se pudo ${project ? "guardar" : "crear"} el proyecto.`);
+        throw new Error(result.error || t("No se pudo {0} el proyecto.", t(project ? "guardar" : "crear")));
       }
-      if (!result.project) throw new Error("La respuesta no incluye el proyecto guardado.");
+      if (!result.project) throw new Error(t("La respuesta no incluye el proyecto guardado."));
       pendingRef.current = false;
       setPending(false);
       if (project) onUpdated?.(result.project);
@@ -304,7 +307,7 @@ export function CreateProjectModal({
       onClose();
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "No se pudo crear el proyecto.",
+        reason instanceof Error ? reason.message : t("No se pudo crear el proyecto."),
       );
     } finally {
       pendingRef.current = false;
@@ -316,8 +319,8 @@ export function CreateProjectModal({
     <Modal
       open={open}
       onClose={close}
-      title={project ? "Editar proyecto" : "Nuevo proyecto"}
-      submitLabel={pending ? (project ? "Guardando…" : "Creando…") : project ? "Guardar cambios" : "Crear proyecto"}
+      title={project ? t("Editar proyecto") : t("Nuevo proyecto")}
+      submitLabel={pending ? (project ? t("Guardando…") : t("Creando…")) : project ? t("Guardar cambios") : t("Crear proyecto")}
       onSubmit={submit}
       pending={pending}
       className={styles.dialog}
@@ -325,7 +328,7 @@ export function CreateProjectModal({
       <div className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${formId}-name`}>
-            Nombre <span className={styles.requiredMark} aria-hidden="true">*</span>
+            {t("Nombre")} <span className={styles.requiredMark} aria-hidden="true">*</span>
           </label>
           <input
             ref={nameRef}
@@ -338,12 +341,12 @@ export function CreateProjectModal({
             onChange={(event) => setName(event.target.value)}
             autoComplete="off"
             autoFocus
-            placeholder="Ej. Lanzamiento de producto"
+            placeholder={t("Ej. Lanzamiento de producto")}
           />
         </div>
 
         <div className={styles.field}>
-          <label htmlFor={`${formId}-description`}>Descripción</label>
+          <label htmlFor={`${formId}-description`}>{t("Descripción")}</label>
           <textarea
             id={`${formId}-description`}
             name="descripcion"
@@ -351,45 +354,45 @@ export function CreateProjectModal({
             maxLength={5000}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="Describe brevemente el propósito del proyecto"
+            placeholder={t("Describe brevemente el propósito del proyecto")}
           />
         </div>
 
         <fieldset className={`${styles.field} ${styles.iconField}`}>
           <legend>
-            Icono <span className={styles.requiredMark} aria-hidden="true">*</span>
+            {t("Icono")} <span className={styles.requiredMark} aria-hidden="true">*</span>
           </legend>
           <input
             ref={iconSearchRef}
             type="search"
-            aria-label="Buscar iconos"
-            placeholder="Buscar iconos, ej. camera o person"
+            aria-label={t("Buscar iconos")}
+            placeholder={t("Buscar iconos, ej. camera o person")}
             value={iconQuery}
             onChange={(event) => setIconQuery(event.target.value)}
           />
           <p className={styles.iconHint} role="status">
             {!iconSearch
-              ? "12 sugeridos · Busca por nombre para encontrar más."
+              ? t("12 sugeridos · Busca por nombre para encontrar más.")
               : matchingIcons.length === 0
-                ? "No hay iconos que coincidan con tu búsqueda."
+                ? t("No hay iconos que coincidan con tu búsqueda.")
                 : matchingIcons.length > visibleIcons.length
-                  ? `${visibleIcons.length} de ${matchingIcons.length} resultados. Afina tu búsqueda para ver otros.`
-                  : `${matchingIcons.length} ${matchingIcons.length === 1 ? "resultado" : "resultados"}`}
+                  ? t("{0} de {1} resultados. Afina tu búsqueda para ver otros.", visibleIcons.length, matchingIcons.length)
+                  : `${matchingIcons.length} ${t(matchingIcons.length === 1 ? "resultado" : "resultados")}`}
           </p>
           {icon && !visibleIcons.includes(icon) && (
             <p
               className={styles.selectedIcon}
               role="img"
-              title={iconLabel(icon)}
-              aria-label={`Icono seleccionado: ${iconLabel(icon)}`}
+              title={t(iconLabel(icon))}
+              aria-label={t("Icono seleccionado: {0}", t(iconLabel(icon)))}
             >
               <i aria-hidden="true" className={`bi bi-${icon}`} />
-              <span>Seleccionado</span>
+              <span>{t("Seleccionado")}</span>
             </p>
           )}
           <div className={styles.icons}>
             {visibleIcons.map((value, index) => (
-              <label key={value} className={styles.iconOption} title={iconLabel(value)}>
+              <label key={value} className={styles.iconOption} title={t(iconLabel(value))}>
                 <input
                   type="radio"
                   name={`${formId}-icono`}
@@ -397,7 +400,7 @@ export function CreateProjectModal({
                   required={!icon && index === 0}
                   checked={icon === value}
                   onChange={() => setIcon(value)}
-                  aria-label={iconLabel(value)}
+                  aria-label={t(iconLabel(value))}
                 />
                 <i aria-hidden="true" className={`bi bi-${value}`} />
                 {icon === value && (
@@ -421,7 +424,7 @@ export function CreateProjectModal({
             role="alert"
             tabIndex={-1}
           >
-            {error}
+            {t(error)}
           </p>
         )}
       </div>

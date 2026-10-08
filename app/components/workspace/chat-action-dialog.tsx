@@ -1,5 +1,8 @@
+"use client";
+
 import type { RefObject } from "react";
 import styles from "./chat.module.css";
+import { useT } from "../../i18n/provider";
 
 export type ChatAction = "rename" | "delete";
 
@@ -30,6 +33,7 @@ export function ChatActionDialog({
   onRenameValueChange: (value: string) => void;
   onSubmit: () => void;
 }) {
+  const t = useT();
   return (
     <dialog
       ref={dialogRef}
@@ -43,17 +47,17 @@ export function ChatActionDialog({
       <form onSubmit={(event) => { event.preventDefault(); onSubmit(); }} aria-busy={pending || undefined}>
         <header>
           <div>
-            <h2 id={actionTitleId}>{action === "rename" ? "Renombrar chat" : "Eliminar chat"}</h2>
-            <p>{action === "rename" ? "El nuevo nombre se conservará en este proyecto." : "Esta acción no se puede deshacer."}</p>
+            <h2 id={actionTitleId}>{action === "rename" ? t("Renombrar chat") : t("Eliminar chat")}</h2>
+            <p>{action === "rename" ? t("El nuevo nombre se conservará en este proyecto.") : t("Esta acción no se puede deshacer.")}</p>
           </div>
-          <button type="button" aria-label="Cerrar" disabled={pending} onClick={onClose}>
+          <button type="button" aria-label={t("Cerrar")} disabled={pending} onClick={onClose}>
             <i aria-hidden="true" className="bi bi-x-lg" />
           </button>
         </header>
         <div className={styles.chatActionBody}>
           {action === "rename" ? (
             <label className={styles.chatActionField}>
-              <span>Nombre del chat</span>
+              <span>{t("Nombre del chat")}</span>
               <input
                 ref={renameInputRef}
                 type="text"
@@ -68,21 +72,21 @@ export function ChatActionDialog({
             </label>
           ) : (
             <p className={styles.deleteWarning}>
-              ¿Eliminar <strong>{chatTitle}</strong>? Se perderán este chat y todos sus mensajes.
+              {t("¿Eliminar")} <strong>{chatTitle}</strong>{t("? Se perderán este chat y todos sus mensajes.")}
             </p>
           )}
-          {actionError && <p className={styles.chatActionError} role="alert">{actionError}</p>}
+          {actionError && <p className={styles.chatActionError} role="alert">{t(actionError)}</p>}
         </div>
         <footer>
-          <button type="button" disabled={pending} onClick={onClose}>Cancelar</button>
+          <button type="button" disabled={pending} onClick={onClose}>{t("Cancelar")}</button>
           <button
             type="submit"
             className={action === "delete" ? styles.dangerButton : ""}
             disabled={pending || (action === "rename" &&
               (!renameValue.trim() || renameValue.trim().length > 80 || /[\x00-\x1F\x7F]/.test(renameValue.trim())))}
           >
-            {pending ? action === "rename" ? "Guardando…" : "Eliminando…"
-              : action === "rename" ? "Guardar nombre" : "Eliminar chat"}
+            {pending ? action === "rename" ? t("Guardando…") : t("Eliminando…")
+              : action === "rename" ? t("Guardar nombre") : t("Eliminar chat")}
           </button>
         </footer>
       </form>

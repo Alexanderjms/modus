@@ -3,7 +3,8 @@
 import { useRef } from "react";
 import menuStyles from "./menu.module.css";
 import toolbarStyles from "./toolbar.module.css";
-import { Icon } from "../icon";
+import { Icon } from "../ui-icon";
+import { useT } from "../../i18n/provider";
 
 const sortOptions = [
   { value: "activity", label: "Última actividad" },
@@ -18,6 +19,7 @@ export function SortMenu({
   sort: string;
   setSort: (value: string) => void;
 }) {
+  const t = useT();
   const menu = useRef<HTMLDetailsElement>(null);
   const selectedSort = sort === "reference" ? "activity" : sort;
   function select(value: string) {
@@ -32,18 +34,18 @@ export function SortMenu({
       ref={menu}
       className={`${menuStyles.menu} ${menuStyles.sortMenu}`}
     >
-      <summary className={toolbarStyles.sort} aria-label="Ordenar proyectos">
+      <summary className={toolbarStyles.sort} aria-label={t("Ordenar proyectos")}>
         <Icon name="arrow-down-up" className={menuStyles.icon} />
-        <span>Ordenar por:</span>
+        <span>{t("Ordenar por:")}</span>
         <strong>
-          {sortOptions.find((option) => option.value === selectedSort)?.label}
+          {t(sortOptions.find((option) => option.value === selectedSort)?.label ?? "")}
         </strong>
         <Icon name="chevron-down" className={menuStyles.icon} />
       </summary>
       <div
         className={menuStyles.menuBody}
         role="group"
-        aria-label="Opciones de orden"
+        aria-label={t("Opciones de orden")}
       >
         {sortOptions.map((option) => (
           <button
@@ -52,7 +54,7 @@ export function SortMenu({
             aria-pressed={selectedSort === option.value}
             onClick={() => select(option.value)}
           >
-            <span>{option.label}</span>
+            <span>{t(option.label)}</span>
             {selectedSort === option.value && (
               <Icon name="check" className={menuStyles.icon} />
             )}

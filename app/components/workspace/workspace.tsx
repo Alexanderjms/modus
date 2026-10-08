@@ -13,12 +13,14 @@ import { ProjectSelector } from "./project-selector";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceRequest } from "./workspace-query-provider";
 import { invalidateWorkspaceQueries } from "./workspace-query.mjs";
+import { useT } from "../../i18n/provider";
 
 export function Workspace({
   initialProject,
 }: {
   initialProject?: string;
 }) {
+  const t = useT();
   const request = useWorkspaceRequest();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
@@ -55,9 +57,9 @@ export function Workspace({
           error?: string;
         };
         if (!response.ok)
-          throw new Error(result.error || "No se pudieron cargar los proyectos.");
+          throw new Error(result.error || t("No se pudieron cargar los proyectos."));
         if (!Array.isArray(result.projects))
-          throw new Error("La respuesta no incluye los proyectos.");
+          throw new Error(t("La respuesta no incluye los proyectos."));
         setProjects(result.projects);
         setProject((current) =>
           result.projects!.some(({ name }) => name === current)
@@ -69,7 +71,7 @@ export function Workspace({
       } catch (reason) {
         if (!controller.signal.aborted) {
           setProjectsError(
-            reason instanceof Error ? reason.message : "No se pudieron cargar los proyectos.",
+            reason instanceof Error ? reason.message : t("No se pudieron cargar los proyectos."),
           );
         }
       } finally {
@@ -136,7 +138,7 @@ export function Workspace({
               if (name === project) return;
               if (
                 contextPendingChanges &&
-                !window.confirm("Hay cambios sin guardar. ¿Descartarlos y cambiar de proyecto?")
+                !window.confirm(t("Hay cambios sin guardar. ¿Descartarlos y cambiar de proyecto?"))
               ) return;
               setContextPendingChanges(false);
               setProject(name);
@@ -202,7 +204,6 @@ export function Workspace({
           <div className="panel-clip">
             <WorkspaceContext
               key={selectedProject?.id ?? "no-project"}
-              plan={!chatOpen}
               project={project}
               projectId={selectedProject?.id}
               projectsLoading={projectsLoading}

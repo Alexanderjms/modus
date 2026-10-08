@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 function localDir() {
+  if (process.env.MODUS_DATA_DIR) return process.env.MODUS_DATA_DIR;
   const cwd = process.cwd();
   const root = fs.existsSync(path.join(cwd, "package.json")) ? cwd : path.resolve(__dirname, "../..");
   return path.join(root, ".local");

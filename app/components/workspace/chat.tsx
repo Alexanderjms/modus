@@ -34,6 +34,7 @@ import type { SuggestionTargetTask, TaskSuggestionDraft, TaskSuggestionView } fr
 import { useWorkspaceRequest } from "./workspace-query-provider";
 import { useQueryClient } from "@tanstack/react-query";
 import { invalidateWorkspaceQueries } from "./workspace-query.mjs";
+import { useLang } from "../../i18n/provider";
 
 function toTargetTask(task: Record<string, unknown>): SuggestionTargetTask {
   const list = (value: unknown) => (Array.isArray(value) ? value : []) as Record<string, unknown>[];
@@ -141,6 +142,7 @@ export function WorkspaceChat({
   closeButtonRef: RefObject<HTMLButtonElement | null>;
   onTaskCreated: (projectId: number, change?: TaskChange) => void;
 }) {
+  const { lang, t } = useLang();
   const requestFn = useWorkspaceRequest();
   const queryClient = useQueryClient();
   const [configured, setConfigured] = useState<ChatProviderId[]>([]);
@@ -238,7 +240,7 @@ export function WorkspaceChat({
         sendRequest.current?.abort();
         setConfigured((current) => current.filter((item) => item !== "chatgpt"));
         setModels([]);
-        setSendError("ChatGPT se desconectó. Reconecta la cuenta o elige otro proveedor.");
+        setSendError(t("ChatGPT se desconectó. Reconecta la cuenta o elige otro proveedor."));
       }
       void invalidateWorkspaceQueries(queryClient, "/api/chat/models");
       reloadProviders();
@@ -271,7 +273,7 @@ export function WorkspaceChat({
           !("providers" in data) ||
           !Array.isArray(data.providers)
         ) {
-          throw new Error("No se pudieron cargar los proveedores.");
+          throw new Error(t("No se pudieron cargar los proveedores."));
         }
         const items: unknown[] = data.providers;
         if (controller.signal.aborted) return;
@@ -283,7 +285,7 @@ export function WorkspaceChat({
         setConfigured(available);
         if (settingsRef.current.provider === "chatgpt" && !available.includes("chatgpt") && sendingRef.current) {
           sendRequest.current?.abort();
-          setSendError("La conexión de ChatGPT ya no está disponible. Reconecta la cuenta para continuar.");
+          setSendError(t("La conexión de ChatGPT ya no está disponible. Reconecta la cuenta para continuar."));
         }
         setProvider((current) => {
           if (current) return current;
@@ -292,7 +294,7 @@ export function WorkspaceChat({
           return fallback;
         });
       } catch {
-        if (!controller.signal.aborted && !silent) setProvidersError("No se pudieron cargar los proveedores.");
+        if (!controller.signal.aborted && !silent) setProvidersError(t("No se pudieron cargar los proveedores."));
       } finally {
         if (!controller.signal.aborted) setProvidersLoading(false);
       }
@@ -344,7 +346,7 @@ export function WorkspaceChat({
         if (!response.ok) throw new Error(errorForStatus(response.status));
         const data: unknown = await response.json();
         if (typeof data !== "object" || data === null || !("chats" in data) || !Array.isArray(data.chats) ||
-          !data.chats.every(validSummary)) throw new Error("No se pudo cargar el historial del chat.");
+          !data.chats.every(validSummary)) throw new Error(t("No se pudo cargar el historial del chat."));
         const loaded = data.chats;
         if (controller.signal.aborted) return;
         setChats(loaded);
@@ -357,7 +359,7 @@ export function WorkspaceChat({
           restoreSettings(null);
         }
       } catch {
-        if (!controller.signal.aborted) setHistoryError("No se pudo cargar el historial.");
+        if (!controller.signal.aborted) setHistoryError(t("No se pudo cargar el historial."));
       } finally {
         if (!controller.signal.aborted) setHistoryLoading(false);
       }
@@ -373,7 +375,7 @@ export function WorkspaceChat({
     const query = new URLSearchParams({ projectId: String(projectId) });
     const chat = await readChat(await requestFn(`/api/chats/${chatId}?${query}`, { cache: "no-store", signal }));
     if (chat.projectId !== projectId || chat.id !== chatId) {
-      throw new Error("El chat no pertenece a este proyecto.");
+      throw new Error(t("El chat no pertenece a este proyecto."));
     }
     return chat;
   }
@@ -438,7 +440,7 @@ export function WorkspaceChat({
         }
         const data: unknown = await response.json();
         if (typeof data !== "object" || data === null || !("models" in data) || !Array.isArray(data.models)) {
-          throw new Error("No se pudieron cargar los modelos.");
+          throw new Error(t("No se pudieron cargar los modelos."));
         }
         const result = data as { models: unknown[]; warning?: unknown };
         const available = result.models.filter((item): item is ChatModel =>
@@ -457,7 +459,7 @@ export function WorkspaceChat({
         setModel(chosen);
         settingsRef.current.model = chosen;
       } catch (reason) {
-        if (!controller.signal.aborted && !silent) setModelsError(reason instanceof Error ? reason.message : "No se pudieron cargar los modelos.");
+        if (!controller.signal.aborted && !silent) setModelsError(reason instanceof Error ? reason.message : t("No se pudieron cargar los modelos."));
       } finally {
         if (!controller.signal.aborted) setModelsLoading(false);
       }
@@ -557,7 +559,7 @@ export function WorkspaceChat({
   async function retryHistory() {
     if (!project) return;
     if (attachments.items.length) {
-      setHistoryError("Quita los adjuntos del borrador antes de recargar el historial.");
+      setHistoryError(t("Quita los adjuntos del borrador antes de recargar el historial."));
       return;
     }
     if (retryChatId.current) {
@@ -566,7 +568,7 @@ export function WorkspaceChat({
       return;
     }
     if (!activeChat && draftRef.current.trim()) {
-      setHistoryError("Envía el borrador actual antes de recargar el historial.");
+      setHistoryError(t("Envía el borrador actual antes de recargar el historial."));
       return;
     }
     const controller = new AbortController();
@@ -590,7 +592,7 @@ export function WorkspaceChat({
       }
       else { setActiveChat(null); setHistory([]); }
     } catch {
-      if (!controller.signal.aborted) setHistoryError("No se pudo cargar el historial.");
+      if (!controller.signal.aborted) setHistoryError(t("No se pudo cargar el historial."));
     } finally {
       if (!controller.signal.aborted) setHistoryLoading(false);
     }
@@ -611,7 +613,7 @@ export function WorkspaceChat({
         retryChatId.current = null;
       }
     } catch {
-      if (!controller.signal.aborted) setHistoryError("No se pudo abrir ese chat. Inténtalo de nuevo.");
+      if (!controller.signal.aborted) setHistoryError(t("No se pudo abrir ese chat. Inténtalo de nuevo."));
     } finally {
       if (!controller.signal.aborted) setConversationLoading(false);
     }
@@ -620,7 +622,7 @@ export function WorkspaceChat({
   async function startNewChat() {
     if (!project || !canSwitch || mutationRequest.current) return;
     if (!activeChat && draftRef.current.trim()) {
-      setHistoryError("Envía el borrador actual antes de crear otro chat.");
+      setHistoryError(t("Envía el borrador actual antes de crear otro chat."));
       return;
     }
     setHistoryError("");
@@ -639,7 +641,7 @@ export function WorkspaceChat({
       setSaveConflict(false);
       setLimitError("");
     } catch {
-      setHistoryError("No se pudo crear un chat nuevo. Inténtalo de nuevo.");
+      setHistoryError(t("No se pudo crear un chat nuevo. Inténtalo de nuevo."));
     } finally {
       setConversationLoading(false);
     }
@@ -683,12 +685,12 @@ export function WorkspaceChat({
     if (!project || !actionChatId || !chatAction || !canMutateChats || mutationRequest.current) return;
     const title = renameValue.trim();
     if (chatAction === "rename" && (!title || title.length > 80 || /[\x00-\x1F\x7F]/.test(title))) {
-      setChatActionError("Usa un nombre de 1 a 80 caracteres sin caracteres de control.");
+      setChatActionError(t("Usa un nombre de 1 a 80 caracteres sin caracteres de control."));
       return;
     }
     const summary = chats.find((chat) => chat.id === actionChatId);
     if (!summary) {
-      setChatActionError("No se encontró este chat. Actualiza el historial e inténtalo de nuevo.");
+      setChatActionError(t("No se encontró este chat. Actualiza el historial e inténtalo de nuevo."));
       return;
     }
     const projectId = project.id;
@@ -711,11 +713,11 @@ export function WorkspaceChat({
         if (!response.ok) {
           if (response.status === 409) {
             await reloadChatsAfterConflict(projectId, generation, controller.signal, actionChatId);
-            if (current()) setChatActionError("El chat cambió en otra sesión. Se actualizó el historial; revisa y vuelve a guardar el nombre.");
+            if (current()) setChatActionError(t("El chat cambió en otra sesión. Se actualizó el historial; revisa y vuelve a guardar el nombre."));
           } else if (current()) {
-            setChatActionError(response.status === 404 ? "Este chat ya no existe en el proyecto." :
-              response.status === 400 ? "El nombre no es válido. Usa hasta 80 caracteres." :
-                "No se pudo renombrar el chat. Inténtalo de nuevo.");
+            setChatActionError(response.status === 404 ? t("Este chat ya no existe en el proyecto.") :
+              response.status === 400 ? t("El nombre no es válido. Usa hasta 80 caracteres.") :
+                t("No se pudo renombrar el chat. Inténtalo de nuevo."));
           }
           return;
         }
@@ -734,11 +736,11 @@ export function WorkspaceChat({
         if (!response.ok) {
           if (response.status === 409) {
             await reloadChatsAfterConflict(projectId, generation, controller.signal, actionChatId);
-            if (current()) setChatActionError("El chat cambió en otra sesión. Se actualizó el historial; confirma de nuevo para eliminar.");
+            if (current()) setChatActionError(t("El chat cambió en otra sesión. Se actualizó el historial; confirma de nuevo para eliminar."));
           } else if (current()) {
-            setChatActionError(response.status === 404 ? "Este chat ya no existe en el proyecto." :
-              response.status === 400 ? "No se pudo validar el chat. Actualiza el historial e inténtalo de nuevo." :
-                "No se pudo eliminar el chat. Inténtalo de nuevo.");
+            setChatActionError(response.status === 404 ? t("Este chat ya no existe en el proyecto.") :
+              response.status === 400 ? t("No se pudo validar el chat. Actualiza el historial e inténtalo de nuevo.") :
+                t("No se pudo eliminar el chat. Inténtalo de nuevo."));
           }
           return;
         }
@@ -764,7 +766,7 @@ export function WorkspaceChat({
                 retryChatId.current = null;
               }
             } catch {
-              if (current()) setHistoryError("El chat se eliminó, pero no se pudo abrir el siguiente. Selecciónalo para reintentar.");
+              if (current()) setHistoryError(t("El chat se eliminó, pero no se pudo abrir el siguiente. Selecciónalo para reintentar."));
             } finally {
               if (current()) setConversationLoading(false);
             }
@@ -779,7 +781,7 @@ export function WorkspaceChat({
         }
       }
     } catch {
-      if (current()) setChatActionError("No se pudo completar la operación. Comprueba la conexión e inténtalo de nuevo.");
+      if (current()) setChatActionError(t("No se pudo completar la operación. Comprueba la conexión e inténtalo de nuevo."));
     } finally {
       if (mutationRequest.current === controller) mutationRequest.current = null;
       if (current()) setChatActionPending(false);
@@ -803,8 +805,8 @@ export function WorkspaceChat({
       if (!response.ok) {
         if (response.status === 409 && projectGeneration.current === generation) setSaveConflict(true);
         throw new Error(response.status === 409
-          ? "Este chat cambió en otra sesión. Guarda la respuesta como un chat nuevo."
-          : "No se pudo guardar el historial local. Inténtalo de nuevo.");
+          ? t("Este chat cambió en otra sesión. Guarda la respuesta como un chat nuevo.")
+          : t("No se pudo guardar el historial local. Inténtalo de nuevo."));
       }
       const saved = await readChat(response);
       if (projectGeneration.current !== generation) return;
@@ -814,7 +816,7 @@ export function WorkspaceChat({
       setChats((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
       setSaveError("");
     } catch (reason) {
-      if (projectGeneration.current === generation) setSaveError(reason instanceof Error ? reason.message : "No se pudo guardar el historial.");
+      if (projectGeneration.current === generation) setSaveError(reason instanceof Error ? reason.message : t("No se pudo guardar el historial."));
     } finally {
       if (projectGeneration.current === generation) setSaving(false);
     }
@@ -840,7 +842,7 @@ export function WorkspaceChat({
       setSaveConflict(false);
       await saveCompleted(chat.id, request);
     } catch {
-      if (projectGeneration.current === generation) setSaveError("No se pudo crear una copia nueva. Inténtalo de nuevo.");
+      if (projectGeneration.current === generation) setSaveError(t("No se pudo crear una copia nueva. Inténtalo de nuevo."));
     } finally {
       if (projectGeneration.current === generation) setSaving(false);
     }
@@ -852,7 +854,7 @@ export function WorkspaceChat({
       !chat.messages.some((message) => message.role === "assistant" &&
         message.suggestions?.some((item) => item.id === suggestion.id && item.status === "pending")) ||
       saving || pendingSave.current || saveConflict || sending || historyLoading || conversationLoading ||
-      chatActionPending || suggestionRequest.current || pendingSuggestionRef.current) return "Espera a que se guarde el historial antes de aplicar la propuesta.";
+      chatActionPending || suggestionRequest.current || pendingSuggestionRef.current) return t("Espera a que se guarde el historial antes de aplicar la propuesta.");
 
     const projectId = project.id;
     const chatId = chat.id;
@@ -898,10 +900,10 @@ export function WorkspaceChat({
           throw new Error(errorBody.error);
         }
         const reason = response.status === 409
-          ? "El historial cambió en otra sesión. Actualiza el chat antes de aplicar la propuesta."
+          ? t("El historial cambió en otra sesión. Actualiza el chat antes de aplicar la propuesta.")
           : response.status === 404
-            ? "La sugerencia ya no está disponible en este chat."
-            : "No se pudo aplicar la propuesta. Inténtalo de nuevo.";
+            ? t("La sugerencia ya no está disponible en este chat.")
+            : t("No se pudo aplicar la propuesta. Inténtalo de nuevo.");
         throw new Error(reason);
       }
       const result: unknown = await response.json();
@@ -912,11 +914,11 @@ export function WorkspaceChat({
           message.suggestions?.some((item) => item.id === suggestion.id && item.status === "accepted")) ||
         !("task" in result) || (result.task !== null && (typeof result.task !== "object" || result.task === null)) ||
         !("alreadyAccepted" in result) || typeof result.alreadyAccepted !== "boolean") {
-        throw new Error("El servidor devolvió una respuesta de aceptación no válida.");
+        throw new Error(t("El servidor devolvió una respuesta de aceptación no válida."));
       }
       if (!isCurrent()) {
         discardOptimistic();
-        return "El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.";
+        return t("El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.");
       }
       const canonical = result.conversation;
       setActiveChat(canonical);
@@ -929,8 +931,8 @@ export function WorkspaceChat({
     } catch (reason) {
       discardOptimistic();
       return isCurrent()
-        ? reason instanceof Error ? reason.message : "No se pudo aplicar la propuesta. Inténtalo de nuevo."
-        : "El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.";
+        ? reason instanceof Error ? reason.message : t("No se pudo aplicar la propuesta. Inténtalo de nuevo.")
+        : t("El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.");
     } finally {
       if (suggestionRequest.current === controller) suggestionRequest.current = null;
       if (pendingSuggestionRef.current === suggestion.id) {
@@ -968,7 +970,7 @@ export function WorkspaceChat({
     }
     for (const [index, item] of items.entries()) {
       const failure = await acceptSuggestion(item, draftForSuggestion(item), prepared.get(item.id));
-      if (failure) return `${index} de ${items.length} aplicadas. ${failure}`;
+      if (failure) return t("{0} de {1} aplicadas. {2}", index, items.length, failure);
     }
     return null;
     } finally {
@@ -980,7 +982,7 @@ export function WorkspaceChat({
     if (!project || !suggestion.targetTaskId) return;
     const snapshot = await loadUndoSnapshot(project.id, suggestion.targetTaskId, requestFn);
     const failure = await acceptSuggestion(suggestion, draftForSuggestion(suggestion));
-    setAutoNotice(failure ? { text: `No se pudo aplicar automáticamente. ${failure}`, snapshot: null } : { text: "La IA aplicó los cambios", snapshot });
+    setAutoNotice(failure ? { text: t("No se pudo aplicar automáticamente. {0}", failure), snapshot: null } : { text: t("La IA aplicó los cambios"), snapshot });
   }
 
   async function undoAutoApply() {
@@ -1007,9 +1009,9 @@ export function WorkspaceChat({
       });
       await patch({ column: snapshot.column, beforeTaskId: null });
       onTaskCreated(project.id);
-      setAutoNotice({ text: "Cambios revertidos", snapshot: null });
+      setAutoNotice({ text: t("Cambios revertidos"), snapshot: null });
     } catch {
-      setAutoNotice({ text: "No se pudo deshacer. Revisa la tarea en el tablero.", snapshot: null });
+      setAutoNotice({ text: t("No se pudo deshacer. Revisa la tarea en el tablero."), snapshot: null });
     }
   }
 
@@ -1054,7 +1056,7 @@ export function WorkspaceChat({
     const providerId = chat.provider ?? provider;
     const modelId = chat.model ?? model;
     if (!providerId || !modelId) {
-      setSaveError("No se puede guardar esta decisión sin los metadatos del proveedor.");
+      setSaveError(t("No se puede guardar esta decisión sin los metadatos del proveedor."));
       return;
     }
     const messages = history.map((message) => message.role === "assistant" && message.suggestions?.some(({ id, status }) => id === suggestion.id && status === expectedStatus)
@@ -1088,7 +1090,7 @@ export function WorkspaceChat({
       const payload = JSON.parse(event.dataTransfer.getData("application/x-modus-task")) as { taskId?: unknown; projectId?: unknown; title?: unknown };
       if (!project || payload.projectId !== project.id || !Number.isSafeInteger(payload.taskId) || (payload.taskId as number) <= 0) return;
       const id = payload.taskId as number;
-      const title = typeof payload.title === "string" ? payload.title.slice(0, 255) : `Tarea ${id}`;
+      const title = typeof payload.title === "string" ? payload.title.slice(0, 255) : t("Tarea {0}", id);
       setTaskRefs((current) => current.some((item) => item.id === id) || current.length >= 10 ? current : [...current, { id, title }]);
     } catch {}
   }
@@ -1110,7 +1112,7 @@ export function WorkspaceChat({
   }
 
   async function sendMessage() {
-    const content = draft.trim() || (attachments.items.some((item) => item.status === "ready") ? "Archivos adjuntos." : taskRefs.length ? "Tareas adjuntas." : "");
+    const content = draft.trim() || (attachments.items.some((item) => item.status === "ready") ? t("Archivos adjuntos.") : taskRefs.length ? t("Tareas adjuntas.") : "");
     if (!content || !ready || sendingRef.current || !project || !provider || !selectedModel || attachments.items.some((item) => item.status !== "ready")) return;
     const attached = attachments.items.flatMap((item) => item.attachment ? [item.attachment] : []);
     if (attached.length !== attachments.items.length || attached.length > maxAttachments) return;
@@ -1137,7 +1139,7 @@ export function WorkspaceChat({
     };
     const requestBody = JSON.stringify(request);
     if (new TextEncoder().encode(requestBody).byteLength > 128 * 1024) {
-      setLimitError("La solicitud supera el límite del chat. Crea un chat nuevo para continuar.");
+      setLimitError(t("La solicitud supera el límite del chat. Crea un chat nuevo para continuar."));
       return;
     }
     setLimitError("");
@@ -1191,7 +1193,7 @@ export function WorkspaceChat({
       const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
       if (contentType.includes("application/x-ndjson")) {
         if (!response.body) {
-          throw new Error("La respuesta del chat no es válida.");
+          throw new Error(t("La respuesta del chat no es válida."));
         }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -1204,10 +1206,10 @@ export function WorkspaceChat({
           try {
             event = JSON.parse(line);
           } catch {
-            throw new Error("La respuesta del chat contiene JSON inválido.");
+            throw new Error(t("La respuesta del chat contiene JSON inválido."));
           }
           if (!event || typeof event !== "object" || !("type" in event)) {
-            throw new Error("La respuesta del chat contiene un evento inválido.");
+            throw new Error(t("La respuesta del chat contiene un evento inválido."));
           }
           if (event.type === "searching") {
             setSearching(true);
@@ -1219,15 +1221,15 @@ export function WorkspaceChat({
             setStreamingSuggestions((current) => [...current, event.suggestion as TaskSuggestion]);
           } else if (event.type === "error") {
             throw new Error("error" in event && typeof event.error === "string"
-              ? event.error : "No se pudo completar el chat.");
+              ? event.error : t("No se pudo completar el chat."));
           } else if (event.type === "complete" && "message" in event &&
             typeof event.message === "object" && event.message !== null &&
             "role" in event.message && event.message.role === "assistant" &&
             "content" in event.message && typeof event.message.content === "string") {
-            if (completedMessage) throw new Error("La respuesta del chat repitió el resultado final.");
+            if (completedMessage) throw new Error(t("La respuesta del chat repitió el resultado final."));
             completedMessage = event.message as ChatResponse["message"];
           } else {
-            throw new Error("La respuesta del chat contiene un evento inesperado.");
+            throw new Error(t("La respuesta del chat contiene un evento inesperado."));
           }
         };
         try {
@@ -1242,7 +1244,7 @@ export function WorkspaceChat({
           if (controller.signal.aborted) return;
           eventBuffer += decoder.decode();
           if (eventBuffer.trim()) consumeEvent(eventBuffer);
-          if (!completedMessage) throw new Error("La respuesta del chat terminó sin resultado.");
+          if (!completedMessage) throw new Error(t("La respuesta del chat terminó sin resultado."));
           streamComplete = true;
         } finally {
           setSearching(false);
@@ -1254,12 +1256,12 @@ export function WorkspaceChat({
         const data: ChatResponse = await response.json();
         message = data.message;
       } else {
-        throw new Error("La respuesta del chat tiene un formato no válido.");
+        throw new Error(t("La respuesta del chat tiene un formato no válido."));
       }
       if (controller.signal.aborted) return;
       if (!message || message.role !== "assistant" || typeof message.content !== "string" ||
         !validMessages([message])) {
-        throw new Error("La respuesta del chat no es válida.");
+        throw new Error(t("La respuesta del chat no es válida."));
       }
       const completed = [...history, userMessage, message];
       liveSuggestionIds.current = new Set((message.suggestions ?? []).map((item) => item.id));
@@ -1290,7 +1292,7 @@ export function WorkspaceChat({
           drafts.current.set(activeChat ? String(activeChat.id) : newDraftKey.current, content);
         }
         setSendError(
-          reason instanceof Error ? reason.message : "No se pudo enviar el mensaje.",
+          reason instanceof Error ? reason.message : t("No se pudo enviar el mensaje."),
         );
       }
     } finally {
@@ -1345,7 +1347,7 @@ export function WorkspaceChat({
     label: name,
     icon: logo ? `/providers/${logo}` : undefined,
     invertInDark,
-    detail: configured.includes(id) ? "Configurado" : "No configurado",
+    detail: configured.includes(id) ? t("Configurado") : t("No configurado"),
     disabled: !configured.includes(id),
   }));
   const activeProvider = providers.find((p) => p.id === provider);
@@ -1353,7 +1355,7 @@ export function WorkspaceChat({
     ...(!model
       ? [{
           value: "",
-          label: modelsLoading ? "Cargando modelos…" : "Seleccionar modelo",
+          label: modelsLoading ? t("Cargando modelos…") : t("Seleccionar modelo"),
           disabled: true,
         }]
       : []),
@@ -1370,7 +1372,7 @@ export function WorkspaceChat({
     ...(model && !models.some((item) => item.id === model)
       ? [{
           value: model,
-          label: `${model} (no disponible)`,
+          label: t("{0} (no disponible)", model),
           icon: activeProvider?.logo ? `/providers/${activeProvider.logo}` : undefined,
           invertInDark: activeProvider?.invertInDark,
           disabled: true,
@@ -1380,7 +1382,7 @@ export function WorkspaceChat({
   const chatOptions: ChatPickerOption[] = chats.map((chat) => ({
     value: String(chat.id),
     label: chat.title,
-    detail: new Date(chat.updatedAt).toLocaleString("es", { dateStyle: "short", timeStyle: "short" }),
+    detail: new Date(chat.updatedAt).toLocaleString(lang, { dateStyle: "short", timeStyle: "short" }),
   }));
   const busy = providersLoading || historyLoading || conversationLoading || sending || saving || chatActionPending;
   const currentSuggestionTaskData = suggestionTaskData?.projectId === project?.id ? suggestionTaskData : null;
@@ -1429,29 +1431,29 @@ export function WorkspaceChat({
           <i aria-hidden="true" className="bi bi-stars" />
         </span>
         <div className={styles.headerText}>
-          <h2 id="chat-title" className={styles.srOnly}>Chat con IA</h2>
+          <h2 id="chat-title" className={styles.srOnly}>{t("Chat con IA")}</h2>
           <ChatPicker
-            label="Seleccionar chat"
+            label={t("Seleccionar chat")}
             value={activeChat ? String(activeChat.id) : ""}
             options={chatOptions}
             onChange={(value) => void selectChat(value)}
             disabled={!project || !canSwitch || historyLoading}
             loading={historyLoading && !activeChat}
             action={{
-              label: "Nuevo chat",
+              label: t("Nuevo chat"),
               onSelect: () => void startNewChat(),
               disabled: !project || !canSwitch,
             }}
             optionActions={{ disabled: !canMutateChats, onSelect: openChatAction }}
           />
-          <p>{provider === "chatgpt" && configured.includes("chatgpt") ? <>Usando tu plan de ChatGPT · <a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">Gestionar uso</a></> : provider === "chatgpt" ? "Conecta ChatGPT en Proveedores para usar tu plan." : project ? "Chats de este proyecto" : "Selecciona un proyecto para chatear."}</p>
+          <p>{provider === "chatgpt" && configured.includes("chatgpt") ? <>{t("Usando tu plan de ChatGPT ·")} <a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">{t("Gestionar uso")}</a></> : provider === "chatgpt" ? t("Conecta ChatGPT en Proveedores para usar tu plan.") : project ? t("Chats de este proyecto") : t("Selecciona un proyecto para chatear.")}</p>
         </div>
         <button
           ref={closeButtonRef}
           type="button"
           className={shared.iconButton}
           onClick={onClose}
-          aria-label="Ocultar chat"
+          aria-label={t("Ocultar chat")}
           aria-expanded={true}
           aria-controls="workspace-chat"
         >
@@ -1549,17 +1551,17 @@ export function WorkspaceChat({
       />
       {autoNotice && (
         <div className={styles.autoNotice} role="status">
-          <span>{autoNotice.text}</span>
+          <span>{t(autoNotice.text)}</span>
           {autoNotice.snapshot && (
             <button type="button" disabled={autoNotice.busy} onClick={() => void undoAutoApply()}>
-              {autoNotice.busy ? "Deshaciendo…" : "Deshacer"}
+              {autoNotice.busy ? t("Deshaciendo…") : t("Deshacer")}
             </button>
           )}
         </div>
       )}
       <div className={styles.autoApply}>
         <Switch checked={autoApply} onChange={toggleAutoApply} labelledBy="auto-apply-label" />
-        <span id="auto-apply-label">Aplicar cambios de la IA automáticamente</span>
+        <span id="auto-apply-label">{t("Aplicar cambios de la IA automáticamente")}</span>
       </div>
       <ChatComposer
         draft={draft}

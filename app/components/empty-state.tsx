@@ -1,5 +1,8 @@
+"use client";
+
 import { useId } from "react";
 import styles from "./empty-state.module.css";
+import { useT } from "../i18n/provider";
 
 export function EmptyState({
   icon,
@@ -12,6 +15,7 @@ export function EmptyState({
   description: string;
   onCreate?: () => void;
 }) {
+  const t = useT();
   const headingId = useId();
   return (
     <section className={styles.emptyState} aria-labelledby={headingId}>
@@ -23,11 +27,11 @@ export function EmptyState({
       <button
         className={styles.primary}
         onClick={onCreate}
-        title={onCreate ? undefined : "Esta función aún no está integrada."}
+        title={onCreate ? undefined : t("Esta función aún no está integrada.")}
         disabled={!onCreate}
       >
         <i aria-hidden="true" className="bi bi-plus" />
-        Nuevo proyecto
+        {t("Nuevo proyecto")}
       </button>
     </section>
   );

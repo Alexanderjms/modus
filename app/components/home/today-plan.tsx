@@ -1,7 +1,10 @@
+"use client";
+
 import type { Dispatch, SetStateAction } from "react";
 import styles from "./today-plan.module.css";
-import { Icon } from "../icon";
+import { Icon } from "../ui-icon";
 import type { Task } from "./home-data";
+import { useT } from "../../i18n/provider";
 
 export function TodayPlan({
   tasks,
@@ -16,16 +19,17 @@ export function TodayPlan({
   search: string;
   query: string;
 }) {
+  const t = useT();
   const completedCount = completed.filter(Boolean).length;
   return (
     <section id="plan" aria-labelledby="plan-heading" className={styles.plan}>
       <header className={styles.planHeader}>
         <Icon name="stars" className={styles.planIcon} />
-        <h2 id="plan-heading">Plan para hoy</h2>
-        <span className={styles.suggested}>Sugerido por modus</span>
+        <h2 id="plan-heading">{t("Plan para hoy")}</h2>
+        <span className={styles.suggested}>{t("Sugerido por modus")}</span>
         <span className={styles.planMeta}>
           {tasks.length - completedCount}{" "}
-          {tasks.length - completedCount === 1 ? "pendiente" : "pendientes"}
+          {t(tasks.length - completedCount === 1 ? "pendiente" : "pendientes")}
         </span>
       </header>
       <div className={styles.planBody}>
@@ -55,14 +59,14 @@ export function TodayPlan({
               {completed[index] && (
                 <span className={styles.done}>
                   <Icon name="check" />
-                  Completada
+                  {t("Completada")}
                 </span>
               )}
             </div>
           ))
         ) : (
           <p className={styles.empty}>
-            No hay tareas que coincidan con la búsqueda.
+            {t("No hay tareas que coincidan con la búsqueda.")}
           </p>
         )}
       </div>

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Project } from "../projects-data";
+import { projectTasksLabel, type Project } from "../projects-data";
 import cardStyles from "./project-card.module.css";
 import menuStyles from "./menu.module.css";
-import { Icon } from "../icon";
+import { Icon } from "../ui-icon";
 import { ProjectActionsMenu, type ProjectAction } from "./project-actions-menu";
+import { useT } from "../../i18n/provider";
 
 export function ProjectCard({
   project,
@@ -19,6 +20,7 @@ export function ProjectCard({
   onEdit: (project: Project) => void;
   pending: boolean;
 }) {
+  const t = useT();
   const router = useRouter();
   const href = `/workspace?project=${encodeURIComponent(project.name)}`;
   function act(action: "archive" | "restore" | "duplicate" | "delete") {
@@ -46,10 +48,10 @@ export function ProjectCard({
           <span className={cardStyles.chip}>
             {project.status === "completed" ? (
               <>
-                <Icon name="check" className={menuStyles.icon} /> Completado
+                <Icon name="check" className={menuStyles.icon} /> {t("Completado")}
               </>
             ) : (
-              "Archivado"
+              t("Archivado")
             )}
           </span>
         )}
@@ -65,45 +67,45 @@ export function ProjectCard({
         <progress
           max={100}
           value={project.progress}
-          aria-label={`Progreso de ${project.name}`}
+          aria-label={t("Progreso de {0}", project.name)}
         />
         <strong>{project.progress}%</strong>
       </div>
       <div className={cardStyles.meta}>
-        <span>{project.tasks}</span>
+        <span>{projectTasksLabel(project.tasks, t)}</span>
       </div>
       <div className={cardStyles.status}>
         {project.status === "active" ? (
           <>
             <span className={cardStyles.doing}>
               <b />
-              {project.doing} en progreso
+              {project.doing} {t("en progreso")}
             </span>
-            <span>Actualizado {project.activity}</span>
+            <span>{t("Actualizado")} {t(project.activity)}</span>
           </>
         ) : (
           <span>
             {project.status === "completed" ? (
               <>
-                <Icon name="check" className={menuStyles.icon} /> Completado
+                <Icon name="check" className={menuStyles.icon} /> {t("Completado")}
               </>
             ) : (
-              "Archivado"
+              t("Archivado")
             )}{" "}
-            {project.activity}
+            {t(project.activity)}
           </span>
         )}
       </div>
       {pending && (
         <span className={cardStyles.meta} role="status">
-          Procesando…
+          {t("Procesando…")}
         </span>
       )}
       {project.status === "archived" && (
         <div className={cardStyles.archivedActions}>
           <button disabled={pending} onClick={() => act("restore")}>
             <Icon name="arrow-counterclockwise" className={menuStyles.icon} />
-            Restaurar
+            {t("Restaurar")}
           </button>
         </div>
       )}

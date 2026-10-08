@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { addCalendarDays, calendarGrid, formatCalendarDate, parseCalendarDate } from "./date-picker-date.mjs";
 import styles from "./date-picker.module.css";
 import { DateCalendarHeader, type SelectorMenu } from "./date-calendar-header";
 import { DateCalendarGrid } from "./date-calendar-grid";
+import { useLang } from "../../i18n/provider";
 
-const monthNames = Array.from({ length: 12 }, (_, month) =>
-  new Intl.DateTimeFormat("es", { month: "long", timeZone: "UTC" })
+const monthNamesFor = (lang: string) => Array.from({ length: 12 }, (_, month) =>
+  new Intl.DateTimeFormat(lang, { month: "long", timeZone: "UTC" })
     .format(parseCalendarDate(`2024-${String(month + 1).padStart(2, "0")}-01`)!),
 );
 
@@ -30,6 +31,11 @@ export function DatePicker({
   suspended?: boolean;
   invalid?: boolean;
 }) {
+  const { lang, t } = useLang();
+  const monthNames = useMemo(() => monthNamesFor(lang), [lang]);
+  const formatLabel = (value: string) => formatLabelFor(lang, value);
+  const formatLongLabel = (value: string) => formatLongLabelFor(lang, value);
+  const formatMonth = (year: number, month: number) => formatMonthFor(lang, year, month);
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const monthTriggerRef = useRef<HTMLButtonElement>(null);
@@ -242,7 +248,7 @@ export function DatePicker({
         ref={triggerRef}
         type="button"
         className={`${styles.trigger} ${open ? styles.expanded : ""}`}
-        aria-label={`${label}: ${selectedDate ? formatLabel(selectedDate) : "Sin fecha"}`}
+        aria-label={`${label}: ${selectedDate ? formatLabel(selectedDate) : t("Sin fecha")}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={`${id}-calendar`}
@@ -256,7 +262,7 @@ export function DatePicker({
           }
         }}
       >
-        <span>{selectedDate ? formatLabel(selectedDate) : "Seleccionar fecha"}</span>
+        <span>{selectedDate ? formatLabel(selectedDate) : t("Seleccionar fecha")}</span>
         <i aria-hidden="true" className="bi bi-calendar3" />
       </button>
       <div
@@ -344,17 +350,17 @@ function normalizeMonth(year: number, month: number) {
   return dateParts(date);
 }
 
-function formatLabel(value: string) {
+function formatLabelFor(lang: string, value: string) {
   const date = parseCalendarDate(value)!;
-  return new Intl.DateTimeFormat("es", { dateStyle: "medium", timeZone: "UTC" }).format(date);
+  return new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeZone: "UTC" }).format(date);
 }
 
-function formatLongLabel(value: string) {
+function formatLongLabelFor(lang: string, value: string) {
   const date = parseCalendarDate(value)!;
-  return new Intl.DateTimeFormat("es", { dateStyle: "full", timeZone: "UTC" }).format(date);
+  return new Intl.DateTimeFormat(lang, { dateStyle: "full", timeZone: "UTC" }).format(date);
 }
 
-function formatMonth(year: number, month: number) {
+function formatMonthFor(lang: string, year: number, month: number) {
   const date = parseCalendarDate(`${String(year).padStart(4, "0")}-${String(month + 1).padStart(2, "0")}-01`)!;
-  return new Intl.DateTimeFormat("es", { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
+  return new Intl.DateTimeFormat(lang, { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
 }

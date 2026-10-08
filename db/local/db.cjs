@@ -20,8 +20,12 @@ function getSchemaPath() {
   return path.join(__dirname, "schema.sql");
 }
 
+function getDataDir() {
+  return process.env.MODUS_DATA_DIR || path.join(getProjectRoot(), ".local");
+}
+
 function getDefaultDbPath() {
-  return path.join(getProjectRoot(), ".local", "modus.sqlite");
+  return path.join(getDataDir(), "modus.sqlite");
 }
 
 function getDatabase(customPath) {
@@ -53,6 +57,7 @@ function getDatabase(customPath) {
 
 module.exports = {
   getProjectRoot,
+  getDataDir,
   getDefaultDbPath,
   getSchemaPath,
   getDatabase,

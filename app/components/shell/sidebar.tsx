@@ -6,12 +6,17 @@ import styles from "./sidebar.module.css";
 import { ProfileMenu } from "./profile-menu";
 import { ProfileModal, ProvidersModal } from "./profile-modals";
 import { TavilyModal } from "./tavily-modal";
+import { useT } from "../../i18n/provider";
+import { useUserName, userInitials } from "../user-context";
 
 export function Sidebar({
   active = "inicio",
 }: {
   active?: "inicio" | "tareas" | "proyectos";
 }) {
+  const t = useT();
+  const userName = useUserName();
+  const displayName = userName ?? t("Perfil");
   const [profileOpen, setProfileOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showProvidersModal, setShowProvidersModal] = useState(false);
@@ -52,45 +57,45 @@ export function Sidebar({
           <aside
             id="main-sidebar"
             className={styles.sidebar}
-            aria-label="Navegación principal"
+            aria-label={t("Navegación principal")}
             data-collapsed="true"
           >
             <Link
               href="/inicio"
-              aria-label="Inicio"
-              title="Inicio"
+              aria-label={t("Inicio")}
+              title={t("Inicio")}
               aria-current={active === "inicio" ? "page" : undefined}
               className={active === "inicio" ? styles.activeNav : undefined}
             >
               <i aria-hidden="true" className="bi bi-house" />
-              <span className={styles.navLabel}>Inicio</span>
+              <span className={styles.navLabel}>{t("Inicio")}</span>
             </Link>
             <div
               className={`${styles.projectsNav} ${active === "proyectos" || active === "tareas" ? styles.activeNav : ""}`}
             >
               <Link
                 href="/proyectos"
-                aria-label="Proyectos"
-                title="Proyectos"
+                aria-label={t("Proyectos")}
+                title={t("Proyectos")}
                 aria-current={active === "proyectos" ? "page" : undefined}
               >
                 <i aria-hidden="true" className="bi bi-folder" />
-                <span className={styles.navLabel}>Proyectos</span>
+                <span className={styles.navLabel}>{t("Proyectos")}</span>
               </Link>
             </div>
             <div className={styles.spacer} />
             <button
               className={styles.sidebarUser}
-              aria-label="Menú de Alexander"
+              aria-label={t("Menú de {0}", displayName)}
               aria-expanded={profileOpen}
               aria-controls={profileId}
               popoverTarget={profileId}
-              title="Menú de Alexander"
+              title={t("Menú de {0}", displayName)}
             >
-              <span className={styles.avatar} aria-label="Alexander">
-                AL
+              <span className={styles.avatar} aria-label={displayName}>
+                {userInitials(userName)}
               </span>
-              <span className={styles.navLabel}>Alexander</span>
+              <span className={styles.navLabel}>{displayName}</span>
             </button>
           </aside>
         </div>

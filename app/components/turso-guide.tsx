@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TursoGuideStep } from "./onboarding/turso-guide-step";
+import { useT } from "../i18n/provider";
 
 const steps = [
   {
@@ -32,6 +33,7 @@ const steps = [
 ];
 
 export function TursoGuide() {
+  const t = useT();
   const [openStep, setOpenStep] = useState<number | null>(0);
 
   return (
@@ -39,15 +41,14 @@ export function TursoGuide() {
       <div className="flex w-full flex-col gap-6">
         <header className="flex w-full flex-col items-start gap-2">
           <h2 className="text-[15px] font-semibold leading-[19px]">
-            ¿Primera vez en Turso?
+            {t("¿Primera vez en Turso?")}
           </h2>
           <p className="text-[12.5px] leading-[18px] text-[var(--muted)]">
-            Sigue estos pasos en el panel web de Turso. No necesitas usar la
-            terminal.
+            {t("Sigue estos pasos en el panel web de Turso. No necesitas usar la terminal.")}
           </p>
         </header>
         <ol
-          aria-label="Pasos para obtener tus credenciales"
+          aria-label={t("Pasos para obtener tus credenciales")}
           className="relative flex w-full list-none flex-col gap-4 before:absolute before:bottom-[10px] before:left-[9.5px] before:top-[10px] before:w-px before:bg-[var(--divider)] before:opacity-[0.55]"
         >
           {steps.map((step, index) => {
@@ -56,8 +57,8 @@ export function TursoGuide() {
               <TursoGuideStep
                 key={step.title}
                 index={index}
-                title={step.title}
-                description={step.description}
+                title={t(step.title)}
+                description={t(step.description)}
                 isOpen={isOpen}
                 onToggle={() => setOpenStep(isOpen ? null : index)}
               />

@@ -13,6 +13,9 @@ import {
   type ProviderId,
   type ProviderStatus,
 } from "./provider-data.mjs";
+import { useRouter } from "next/navigation";
+import { useT } from "../../i18n/provider";
+import { useUserName } from "../user-context";
 
 export function ProfileModal({
   open,
@@ -23,9 +26,12 @@ export function ProfileModal({
   onClose: () => void;
   storageType?: "local" | "cloud";
 }) {
+  const t = useT();
   const isLocal = storageType === "local";
 
-  const [name, setName] = useState("Alexander");
+  const userName = useUserName();
+  const router = useRouter();
+  const [name, setName] = useState(userName ?? "");
   const [profileError, setProfileError] = useState("");
   const [pin, setPin] = useState("");
   const [currentPin, setCurrentPin] = useState("");
@@ -37,6 +43,7 @@ export function ProfileModal({
 
   useEffect(() => {
     if (!open || !isLocal) return;
+    setName(userName ?? "");
     setPin("");
     setCurrentPin("");
     setPinError("");
@@ -46,7 +53,7 @@ export function ProfileModal({
       .then((result: { hasPin?: boolean } | null) => setHasPin(result?.hasPin === true))
       .catch(() => {});
     return () => controller.abort();
-  }, [open, isLocal]);
+  }, [open, isLocal, userName]);
 
   useEffect(() => {
     if (!open || isLocal) return;
@@ -66,7 +73,7 @@ export function ProfileModal({
 
   async function saveCloudProfile() {
     if (password && password !== confirmPassword) {
-      setProfileError("Las contraseñas no coinciden.");
+      setProfileError(t("Las contraseñas no coinciden."));
       return;
     }
     setPinPending(true);
@@ -80,14 +87,15 @@ export function ProfileModal({
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as { error?: string; retryAfter?: number } | null;
         setProfileError(
-          (result?.error ?? "No se pudo guardar el perfil.") +
-            (result?.retryAfter ? ` Reintenta en ${result.retryAfter} s.` : ""),
+          (result?.error ?? t("No se pudo guardar el perfil.")) +
+            (result?.retryAfter ? t(" Reintenta en {0} s.", result.retryAfter) : ""),
         );
         return;
       }
       onClose();
+      router.refresh();
     } catch {
-      setProfileError("No se pudo conectar. Inténtalo de nuevo.");
+      setProfileError(t("No se pudo conectar. Inténtalo de nuevo."));
     } finally {
       setPinPending(false);
     }
@@ -95,11 +103,11 @@ export function ProfileModal({
 
   async function savePin(newPin: string | null) {
     if (hasPin && !currentPin) {
-      setPinError("Introduce tu PIN actual.");
+      setPinError(t("Introduce tu PIN actual."));
       return;
     }
     if (newPin !== null && !/^\d{4,12}$/.test(newPin)) {
-      setPinError("El nuevo PIN debe tener entre 4 y 12 dígitos.");
+      setPinError(t("El nuevo PIN debe tener entre 4 y 12 dígitos."));
       return;
     }
     setPinPending(true);
@@ -113,8 +121,8 @@ export function ProfileModal({
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as { error?: string; retryAfter?: number } | null;
         setPinError(
-          (result?.error ?? "No se pudo guardar el PIN.") +
-            (result?.retryAfter ? ` Reintenta en ${result.retryAfter} s.` : ""),
+          (result?.error ?? t("No se pudo guardar el PIN.")) +
+            (result?.retryAfter ? t(" Reintenta en {0} s.", result.retryAfter) : ""),
         );
         return;
       }
@@ -123,28 +131,56 @@ export function ProfileModal({
       setCurrentPin("");
       onClose();
     } catch {
-      setPinError("No se pudo conectar. Inténtalo de nuevo.");
+      setPinError(t("No se pudo conectar. Inténtalo de nuevo."));
     } finally {
       setPinPending(false);
     }
   }
 
+  async function saveLocalProfile() {
+    const trimmed = name.trim();
+    setPinPending(true);
+    setProfileError("");
+    setPinError("");
+    try {
+      if (trimmed !== (userName ?? "")) {
+        const response = await fetch("/api/auth/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ usuario: trimmed }),
+        });
+        if (!response.ok) {
+          const result = (await response.json().catch(() => null)) as { error?: string } | null;
+          setPinError(result?.error ?? t("No se pudo guardar el perfil."));
+          return;
+        }
+        router.refresh();
+      }
+    } catch {
+      setPinError(t("No se pudo conectar. Inténtalo de nuevo."));
+      return;
+    } finally {
+      setPinPending(false);
+    }
+    if (pin) void savePin(pin);
+    else onClose();
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isLocal) {
-      if (pin) void savePin(pin);
-      else onClose();
+      void saveLocalProfile();
       return;
     }
     void saveCloudProfile();
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Perfil" onSubmit={handleSubmit} pending={pinPending}>
+    <Modal open={open} onClose={onClose} title={t("Perfil")} onSubmit={handleSubmit} pending={pinPending}>
       <div className={styles.form}>
         <div className={styles.field}>
           <label htmlFor="profile-name" className={styles.label}>
-            {isLocal ? "Nombre" : "Usuario"}
+            {isLocal ? t("Nombre") : t("Usuario")}
           </label>
           <input
             id="profile-name"
@@ -163,7 +199,7 @@ export function ProfileModal({
             {hasPin && (
               <div className={styles.field}>
                 <label htmlFor="profile-current-pin" className={styles.label}>
-                  PIN actual
+                  {t("PIN actual")}
                 </label>
                 <input
                   id="profile-current-pin"
@@ -171,7 +207,7 @@ export function ProfileModal({
                   inputMode="numeric"
                   maxLength={12}
                   autoComplete="current-password"
-                  placeholder="Introduce tu PIN actual"
+                  placeholder={t("Introduce tu PIN actual")}
                   value={currentPin}
                   disabled={pinPending}
                   onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
@@ -181,7 +217,7 @@ export function ProfileModal({
             )}
             <div className={styles.field}>
               <label htmlFor="profile-pin" className={styles.label}>
-                {hasPin ? "Nuevo PIN" : "PIN de acceso"}
+                {hasPin ? t("Nuevo PIN") : t("PIN de acceso")}
               </label>
               <input
                 id="profile-pin"
@@ -189,7 +225,7 @@ export function ProfileModal({
                 inputMode="numeric"
                 maxLength={12}
                 autoComplete="new-password"
-                placeholder={hasPin ? "Déjalo vacío para no cambiarlo" : "Entre 4 y 12 dígitos"}
+                placeholder={hasPin ? t("Déjalo vacío para no cambiarlo") : t("Entre 4 y 12 dígitos")}
                 value={pin}
                 disabled={pinPending}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
@@ -203,12 +239,12 @@ export function ProfileModal({
                 disabled={pinPending}
                 onClick={() => void savePin(null)}
               >
-                Quitar PIN
+                {t("Quitar PIN")}
               </button>
             )}
             {pinError && (
               <p role="alert" className={styles.errorMessage}>
-                {pinError}
+                {t(pinError)}
               </p>
             )}
           </>
@@ -216,13 +252,13 @@ export function ProfileModal({
           <>
             <div className={styles.field}>
               <label htmlFor="profile-password" className={styles.label}>
-                Nueva contraseña
+                {t("Nueva contraseña")}
               </label>
               <input
                 id="profile-password"
                 type="password"
                 minLength={8}
-                placeholder="Mínimo 8 caracteres"
+                placeholder={t("Mínimo 8 caracteres")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className={styles.input}
@@ -233,13 +269,13 @@ export function ProfileModal({
                 htmlFor="profile-confirm-password"
                 className={styles.label}
               >
-                Confirmar contraseña
+                {t("Confirmar contraseña")}
               </label>
               <input
                 id="profile-confirm-password"
                 type="password"
                 minLength={8}
-                placeholder="Repite la contraseña"
+                placeholder={t("Repite la contraseña")}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className={styles.input}
@@ -247,7 +283,7 @@ export function ProfileModal({
             </div>
             {profileError && (
               <p role="alert" className={styles.errorMessage}>
-                {profileError}
+                {t(profileError)}
               </p>
             )}
           </>
@@ -266,6 +302,7 @@ export function ProvidersModal({
   onClose: () => void;
   callbackError?: boolean;
 }) {
+  const t = useT();
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [removed, setRemoved] = useState<Set<ProviderId>>(() => new Set());
   const [status, setStatus] = useState<ProviderStatus>({});
@@ -308,7 +345,7 @@ export function ProvidersModal({
       })
       .catch((reason: unknown) => {
         if (controller.signal.aborted) return;
-        setError(providerRequestError(reason, "No se pudieron cargar las claves. Inténtalo de nuevo."));
+        setError(providerRequestError(reason, t("No se pudieron cargar las claves. Inténtalo de nuevo.")));
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -371,7 +408,7 @@ export function ProvidersModal({
       if (reason instanceof Error && reason.message === providerErrorForStatus(501)) {
         setStorageAvailable(false);
       }
-      setError(providerRequestError(reason, "No se pudieron guardar las claves. Inténtalo de nuevo."));
+      setError(providerRequestError(reason, t("No se pudieron guardar las claves. Inténtalo de nuevo.")));
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -385,26 +422,23 @@ export function ProvidersModal({
     <Modal
       open={open}
       onClose={close}
-      title="Proveedores y conexiones"
+      title={t("Proveedores y conexiones")}
       className={styles.providersDialog}
       onSubmit={handleSubmit}
-      submitLabel={saving ? "Guardando…" : loading ? "Cargando…" : "Guardar cambios"}
+      submitLabel={saving ? t("Guardando…") : loading ? t("Cargando…") : t("Guardar cambios")}
       pending={saving}
       submitDisabled={!canEdit || !hasChanges}
       descriptionId="provider-security-note"
     >
       <ChatGPTConnectionCard open={open} disabled={saving || hasChanges} />
-      {callbackError && <p className={styles.errorMessage} role="alert">La autorización de ChatGPT no se completó. Puedes intentarlo de nuevo sin cambiar tus otras conexiones.</p>}
+      {callbackError && <p className={styles.errorMessage} role="alert">{t("La autorización de ChatGPT no se completó. Puedes intentarlo de nuevo sin cambiar tus otras conexiones.")}</p>}
       <p id="provider-security-note" className={styles.securityNote}>
-        Las API keys se guardan cifradas en SQLite con Windows DPAPI, protegidas por el usuario de
-        Windows que ejecuta Modus. No se hashean: el servidor debe poder recuperarlas para usarlas.
-        Las claves guardadas no se muestran de nuevo. El PIN no las cifra; al cambiar de usuario o
-        equipo puede ser necesario ingresarlas otra vez.
+        {t("Las API keys se guardan cifradas en SQLite con Windows DPAPI, protegidas por el usuario de Windows que ejecuta Modus. No se hashean: el servidor debe poder recuperarlas para usarlas. Las claves guardadas no se muestran de nuevo. El PIN no las cifra; al cambiar de usuario o equipo puede ser necesario ingresarlas otra vez.")}
       </p>
 
       {error && (
         <div className={styles.errorMessage} role="alert">
-          <span>{error}</span>
+          <span>{t(error)}</span>
           {!loaded && (
             <button
               type="button"
@@ -412,20 +446,19 @@ export function ProvidersModal({
               onClick={() => setReload((current) => current + 1)}
               disabled={loading}
             >
-              Reintentar
+              {t("Reintentar")}
             </button>
           )}
         </div>
       )}
       {loaded && storageAvailable === false && (
         <p className={styles.warningMessage} role="status">
-          La edición segura no está disponible en este sistema. Se requiere Windows DPAPI; las
-          claves no se guardarán sin cifrado.
+          {t("La edición segura no está disponible en este sistema. Se requiere Windows DPAPI; las claves no se guardarán sin cifrado.")}
         </p>
       )}
       {saving && (
         <p className={styles.statusMessage} role="status" aria-live="polite">
-          Guardando los cambios cifrados…
+          {t("Guardando los cambios cifrados…")}
         </p>
       )}
 
@@ -433,7 +466,7 @@ export function ProvidersModal({
         className={styles.providerList}
         aria-busy={loading || saving}
         role={loading ? "status" : undefined}
-        aria-label={loading ? "Cargando el estado de las claves guardadas" : undefined}
+        aria-label={loading ? t("Cargando el estado de las claves guardadas") : undefined}
       >
         {providers.map(({ id, name, placeholder, logo }) => (
           <ProviderCard

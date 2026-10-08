@@ -7,17 +7,19 @@ import { EmptyState } from "./empty-state";
 import { initialProjects, type Project } from "./projects-data";
 import { ProjectsToolbar } from "./projects/projects-toolbar";
 import { ProjectCard } from "./projects/project-card";
-import { Icon } from "./icon";
+import { Icon } from "./ui-icon";
 import { CreateProjectModal } from "./projects/create-project-modal";
 import { DeleteProjectModal } from "./projects/delete-project-modal";
 import { Skeleton } from "./skeleton";
 import { deleteProject, mutateProject } from "./projects/project-actions";
+import { useT } from "../i18n/provider";
 
 const statuses = [null, "active", "completed", "archived"] as const;
 type ProjectAction = "archive" | "restore" | "duplicate" | "delete";
 type MutationAction = Exclude<ProjectAction, "delete">;
 
 export function ProjectsOverview() {
+  const t = useT();
   const [projects, setProjects] = useState(initialProjects);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -52,14 +54,14 @@ export function ProjectsOverview() {
           projects?: Project[];
           error?: string;
         };
-        if (!response.ok) throw new Error(result.error || "No se pudieron cargar los proyectos.");
-        if (!Array.isArray(result.projects)) throw new Error("La respuesta no incluye los proyectos.");
+        if (!response.ok) throw new Error(result.error || t("No se pudieron cargar los proyectos."));
+        if (!Array.isArray(result.projects)) throw new Error(t("La respuesta no incluye los proyectos."));
         if (mutationVersion.current === version) setProjects(result.projects);
         else setReload((value) => value + 1);
       } catch (reason) {
         if (!controller.signal.aborted && mutationVersion.current === version) {
           setLoadError(
-            reason instanceof Error ? reason.message : "No se pudieron cargar los proyectos.",
+            reason instanceof Error ? reason.message : t("No se pudieron cargar los proyectos."),
           );
         }
       } finally {
@@ -119,7 +121,7 @@ export function ProjectsOverview() {
       setActionError({
         project,
         action,
-        message: reason instanceof Error ? reason.message : "No se pudo actualizar el proyecto.",
+        message: reason instanceof Error ? reason.message : t("No se pudo actualizar el proyecto."),
       });
     } finally {
       pendingIdsRef.current.delete(project.id);
@@ -140,7 +142,7 @@ export function ProjectsOverview() {
       setDeletingProject(null);
     } catch (reason) {
       setDeleteError(
-        reason instanceof Error ? reason.message : "No se pudo eliminar el proyecto.",
+        reason instanceof Error ? reason.message : t("No se pudo eliminar el proyecto."),
       );
     } finally {
       pendingIdsRef.current.delete(project.id);
@@ -180,28 +182,28 @@ export function ProjectsOverview() {
       <main ref={main} className={styles.main}>
         <header className={styles.heading}>
           <div>
-            <h1>Proyectos</h1>
-            <p>Organiza todo lo que estás construyendo.</p>
+            <h1>{t("Proyectos")}</h1>
+            <p>{t("Organiza todo lo que estás construyendo.")}</p>
           </div>
           <button
             className={styles.primary}
             onClick={() => setCreateOpen(true)}
           >
             <Icon name="plus" className={styles.primaryIcon} />
-            Nuevo proyecto
+            {t("Nuevo proyecto")}
           </button>
         </header>
         {loadError && (
           <p className={styles.empty} role="alert">
-            {loadError}{" "}
-            <button onClick={() => setReload((value) => value + 1)}>Reintentar</button>
+            {t(loadError)}{" "}
+            <button onClick={() => setReload((value) => value + 1)}>{t("Reintentar")}</button>
           </p>
         )}
         {actionError && (
           <p className={styles.empty} role="alert">
-            {actionError.message}{" "}
+            {t(actionError.message)}{" "}
             <button onClick={() => executeAction(actionError.project, actionError.action)}>
-              Reintentar
+              {t("Reintentar")}
             </button>
           </p>
         )}
@@ -228,12 +230,12 @@ export function ProjectsOverview() {
             </div>
             {!visible.length && (
               <p className={styles.empty} role="status">
-                No hay proyectos que coincidan con estos filtros.
+                {t("No hay proyectos que coincidan con estos filtros.")}
               </p>
             )}
           </>
         ) : loading ? (
-          <div className={styles.grid} role="status" aria-label="Cargando proyectos…">
+          <div className={styles.grid} role="status" aria-label={t("Cargando proyectos…")}>
             {[0, 1, 2].map((key) => (
               <div className={styles.skeletonCard} key={key}>
                 <div className={styles.skeletonTop}>
@@ -248,10 +250,8 @@ export function ProjectsOverview() {
         ) : loadError ? null : (
           <EmptyState
             icon="folder-plus"
-            title="Aún no tienes proyectos"
-            description={
-              "Crea tu primer proyecto para organizar tareas, conversaciones y contexto en un solo lugar."
-            }
+            title={t("Aún no tienes proyectos")}
+            description={t("Crea tu primer proyecto para organizar tareas, conversaciones y contexto en un solo lugar.")}
             onCreate={() => setCreateOpen(true)}
           />
         )}

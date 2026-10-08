@@ -2,6 +2,7 @@
 
 import type { KeyboardEvent, RefObject } from "react";
 import styles from "./date-picker.module.css";
+import { useT } from "../../i18n/provider";
 
 export type SelectorMenu = "month" | "year";
 
@@ -42,6 +43,7 @@ export function DateCalendarHeader({
   onCloseSelectorMenu: () => void;
   onNavigateMonth: (delta: number) => void;
 }) {
+  const t = useT();
   return (
     <div className={styles.calendarHeader}>
       <div className={styles.selectorWrap} onBlurCapture={(event) => {
@@ -51,7 +53,7 @@ export function DateCalendarHeader({
           ref={monthTriggerRef}
           type="button"
           className={styles.selectorTrigger}
-          aria-label={`Mes: ${monthNames[view.month]}`}
+          aria-label={t("Mes: {0}", monthNames[view.month])}
           aria-haspopup="listbox"
           aria-expanded={selectorMenu === "month"}
           aria-controls={`${id}-months`}
@@ -67,7 +69,7 @@ export function DateCalendarHeader({
           id={`${id}-months`}
           className={styles.selectorMenu}
           role="listbox"
-          aria-label="Mes"
+          aria-label={t("Mes")}
           onKeyDown={onNavigateSelector}
         >{monthNames.map((month, index) => <button
           key={month}
@@ -90,7 +92,7 @@ export function DateCalendarHeader({
           ref={yearTriggerRef}
           type="button"
           className={styles.selectorTrigger}
-          aria-label={`Año: ${view.year}`}
+          aria-label={t("Año: {0}", view.year)}
           aria-haspopup="listbox"
           aria-expanded={selectorMenu === "year"}
           aria-controls={`${id}-years`}
@@ -106,7 +108,7 @@ export function DateCalendarHeader({
           id={`${id}-years`}
           className={`${styles.selectorMenu} ${styles.yearMenu}`}
           role="listbox"
-          aria-label="Año"
+          aria-label={t("Año")}
           onKeyDown={onNavigateSelector}
         >{yearOptions.map((year, index) => <button
           key={year}
@@ -123,8 +125,8 @@ export function DateCalendarHeader({
         >{year}{view.year === year && <i aria-hidden="true" className="bi bi-check2" />}</button>)}</div>}
       </div>
       <div className={styles.monthNavigation}>
-        <button type="button" aria-label="Mes anterior" disabled={!monthAvailable(view.year, view.month - 1)} onClick={() => onNavigateMonth(-1)}><i aria-hidden="true" className="bi bi-chevron-left" /></button>
-        <button type="button" aria-label="Mes siguiente" disabled={!monthAvailable(view.year, view.month + 1)} onClick={() => onNavigateMonth(1)}><i aria-hidden="true" className="bi bi-chevron-right" /></button>
+        <button type="button" aria-label={t("Mes anterior")} disabled={!monthAvailable(view.year, view.month - 1)} onClick={() => onNavigateMonth(-1)}><i aria-hidden="true" className="bi bi-chevron-left" /></button>
+        <button type="button" aria-label={t("Mes siguiente")} disabled={!monthAvailable(view.year, view.month + 1)} onClick={() => onNavigateMonth(1)}><i aria-hidden="true" className="bi bi-chevron-right" /></button>
       </div>
     </div>
   );

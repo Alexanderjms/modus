@@ -6,6 +6,7 @@ import shared from "../workspace.module.css";
 import { Skeleton } from "../skeleton";
 import { TaskCard } from "./task-card";
 import type { BoardTask } from "./workspace-data";
+import { useT } from "../../i18n/provider";
 
 export function KanbanColumn({
   name,
@@ -36,6 +37,7 @@ export function KanbanColumn({
   disabled?: boolean;
   loading?: boolean;
 }) {
+  const t = useT();
   const [isComposing, setIsComposing] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -195,7 +197,7 @@ export function KanbanColumn({
       className={`${styles.column} ${styles[`column${index}`] ?? ""} ${
         isDropTarget ? styles.dropTarget : ""
       }`}
-      aria-label={name}
+      aria-label={t(name)}
       onDragOver={(event) => {
         if (!isInternalDrag(event)) return;
         event.preventDefault();
@@ -211,7 +213,7 @@ export function KanbanColumn({
     >
       <header>
         <b className={styles.dot} />
-        <h2>{name}</h2>
+        <h2>{t(name)}</h2>
         <span>{tasks.length}</span>
       </header>
 
@@ -270,9 +272,9 @@ export function KanbanColumn({
                   onChange={(e) => setDraftTitle(e.target.value)}
                   onKeyDown={handleKeyDown}
                   required
-                  placeholder="Título de la tarea…"
+                  placeholder={t("Título de la tarea…")}
                   maxLength={255}
-                  aria-label={`Título para ${name.toLocaleLowerCase("es")}`}
+                  aria-label={t("Título para {0}", t(name).toLowerCase())}
                   disabled={isSubmitting}
                 />
                 <button
@@ -280,8 +282,8 @@ export function KanbanColumn({
                   className={styles.addCardBtn}
                   onClick={() => void handleSubmit()}
                   disabled={isSubmitting || !draftTitle.trim()}
-                  aria-label={isSubmitting ? "Guardando tarea" : "Añadir tarjeta"}
-                  title="Añadir tarjeta"
+                  aria-label={isSubmitting ? t("Guardando tarea") : t("Añadir tarjeta")}
+                  title={t("Añadir tarjeta")}
                 >
                   <i aria-hidden="true" className="bi bi-check-lg" />
                 </button>
@@ -289,8 +291,8 @@ export function KanbanColumn({
                   type="button"
                   className={styles.cancelCardBtn}
                   onClick={closeComposer}
-                  aria-label="Cancelar"
-                  title="Cancelar"
+                  aria-label={t("Cancelar")}
+                  title={t("Cancelar")}
                   disabled={isSubmitting}
                 >
                   <i aria-hidden="true" className="bi bi-x-lg" />
@@ -303,10 +305,10 @@ export function KanbanColumn({
                 className={shared.addTask}
                 onClick={() => setIsComposing(true)}
                 disabled={disabled}
-                aria-label={`Agregar tarea a ${name.toLocaleLowerCase("es")}`}
+                aria-label={t("Agregar tarea a {0}", t(name).toLowerCase())}
               >
                 <i aria-hidden="true" className="bi bi-plus" />
-                <span>Agregar tarea</span>
+                <span>{t("Agregar tarea")}</span>
               </button>
             )}
           </>

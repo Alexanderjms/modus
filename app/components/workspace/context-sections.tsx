@@ -20,6 +20,7 @@ import { ContextProjectSection } from "./context-project-section";
 import { ContextRulesSection } from "./context-rules-section";
 import { ContextResourcesSection } from "./context-resources-section";
 import { ContextSaveStatus } from "./context-save-status";
+import { useT } from "../../i18n/provider";
 
 export {
   isContextDocument,
@@ -61,6 +62,7 @@ export function ContextSections({
   saveError: string;
   saved: boolean;
 }) {
+  const t = useT();
   const id = useId();
   const valid = isValidContextDocument(document);
   const atRuleLimit = document.rules.length >= 50;
@@ -354,7 +356,7 @@ export function ContextSections({
         className={styles.sectionToggle}
         aria-expanded={open}
         aria-controls={`${id}-${key}-panel`}
-        aria-label={`${open ? "Contraer" : "Expandir"} ${label}`}
+        aria-label={`${open ? t("Contraer") : t("Expandir")} ${label}`}
         onClick={() => toggleSection(key)}
       >
         <i aria-hidden="true" className="bi bi-caret-down-fill" />
@@ -418,7 +420,7 @@ export function ContextSections({
     if (!url || url.length > 2048) {
       setResourceDraftError({
         field: "url",
-        message: !url ? "Escribe una URL." : "La URL no puede superar 2048 caracteres.",
+        message: !url ? t("Escribe una URL.") : t("La URL no puede superar 2048 caracteres."),
       });
       resourceUrlRefs.current.get(resourceDraft.index)?.focus();
       return;
@@ -430,7 +432,7 @@ export function ContextSections({
       parsedUrl = null;
     }
     if (!parsedUrl || (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:")) {
-      setResourceDraftError({ field: "url", message: "Usa una URL http o https válida." });
+      setResourceDraftError({ field: "url", message: t("Usa una URL http o https válida.") });
       resourceUrlRefs.current.get(resourceDraft.index)?.focus();
       return;
     }
@@ -446,7 +448,7 @@ export function ContextSections({
     if (!isValidContextDocument({ ...document, resources })) {
       setResourceDraftError({
         field: "document",
-        message: "No se puede guardar: el contexto supera el límite permitido.",
+        message: t("No se puede guardar: el contexto supera el límite permitido."),
       });
       return;
     }
@@ -519,7 +521,7 @@ export function ContextSections({
     ) return;
     if (file.size > 10 * 1024 * 1024) {
       setRetryFile(null);
-      setUploadError("El archivo supera el límite de 10 MiB. Elige un archivo más pequeño.");
+      setUploadError(t("El archivo supera el límite de 10 MiB. Elige un archivo más pequeño."));
       return;
     }
 
@@ -558,13 +560,13 @@ export function ContextSections({
       ) return;
       if (!onResourceUploaded(requestProjectId, { title: resource.title, url: resource.url })) {
         setRetryFile(null);
-        setUploadError("No se pudo asociar el archivo al contexto actual.");
+        setUploadError(t("No se pudo asociar el archivo al contexto actual."));
         return;
       }
       setRetryFile(null);
     } catch {
       if (version === uploadVersionRef.current && !controller.signal.aborted) {
-        setUploadError("No se pudo subir el archivo. Comprueba la conexión e inténtalo de nuevo.");
+        setUploadError(t("No se pudo subir el archivo. Comprueba la conexión e inténtalo de nuevo."));
       }
     } finally {
       if (version === uploadVersionRef.current) {
@@ -646,7 +648,7 @@ export function ContextSections({
     return (
       <>
         <label className={styles.srOnly} htmlFor={`${id}-resource-url-${suffix}`}>
-          {isNew ? "URL del nuevo recurso" : `Editar URL del recurso ${index + 1}`}
+          {isNew ? t("URL del nuevo recurso") : t("Editar URL del recurso {0}", index + 1)}
         </label>
         <input
           ref={(element) => {
@@ -657,7 +659,7 @@ export function ContextSections({
           type="url"
           value={draft.url}
           maxLength={2048}
-          placeholder="https://…"
+          placeholder={t("https://…")}
           disabled={disabled}
           aria-invalid={resourceDraftError?.field === "url" || resourceDraftError?.field === "document"}
           aria-describedby={resourceDraftError ? errorId : undefined}
@@ -668,16 +670,16 @@ export function ContextSections({
           }}
         />
         <div className={styles.resourceActions}>
-          <button type="button" aria-label={isNew ? "Cancelar nueva URL" : "Cancelar edición de URL"} disabled={disabled} onClick={cancelResourceEdit}>
+          <button type="button" aria-label={isNew ? t("Cancelar nueva URL") : t("Cancelar edición de URL")} disabled={disabled} onClick={cancelResourceEdit}>
             <i aria-hidden="true" className="bi bi-x" />
           </button>
-          <button type="button" aria-label={isNew ? "Confirmar nueva URL" : "Confirmar URL"} disabled={disabled} onClick={confirmResourceEdit}>
+          <button type="button" aria-label={isNew ? t("Confirmar nueva URL") : t("Confirmar URL")} disabled={disabled} onClick={confirmResourceEdit}>
             <i aria-hidden="true" className="bi bi-check" />
           </button>
         </div>
         {resourceDraftError && (
           <p className={styles.resourceEditError} id={errorId} role="alert">
-            {resourceDraftError.message}
+            {t(resourceDraftError.message)}
           </p>
         )}
       </>

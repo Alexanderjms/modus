@@ -3,13 +3,15 @@ import { OnboardingFrame } from "../../components/onboarding-frame";
 import { OnboardingBackButton } from "../../components/onboarding-back-button";
 import { TursoCredentialsForm } from "../../components/turso-credentials-form";
 import { TursoGuide } from "../../components/turso-guide";
+import { getT } from "../../i18n/server";
 
-export const metadata: Metadata = {
-  title: "Conecta Turso | modus",
-  description: "Conecta tu base de datos de Turso con modus.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t("Conecta Turso | modus"), description: t("Conecta tu base de datos de Turso con modus.") };
+}
 
-export default function TursoOnboardingPage() {
+export default async function TursoOnboardingPage() {
+  const t = await getT();
   return (
     <OnboardingFrame>
       <section
@@ -22,7 +24,7 @@ export default function TursoOnboardingPage() {
             id="storage-settings-title"
             className="w-full px-8 text-center text-[16px] font-bold leading-[21px] tracking-[-0.3px] min-[1024px]:px-0 min-[1024px]:text-[20px] min-[1024px]:leading-[26px]"
           >
-            Configuración de almacenamiento
+            {t("Configuración de almacenamiento")}
           </h1>
         </header>
 
@@ -30,12 +32,10 @@ export default function TursoOnboardingPage() {
           <section className="flex w-full flex-col items-center gap-6 min-[1024px]:w-[471px]">
             <header className="flex w-full flex-col items-center gap-2 text-center">
               <h2 className="w-full text-[20px] font-bold leading-[26px] tracking-[-0.3px]">
-                Conecta Turso
+                {t("Conecta Turso")}
               </h2>
               <p className="w-full text-[12.5px] font-normal leading-[18px] text-[var(--muted)]">
-                Introduce las credenciales de tu
-                <br />
-                base de datos.
+                {t("Introduce las credenciales de tu base de datos.")}
               </p>
             </header>
 

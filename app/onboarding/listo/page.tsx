@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { OnboardingFrame } from "../../components/onboarding-frame";
+import { getT } from "../../i18n/server";
 
-export default function ReadyPage() {
+export default async function ReadyPage() {
+  const t = await getT();
   return (
     <OnboardingFrame>
       <section
@@ -14,10 +16,10 @@ export default function ReadyPage() {
               id="ready-heading"
               className="w-full text-xl font-bold tracking-[-0.3px] [line-height:normal]"
             >
-              Todo listo
+              {t("Todo listo")}
             </h1>
             <p className="w-full text-[12.5px] leading-[18px] text-[var(--muted)]">
-              Ya puedes empezar a trabajar en Modus.
+              {t("Ya puedes empezar a trabajar en Modus.")}
             </p>
           </div>
         </header>
@@ -40,7 +42,7 @@ export default function ReadyPage() {
             </svg>
           </span>
           <p className="whitespace-nowrap text-[11.5px] text-[var(--muted)] [line-height:normal]">
-            Almacenamiento configurado
+            {t("Almacenamiento configurado")}
           </p>
         </div>
 
@@ -48,7 +50,7 @@ export default function ReadyPage() {
           href="/inicio"
           className="flex items-center gap-[5px] rounded-[7px] bg-[#007AFF] px-[11px] py-[5px] text-xs font-semibold text-white [line-height:normal] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007AFF]"
         >
-          Ir a Inicio
+          {t("Ir a Inicio")}
         </Link>
       </section>
     </OnboardingFrame>

@@ -4,7 +4,7 @@ const { randomBytes, randomUUID, createHash, createPublicKey, verify, timingSafe
 const { DatabaseSync } = require("node:sqlite");
 const path = require("node:path");
 const fs = require("node:fs");
-const { getProjectRoot } = require("./db.cjs");
+const { getDataDir } = require("./db.cjs");
 const { isDpapiAvailable, encryptWithDpapi, decryptWithDpapi } = require("./credentials.cjs");
 
 const ISSUER = "https://auth.openai.com";
@@ -28,7 +28,7 @@ function hash(value) {
 }
 
 function openStore() {
-  const directory = path.join(getProjectRoot(), ".local");
+  const directory = getDataDir();
   fs.mkdirSync(directory, { recursive: true });
   const db = new DatabaseSync(path.join(directory, "chatgpt-oauth.sqlite"));
   db.exec(`

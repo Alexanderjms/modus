@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type FormEvent, type ReactNode } from "react";
 import styles from "./modal.module.css";
+import { useT } from "../../i18n/provider";
 
 export function Modal({
   open,
@@ -9,7 +10,7 @@ export function Modal({
   title,
   children,
   onSubmit,
-  submitLabel = "Guardar",
+  submitLabel,
   className = "",
   submitClassName = "",
   descriptionId,
@@ -30,6 +31,7 @@ export function Modal({
   submitDisabled?: boolean;
   showFooter?: boolean;
 }) {
+  const t = useT();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -63,7 +65,7 @@ export function Modal({
             className={styles.closeButton}
             onClick={onClose}
             disabled={pending}
-            aria-label="Cerrar"
+            aria-label={t("Cerrar")}
           >
             <i aria-hidden="true" className="bi bi-x-lg" />
           </button>
@@ -76,7 +78,7 @@ export function Modal({
               className={`${styles.primaryButton} ${submitClassName}`}
               disabled={pending || submitDisabled}
             >
-              {submitLabel}
+              {submitLabel ?? t("Guardar")}
             </button>
           </div>
         )}
