@@ -56,6 +56,23 @@ function toTargetTask(task: Record<string, unknown>): SuggestionTargetTask {
 const AUTO_APPLY_KEY = "modus-chat-auto-apply";
 const CONTEXT_BUDGET_BYTES = 100 * 1024;
 
+const suggestionStatusLabels = { pending: "pendiente", accepted: "aceptada", discarded: "descartada" } as const;
+
+function describeSuggestions(suggestions: TaskSuggestion[] | undefined) {
+  if (!suggestions?.length) return "";
+  const lines = suggestions.map((item) => {
+    const status = suggestionStatusLabels[item.status];
+    const target = item.targetTaskId ? ` [tarea:${item.targetTaskId}]` : item.taskId ? ` [tarea:${item.taskId}]` : "";
+    const detail = item.kind === "edit" ? ` cambios ${JSON.stringify(item.changes)}${item.previous ? ` · valores anteriores ${JSON.stringify(item.previous)}` : ""}`
+      : item.kind === "add-tags" ? ` etiquetas añadidas ${JSON.stringify(item.tags?.map((tag) => tag.name))}`
+        : item.kind === "add-subtasks" ? ` subtareas añadidas ${JSON.stringify(item.subtasks.map((subtask) => subtask.title))}`
+          : item.kind === "context" ? ` cambios del contexto ${JSON.stringify(item.contextChanges)}`
+            : "";
+    return `- (${status}) ${item.kind ?? "create"}${target} "${item.title}"${detail}`;
+  });
+  return `\n\n[Propuestas de esta respuesta]\n${lines.join("\n")}`;
+}
+
 function fitContextWindow<T extends { role: string; content: string }>(all: T[]): T[] {
   let start = all.length - 1;
   while (start - 2 >= 0) {
@@ -89,6 +106,7 @@ function draftForSuggestion(item: TaskSuggestionView): TaskSuggestionDraft {
   if (kind === "add-tags") return { tags: item.tags ?? [] };
   if (kind === "add-subtasks") return { subtasks: item.subtasks };
   if (kind === "edit") return { changes: item.changes ?? {} };
+  if (kind === "context") return { contextChanges: item.contextChanges ?? {} };
   return { title: item.title, description: item.description, priority: item.priority, subtasks: item.subtasks, ...(item.tags?.length ? { tags: item.tags } : {}) };
 }
 
@@ -189,6 +207,7 @@ export function WorkspaceChat({
   const [chatActionPending, setChatActionPending] = useState(false);
   const [pendingSuggestionId, setPendingSuggestionId] = useState<string | null>(null);
   const [bulkAccepting, setBulkAccepting] = useState(false);
+  const [bulkAcceptedIds, setBulkAcceptedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [suggestionTaskData, setSuggestionTaskData] = useState<SuggestionTaskData | null>(null);
   const attachments = useChatAttachments(project?.id);
   const [autoApply, setAutoApply] = useState(false);
@@ -890,6 +909,7 @@ export function WorkspaceChat({
         body: JSON.stringify(
           suggestion.kind === "add-tags" ? { tags: "tags" in draft ? draft.tags ?? [] : [] }
             : suggestion.kind === "add-subtasks" ? { subtasks: "subtasks" in draft ? draft.subtasks : [] }
+              : suggestion.kind === "context" ? { contextChanges: "contextChanges" in draft ? draft.contextChanges : {} }
               : suggestion.kind === "edit" ? { changes: "changes" in draft ? draft.changes : {} }
               : draft),
         signal: controller.signal,
@@ -926,7 +946,8 @@ export function WorkspaceChat({
       setHistory(canonical.messages);
       setChats((current) => [canonical, ...current.filter((item) => item.id !== canonical.id)]);
       setSuggestionTaskData(null);
-      onTaskCreated(projectId, { task: (result.task ?? undefined) as TaskDto | undefined, replaceId: created ? tempId : undefined });
+      onTaskCreated(projectId, { task: (result.task ?? undefined) as TaskDto | undefined, replaceId: created ? tempId : undefined, refresh: !prepared });
+      if (suggestion.kind === "context") window.dispatchEvent(new CustomEvent("modus:context-changed", { detail: { projectId } }));
       return null;
     } catch (reason) {
       discardOptimistic();
@@ -943,38 +964,105 @@ export function WorkspaceChat({
   }
 
   async function acceptAllSuggestions(items: TaskSuggestionView[]): Promise<string | null> {
+    const chat = activeChatRef.current;
+    if (!project || !chat || chat.projectId !== project.id || items.length === 0 ||
+      saving || pendingSave.current || saveConflict || sending || historyLoading || conversationLoading ||
+      chatActionPending || suggestionRequest.current || pendingSuggestionRef.current) return t("Espera a que se guarde el historial antes de aplicar la propuesta.");
+
     const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const projectId = project.id;
+    const chatId = chat.id;
+    const generation = projectGeneration.current;
+    const controller = new AbortController();
+    suggestionRequest.current = controller;
     setBulkAccepting(true);
-    try {
-    const projectId = project?.id;
-    const prepared = new Map<string, { tempId: number; created: ReturnType<typeof optimisticNewTask> | null }>();
-    if (projectId) {
-      const base = -Date.now();
-      items.forEach((item, index) => {
-        const fromRect = document.querySelector(`[data-suggestion-id="${item.id}"]`)?.getBoundingClientRect();
-        if ((item.kind ?? "create") !== "create") {
-          if (!item.targetTaskId) return;
-          const patch = optimisticPatch(item, draftForSuggestion(item));
-          prepared.set(item.id, { tempId: 0, created: null });
-          if (patch) onTaskCreated(projectId, { patch: { taskId: item.targetTaskId, apply: patch }, refresh: false });
-          if (fromRect && smooth) pointAtTask(item.targetTaskId, fromRect);
-          return;
+    setBulkAcceptedIds(new Set(items.map((item) => item.id)));
+    const isCurrent = () => !controller.signal.aborted && projectGeneration.current === generation &&
+      activeChatRef.current?.id === chatId && project?.id === projectId;
+    const tempByItem = new Map<string, number>();
+    const base = -Date.now();
+    let touched = false;
+    items.forEach((item, index) => {
+      const fromRect = document.querySelector(`[data-suggestion-id="${item.id}"]`)?.getBoundingClientRect();
+      if ((item.kind ?? "create") !== "create") {
+        if (!item.targetTaskId) return;
+        const patch = optimisticPatch(item, draftForSuggestion(item));
+        if (patch) {
+          touched = true;
+          onTaskCreated(projectId, { patch: { taskId: item.targetTaskId, apply: patch }, refresh: false });
         }
-        const tempId = base - index;
-        const created = optimisticNewTask(draftForSuggestion(item), tempId);
-        if (!created) return;
-        prepared.set(item.id, { tempId, created });
-        onTaskCreated(projectId, { task: created, refresh: false });
-        if (fromRect && smooth) flyTaskToBoard(tempId, fromRect);
+        if (fromRect && smooth) pointAtTask(item.targetTaskId, fromRect);
+        return;
+      }
+      const tempId = base - index;
+      const created = optimisticNewTask(draftForSuggestion(item), tempId);
+      if (!created) return;
+      tempByItem.set(item.id, tempId);
+      touched = true;
+      onTaskCreated(projectId, { task: created, refresh: false });
+      if (fromRect && smooth) flyTaskToBoard(tempId, fromRect);
+    });
+    try {
+      const response = await requestFn(`/api/chats/${chatId}/suggestions/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((item) => {
+            const draft = draftForSuggestion(item);
+            return {
+              suggestionId: item.id,
+              review: item.kind === "add-tags" ? { tags: "tags" in draft ? draft.tags ?? [] : [] }
+                : item.kind === "add-subtasks" ? { subtasks: "subtasks" in draft ? draft.subtasks : [] }
+                  : item.kind === "context" ? { contextChanges: "contextChanges" in draft ? draft.contextChanges : {} }
+                  : item.kind === "edit" ? { changes: "changes" in draft ? draft.changes : {} }
+                    : draft,
+            };
+          }),
+        }),
+        signal: controller.signal,
       });
-    }
-    for (const [index, item] of items.entries()) {
-      const failure = await acceptSuggestion(item, draftForSuggestion(item), prepared.get(item.id));
-      if (failure) return t("{0} de {1} aplicadas. {2}", index, items.length, failure);
-    }
-    return null;
+      const result: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const reason = result && typeof result === "object" && "error" in result && typeof result.error === "string"
+          ? result.error
+          : response.status === 409
+            ? t("El historial cambió en otra sesión. Actualiza el chat antes de aplicar la propuesta.")
+            : t("No se pudo aplicar la propuesta. Inténtalo de nuevo.");
+        throw new Error(reason);
+      }
+      if (typeof result !== "object" || result === null || !("conversation" in result) ||
+        !validConversation(result.conversation) || result.conversation.id !== chatId ||
+        result.conversation.projectId !== projectId) {
+        throw new Error(t("El servidor devolvió una respuesta de aceptación no válida."));
+      }
+      if (!isCurrent()) {
+        if (touched) onTaskCreated(projectId, {});
+        return t("El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.");
+      }
+      const canonical = result.conversation;
+      setActiveChat(canonical);
+      activeChatRef.current = canonical;
+      setHistory(canonical.messages);
+      setChats((current) => [canonical, ...current.filter((item) => item.id !== canonical.id)]);
+      setSuggestionTaskData(null);
+      const applied = "results" in result && Array.isArray(result.results) ? result.results : [];
+      for (const entry of applied as { suggestionId?: unknown; task?: unknown }[]) {
+        const tempId = typeof entry?.suggestionId === "string" ? tempByItem.get(entry.suggestionId) : undefined;
+        const task = entry?.task && typeof entry.task === "object" ? entry.task as TaskDto : undefined;
+        if (task || tempId !== undefined) onTaskCreated(projectId, { task, replaceId: tempId, refresh: false });
+      }
+      onTaskCreated(projectId, {});
+      if (items.some((item) => item.kind === "context")) window.dispatchEvent(new CustomEvent("modus:context-changed", { detail: { projectId } }));
+      return null;
+    } catch (reason) {
+      if (touched) onTaskCreated(projectId, {});
+      return isCurrent()
+        ? reason instanceof Error ? reason.message : t("No se pudo aplicar la propuesta. Inténtalo de nuevo.")
+        : t("El chat cambió. Vuelve a abrir la sugerencia para intentarlo de nuevo.");
     } finally {
+      if (suggestionRequest.current === controller) suggestionRequest.current = null;
       setBulkAccepting(false);
+      setBulkAcceptedIds(new Set());
     }
   }
 
@@ -1117,8 +1205,8 @@ export function WorkspaceChat({
     const attached = attachments.items.flatMap((item) => item.attachment ? [item.attachment] : []);
     if (attached.length !== attachments.items.length || attached.length > maxAttachments) return;
     const outgoing = [
-      ...history.map(({ role, content: messageContent, attachments: files, tasks }) => ({
-        role, content: messageContent,
+      ...history.map(({ role, content: messageContent, attachments: files, tasks, suggestions }) => ({
+        role, content: role === "assistant" ? `${messageContent}${describeSuggestions(suggestions)}` : messageContent,
         ...(role === "user" && files?.length ? { attachmentIds: files.map((file) => file.id) } : {}),
         ...(role === "user" && tasks?.length ? { taskIds: tasks.map((task) => task.id) } : {}),
       })),
@@ -1481,6 +1569,7 @@ export function WorkspaceChat({
           hasProject={!!project}
           suggestionsDisabled={suggestionsDisabled}
           pendingSuggestionId={pendingSuggestionId}
+          bulkAcceptedIds={bulkAcceptedIds}
           taskTitles={currentSuggestionTaskData?.tasks ?? new Map()}
           taskDetails={currentSuggestionTaskData?.details ?? new Map()}
           catalogs={currentSuggestionTaskData?.catalogs ?? null}

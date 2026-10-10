@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, type CSSProperties, type RefObject } from "react";
+import { useRef, useState, type CSSProperties, type RefObject } from "react";
 import type { TaskCatalogsDto } from "../../api/tasks/route";
 import { getTaskTagHue } from "./task-card";
 import { ChatPicker, type ChatPickerOption } from "./chat-picker";
 import styles from "./task-editor.module.css";
 import { useT } from "../../i18n/provider";
+import { attachmentAccept, attachmentError, attachmentUrl } from "../../chat-attachments.mjs";
+import { useWorkspaceRequest } from "./workspace-query-provider";
 
 export type EditableSubtask = {
   id?: number;
@@ -127,20 +129,64 @@ export function TaskTagsSection({
   );
 }
 
+const FILE_URL_PREFIX = "/api/chat/attachments/";
+
+function fileEntry(entry: string) {
+  const split = entry.lastIndexOf("|");
+  const url = split > 0 ? entry.slice(split + 1) : "";
+  return url.startsWith(FILE_URL_PREFIX) ? { name: entry.slice(0, split), url } : null;
+}
+
 export function TaskAttachmentsSection({
   entries,
   draft,
+  projectId,
   onDraftChange,
   onAdd,
+  onAddEntry,
   onRemove,
 }: {
   entries: string[];
+  projectId?: number;
+  onAddEntry: (entry: string) => void;
   draft: string;
   onDraftChange: (value: string) => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
 }) {
   const t = useT();
+  const request = useWorkspaceRequest();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const add = () => {
+    if (draft.trim()) onAdd();
+    else fileInput.current?.click();
+  };
+  async function upload(file: File) {
+    if (!projectId) return;
+    const invalid = attachmentError(file);
+    if (invalid) return setUploadError(t(invalid));
+    setUploading(true);
+    setUploadError("");
+    try {
+      const response = await request(`/api/chat/attachments?projectId=${projectId}&name=${encodeURIComponent(file.name)}`, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      const result: unknown = await response.json().catch(() => null);
+      const attachment = result && typeof result === "object" && "attachment" in result ? (result.attachment as { id?: unknown }) : null;
+      if (!response.ok || typeof attachment?.id !== "string") {
+        throw new Error(result && typeof result === "object" && "error" in result && typeof result.error === "string" ? result.error : t("No se pudo subir el archivo."));
+      }
+      onAddEntry(`${file.name}|${attachmentUrl(attachment.id, projectId)}`);
+    } catch (reason) {
+      setUploadError(reason instanceof Error ? reason.message : t("No se pudo subir el archivo."));
+    } finally {
+      setUploading(false);
+    }
+  }
   return (
     <div className={`${styles.editorField} ${styles.editorWide}`}>
       <span>{t("Adjuntos y enlaces")}</span>
@@ -152,24 +198,42 @@ export function TaskAttachmentsSection({
             id="task-attachment"
             value={draft}
             maxLength={10000}
-            placeholder={t("Pega un enlace o escribe el nombre del archivo")}
+            placeholder={t("Pega un enlace o pulsa Añadir para elegir un archivo")}
             onChange={(event) => onDraftChange(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); onAdd(); } }}
+            onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); add(); } }}
           />
-          <button type="button" onClick={onAdd} disabled={!draft.trim()} aria-label={t("Añadir adjunto o enlace")}>
-            <i aria-hidden="true" className="bi bi-plus-lg" />
-            <span>{t("Añadir")}</span>
+          <input
+            ref={fileInput}
+            type="file"
+            accept={attachmentAccept}
+            className={styles.visuallyHidden}
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void upload(file);
+            }}
+          />
+          <button type="button" onClick={add} disabled={uploading} aria-busy={uploading || undefined} aria-label={t("Añadir adjunto o enlace")}>
+            <i aria-hidden="true" className={`bi ${uploading ? "bi-hourglass-split" : "bi-plus-lg"}`} />
+            <span>{uploading ? t("Subiendo…") : t("Añadir")}</span>
           </button>
         </div>
+        {uploadError && <p className={styles.editorError} role="alert">{uploadError}</p>}
         {entries.length ? (
           <ul className={styles.attachmentList} aria-label={t("Adjuntos y enlaces")}>
             {entries.map((entry, index) => {
+              const file = fileEntry(entry);
               const isLink = /^https?:\/\//i.test(entry);
+              const label = file ? file.name : entry;
               return <li key={`${entry}:${index}`}>
                 <i aria-hidden="true" className={`bi ${isLink ? "bi-link-45deg" : "bi-file-earmark"}`} />
                 <span className={styles.attachmentKind}>{isLink ? t("Enlace") : t("Archivo")}</span>
-                {isLink ? <a href={entry} target="_blank" rel="noreferrer noopener" title={entry}>{entry}</a> : <span className={styles.attachmentName} title={entry}>{entry}</span>}
-                <button type="button" aria-label={t("Quitar {0} {1}", t(isLink ? "enlace" : "archivo"), entry)} onClick={() => onRemove(index)}>
+                {isLink ? <a href={entry} target="_blank" rel="noreferrer noopener" title={entry}>{entry}</a>
+                  : file ? <a href={file.url} target="_blank" rel="noreferrer noopener" title={file.name}>{file.name}</a>
+                    : <span className={styles.attachmentName} title={entry}>{entry}</span>}
+                <button type="button" aria-label={t("Quitar {0} {1}", t(isLink ? "enlace" : "archivo"), label)} onClick={() => onRemove(index)}>
                   <i aria-hidden="true" className="bi bi-x-lg" />
                 </button>
               </li>;

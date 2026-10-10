@@ -71,6 +71,15 @@ export function WorkspaceContext({
   );
 
   useEffect(() => {
+    function reload(event: Event) {
+      const changed = (event as CustomEvent<{ projectId?: number }>).detail?.projectId;
+      if (changed === projectIdRef.current) setLoadAttempt((attempt) => attempt + 1);
+    }
+    window.addEventListener("modus:context-changed", reload);
+    return () => window.removeEventListener("modus:context-changed", reload);
+  }, []);
+
+  useEffect(() => {
     onPendingChangesChange(hasPendingChanges);
   }, [hasPendingChanges, onPendingChangesChange]);
 

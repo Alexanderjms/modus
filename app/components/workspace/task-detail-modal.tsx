@@ -393,8 +393,8 @@ export function TaskDetailModal({
   };
 
   const attachmentEntries = attachments.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
-  const addAttachment = () => {
-    const entry = attachmentDraft.trim();
+  const addAttachment = (value = attachmentDraft) => {
+    const entry = value.trim();
     if (!entry) return;
     const next = [...attachmentEntries, entry].join("\n");
     if (next.length > 10000) {
@@ -402,7 +402,7 @@ export function TaskDetailModal({
       return;
     }
     setAttachments(next);
-    setAttachmentDraft("");
+    if (value === attachmentDraft) setAttachmentDraft("");
     setError("");
   };
   const removeAttachment = (index: number) => {
@@ -602,8 +602,10 @@ export function TaskDetailModal({
                 <TaskAttachmentsSection
                   entries={attachmentEntries}
                   draft={attachmentDraft}
+                  projectId={projectId}
                   onDraftChange={setAttachmentDraft}
-                  onAdd={addAttachment}
+                  onAdd={() => addAttachment()}
+                  onAddEntry={addAttachment}
                   onRemove={removeAttachment}
                 />
               </div>

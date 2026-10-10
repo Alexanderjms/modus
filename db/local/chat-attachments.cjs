@@ -103,8 +103,8 @@ function getAttachment(db, projectId, id) {
 
 function collectReferencedIds(db, projectId) {
   const referenced = new Set();
-  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'chats'").get()) return referenced;
-  const rows = db.prepare("SELECT mensajes FROM chats WHERE proyecto_id = ?").all(projectId);
+  const hasChats = !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'chats'").get();
+  const rows = hasChats ? db.prepare("SELECT mensajes FROM chats WHERE proyecto_id = ?").all(projectId) : [];
   for (const row of rows) {
     const parsed = JSON.parse(row.mensajes);
     if (!Array.isArray(parsed)) throw new Error("Historial de chat corrupto; no se pueden eliminar adjuntos.");
@@ -115,6 +115,17 @@ function collectReferencedIds(db, projectId) {
       for (const attachment of message.attachments) {
         if (attachment && typeof attachment.id === "string") referenced.add(attachment.id);
       }
+    }
+  }
+  const marker = "/api/chat/attachments/";
+  const tasks = db.prepare(`SELECT t.archivos_enlaces AS links FROM tareas t
+    INNER JOIN listas_tareas lt ON lt.id = t.lista_id
+    WHERE lt.proyecto_id = ? AND t.archivos_enlaces LIKE ?`).all(projectId, `%${marker}%`);
+  for (const task of tasks) {
+    let from = 0;
+    for (let at = task.links.indexOf(marker, from); at !== -1; at = task.links.indexOf(marker, from)) {
+      from = at + marker.length;
+      referenced.add(task.links.slice(from, from + 36));
     }
   }
   return referenced;

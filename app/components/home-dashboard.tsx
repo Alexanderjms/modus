@@ -14,7 +14,7 @@ import { DeleteProjectModal } from "./projects/delete-project-modal";
 import { type ProjectAction } from "./projects/project-actions-menu";
 import { deleteProject, mutateProject } from "./projects/project-actions";
 import { WeeklyActivity } from "./home/weekly-activity";
-import { initialProjects, type Project } from "./projects-data";
+import { initialProjects, sortByLastOpened, type Project } from "./projects-data";
 import { useT } from "../i18n/provider";
 import { useUserName } from "./user-context";
 
@@ -137,7 +137,7 @@ export function HomeDashboard() {
   }
 
   const search = query.trim().toLocaleLowerCase("es");
-  const visibleProjects = projects.filter((project) =>
+  const visibleProjects = sortByLastOpened(projects).filter((project) =>
     `${project.name} ${project.description}`
       .toLocaleLowerCase("es")
       .includes(search),

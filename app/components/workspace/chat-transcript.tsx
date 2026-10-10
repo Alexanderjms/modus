@@ -24,6 +24,7 @@ export function ChatTranscript({
   hasProject,
   suggestionsDisabled,
   pendingSuggestionId,
+  bulkAcceptedIds,
   taskTitles,
   taskDetails,
   catalogs,
@@ -44,6 +45,7 @@ export function ChatTranscript({
   hasProject: boolean;
   suggestionsDisabled: boolean;
   pendingSuggestionId: string | null;
+  bulkAcceptedIds: ReadonlySet<string>;
   taskTitles: Map<number, string>;
   taskDetails: Map<number, SuggestionTargetTask>;
   catalogs: TaskCatalogsDto | null;
@@ -99,7 +101,7 @@ export function ChatTranscript({
               </a></li>;
             })}</ul>}
             {item.role === "assistant" && item.suggestions?.map((suggestion) => {
-              const view = suggestion as TaskSuggestionView;
+              const view = (bulkAcceptedIds.has(suggestion.id) ? { ...suggestion, status: "accepted" } : suggestion) as TaskSuggestionView;
               return <TaskSuggestionCard
                 key={suggestion.id}
                 suggestion={view}
@@ -108,7 +110,7 @@ export function ChatTranscript({
                 catalogTags={catalogTags}
                 catalogs={catalogs}
                 actionsDisabled={suggestionsDisabled}
-                pending={pendingSuggestionId === suggestion.id}
+                pending={!bulkAcceptedIds.has(suggestion.id) && pendingSuggestionId === suggestion.id}
                 onAccept={onAcceptSuggestion}
                 onDiscard={onDiscardSuggestion}
                 onUndoDiscard={onUndoDiscardSuggestion}

@@ -93,6 +93,7 @@ function getOpenCodeProtocolForModel(modelId) {
   if (OPENCODE_RESPONSES_MODELS.has(rawModelId)) return "responses";
   if (OPENCODE_MESSAGES_MODELS.has(rawModelId)) return "messages";
   if (OPENCODE_CHAT_MODELS.has(rawModelId)) return "chat-completions";
+  if (rawModelId.startsWith("claude")) return "messages";
   return null;
 }
 
@@ -838,9 +839,20 @@ ETIQUETAS DEL PROYECTO:
 - Al proponer una NUEVA tarea, puedes incluir "tags":[{"name":"Etiqueta","color":"#RRGGBB (opcional)"}] (máximo 10).
 - Para AÑADIR etiquetas a una tarea YA EXISTENTE, usa "kind":"add-tags" con "targetTaskId" igual al número de [tarea:id] y un array "tags". Incluye "title" copiado literalmente de la tarea objetivo para que la interfaz lo muestre. No incluyas cambios de título, descripción, prioridad ni subtareas: solo etiquetas.
 - Para AÑADIR subtareas a una tarea YA EXISTENTE (p. ej. "agrégale subtareas a la tarea X"), usa "kind":"add-subtasks" con "targetTaskId" igual al número de [tarea:id], "title" copiado literalmente de la tarea objetivo y un array "subtasks":[{"title":"Paso"}] (1 a 20, breves y accionables, sin repetir las que ya tiene). Nunca digas que no puedes editar tareas: propón la sugerencia para que el usuario la acepte.
-- Para EDITAR cualquier otro dato de una tarea YA EXISTENTE (o varios a la vez), usa "kind":"edit" con "targetTaskId", "title" copiado literalmente de la tarea actual y "changes" con solo los campos que cambian: "title" (nuevo nombre), "description", "priority" ("alta|media|baja|sin prioridad"), "startDate" y "endDate" (YYYY-MM-DD o null para quitarla), "column" (0 = Por hacer, 1 = En progreso, 2 = Terminado), "addTags" y "addSubtasks" (a añadir), "removeTags" (nombres de etiquetas que la tarea ya tiene), "removeSubtasks", "completeSubtasks" y "reopenSubtasks" (títulos literales de subtareas que la tarea ya tiene). Para quitar, completar o reabrir copia los nombres/títulos exactamente como aparecen en el contexto de la tarea. La fecha de hoy es ${new Date().toISOString().slice(0, 10)}: úsala para fechas relativas.
+- Para EDITAR cualquier otro dato de una tarea YA EXISTENTE (o varios a la vez), usa "kind":"edit" con "targetTaskId", "title" copiado literalmente de la tarea actual y "changes" con solo los campos que cambian: "title" (nuevo nombre), "description", "priority" ("alta|media|baja|sin prioridad"), "startDate" y "endDate" (YYYY-MM-DD o null para quitarla), "column" (0 = Por hacer, 1 = En progreso, 2 = Terminado), "addTags" y "addSubtasks" (a añadir), "addAttachments" (enlaces https completos o nombres de archivo a añadir a "Adjuntos y enlaces", máximo 10; si el usuario o la investigación aportan enlaces útiles para una tarea, añádelos),"removeTags" (nombres de etiquetas que la tarea ya tiene), "removeSubtasks", "completeSubtasks" y "reopenSubtasks" (títulos literales de subtareas que la tarea ya tiene). Para quitar, completar o reabrir copia los nombres/títulos exactamente como aparecen en el contexto de la tarea. La fecha de hoy es ${new Date().toISOString().slice(0, 10)}: úsala para fechas relativas.
 - Propón add-tags/add-subtasks/edit únicamente si el usuario identifica una tarea concreta mediante [tarea:id] o un nombre inequívoco. Si hay ambigüedad o no puedes determinar el ID, responde en "answer" pidiendo aclaración y NO propongas add-tags.
-- Nunca propongas eliminar etiquetas existentes.
+- Nunca propongas eliminar etiquetas existentes, salvo para revertir etiquetas que añadió una propuesta aceptada del historial.
+
+CONTEXTO DEL PROYECTO (panel lateral derecho):
+- Puedes editar el contexto del proyecto con "kind":"context" y "contextChanges" con solo lo que cambia: "context" (texto completo nuevo del contexto), "addRules"/"removeRules" (reglas literales), "addResources" ([{"title":"Nombre","url":"https://..."}]) y "removeResources" (títulos de recursos existentes). Úsalo cuando el usuario pida actualizar el contexto, las reglas o los recursos, o cuando la investigación aporte enlaces o normas útiles para todo el proyecto. No lleva "targetTaskId".
+- Para ver el contexto actual consulta la sección de datos del proyecto del prompt; no inventes reglas ni recursos que ya existan.
+
+TAREAS NUEVAS COMPLETAS:
+- Al proponer una tarea nueva ("create") puedes incluir además "startDate" y "endDate" (YYYY-MM-DD), "column" (0 = Por hacer, 1 = En progreso, 2 = Terminado) y "attachments" (lista de enlaces https completos o nombres de archivo, máximo 10). Decide fechas razonables a partir del contexto y de la fecha de hoy.
+
+REVERTIR CAMBIOS:
+- Las respuestas anteriores del asistente incluyen una sección "[Propuestas de esta respuesta]" con su estado (aceptada, pendiente o descartada), la tarea afectada, los cambios y los "valores anteriores". Úsala como fuente de verdad.
+- Si el usuario pide deshacer, revertir o dejar "como estaban" cambios aplicados, DEBES emitir una sugerencia "edit" por cada tarea afectada con "changes" igual a esos valores anteriores (para etiquetas o subtareas añadidas usa "removeTags"/"removeSubtasks"). No pidas aclaración ni respondas solo con texto mientras el historial tenga esos datos; solo explica en "answer" lo que no se pueda revertir (por ejemplo, tareas creadas).
 
 PROPUESTAS OBLIGATORIAS:
 - Si el usuario adjunta o menciona una tarea y pide editarla, agregarle algo o aplicar lo investigado ("edítalo", "agrégalo", "aplícalo"), DEBES incluir "suggestions" con "kind":"edit" o "add-subtasks" para esa tarea (usa el [tarea:id] adjunto). Nunca respondas solo con texto describiendo los cambios que "propones": sin "suggestions" el usuario no puede aceptarlos.
@@ -860,13 +872,15 @@ FORMATO OBLIGATORIO (elige exactamente uno):
 O
 {"action":"answer","answer":"tu respuesta final breve, seria y directa para el usuario"}
 O (si y solo si propones crear o editar tareas concretas; "kind" es opcional y por defecto "create"):
-{"action":"answer","answer":"resumen breve de lo propuesto","suggestions":[{"title":"Nombre","description":"Detalle opcional","priority":"alta|media|baja|sin prioridad","subtasks":[{"title":"Subtarea"}],"tags":[{"name":"Etiqueta","color":"#RRGGBB"}]}]}
+{"action":"answer","answer":"resumen breve de lo propuesto","suggestions":[{"title":"Nombre","description":"Detalle opcional","priority":"alta|media|baja|sin prioridad","subtasks":[{"title":"Subtarea"}],"tags":[{"name":"Etiqueta","color":"#RRGGBB"}],"startDate":"2026-12-01","endDate":"2026-12-15","column":0,"attachments":["https://ejemplo.com/doc"]}]}
 O (si y solo si el usuario pide añadir etiquetas a una tarea existente claramente identificada):
 {"action":"answer","answer":"resumen breve de lo propuesto","suggestions":[{"kind":"add-tags","targetTaskId":12,"title":"Título literal de [tarea:12]","tags":[{"name":"Etiqueta"}]}]}
 O (si el usuario pide añadir subtareas a una tarea existente claramente identificada):
 {"action":"answer","answer":"resumen breve de lo propuesto","suggestions":[{"kind":"add-subtasks","targetTaskId":12,"title":"Título literal de [tarea:12]","subtasks":[{"title":"Subtarea"}]}]}
 O (si el usuario pide cambiar datos de una tarea existente: nombre, descripción, prioridad, fechas, columna, etiquetas o subtareas, incluso quitarlas o completarlas):
-{"action":"answer","answer":"resumen breve de lo propuesto","suggestions":[{"kind":"edit","targetTaskId":12,"title":"Título literal de [tarea:12]","changes":{"priority":"alta","endDate":"2026-12-31","column":1}}]}`;
+{"action":"answer","answer":"resumen breve de lo propuesto","suggestions":[{"kind":"edit","targetTaskId":12,"title":"Título literal de [tarea:12]","changes":{"priority":"alta","endDate":"2026-12-31","column":1,"addAttachments":["https://ejemplo.com/doc"]}}]}
+O (si el usuario pide actualizar el contexto, las reglas o los recursos del proyecto):
+{"action":"answer","answer":"resumen breve de lo propuesto","suggestions":[{"kind":"context","title":"Contexto del proyecto","contextChanges":{"addRules":["Regla"],"addResources":[{"title":"Docs","url":"https://ejemplo.com"}]}}]}`;
 
   return `${basePrompt}\n\n${envelopeInstructions}`;
 }
@@ -892,7 +906,7 @@ O (si el usuario pide añadir subtareas a una tarea existente clara):
 O (si el usuario pide cambiar datos de una tarea existente):
 {"action":"answer","answer":"resumen breve de lo propuesto","suggestions":[{"kind":"edit","targetTaskId":12,"title":"Título literal de [tarea:12]","changes":{"priority":"alta","endDate":"2026-12-31","column":1}}]}
 Si la nueva tarea se descompone en pasos concretos, inclúyelos en "subtasks" (máximo 20, breves y accionables).
-Si el usuario pide tareas nuevas, emite una sugerencia "create" por tarea en vez de describirlas en prosa. Si adjunta o menciona una tarea y pide editarla o agregarle algo, DEBES incluir "suggestions" (edit o add-subtasks) con su [tarea:id]; nunca describas los cambios solo en texto.
+También puedes proponer {"kind":"context","contextChanges":{"context":"...","addRules":[],"addResources":[{"title":"...","url":"https://..."}]}} para actualizar el contexto del proyecto, y en tareas nuevas incluir "startDate", "endDate", "column" y "attachments". Si el usuario pide tareas nuevas, emite una sugerencia "create" por tarea en vez de describirlas en prosa. Si adjunta o menciona una tarea y pide editarla o agregarle algo, DEBES incluir "suggestions" (edit o add-subtasks) con su [tarea:id]; nunca describas los cambios solo en texto.
 Actúa por iniciativa propia: decide tú los detalles (etiquetas, prioridades, subtareas) sin pedírselos al usuario. Reutiliza las etiquetas existentes del proyecto (sección "ETIQUETAS DEL PROYECTO"). Si la tarea objetivo es ambigua, pide aclaración en "answer" sin proponer add-tags.`;
 
   return `${basePrompt}\n\n${envelopeInstructions}`;

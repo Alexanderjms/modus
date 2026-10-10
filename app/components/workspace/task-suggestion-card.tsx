@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
-import type { TaskSuggestion, TaskSuggestionChanges } from "../../chat-contract";
+import type { ContextSuggestionChanges, TaskSuggestion, TaskSuggestionChanges } from "../../chat-contract";
 import { Modal } from "../shell/modal";
 import type { TaskCatalogsDto } from "../../api/tasks/route";
-import { describeChanges, TaskEditReview, type SuggestionTargetTask } from "./task-edit-review";
+import { columnNames, describeChanges, TaskEditReview, type SuggestionTargetTask } from "./task-edit-review";
 import { fallbackPriorityColor, getTaskTagHue } from "./task-card";
 import styles from "./task-suggestion-card.module.css";
 import { useT } from "../../i18n/provider";
@@ -12,13 +12,23 @@ import { useT } from "../../i18n/provider";
 export type { SuggestionTargetTask };
 export type SuggestedTag = { name: string; color?: string };
 export type TaskSuggestionView = TaskSuggestion & {
-  kind?: "create" | "add-tags" | "add-subtasks" | "edit";
+  kind?: "create" | "add-tags" | "add-subtasks" | "edit" | "context";
   targetTaskId?: number;
   tags?: SuggestedTag[];
 };
 type TaskCreateDraft = Pick<TaskSuggestion, "title" | "description" | "priority" | "subtasks"> & { tags?: SuggestedTag[] };
-export type TaskSuggestionDraft = TaskCreateDraft | { tags: SuggestedTag[] } | { subtasks: { title: string }[] } | { changes: TaskSuggestionChanges };
+export type TaskSuggestionDraft = TaskCreateDraft | { tags: SuggestedTag[] } | { subtasks: { title: string }[] } | { changes: TaskSuggestionChanges } | { contextChanges: ContextSuggestionChanges };
 type CatalogTag = { name: string; color: string | null };
+
+export function describeContextChanges(changes: ContextSuggestionChanges, t: (key: string) => string): [string, string][] {
+  const rows: [string, string][] = [];
+  if (changes.context !== undefined) rows.push([t("Contexto"), changes.context || t("Vacío")]);
+  if (changes.addRules?.length) rows.push([t("Añadir reglas"), changes.addRules.join(" · ")]);
+  if (changes.removeRules?.length) rows.push([t("Quitar reglas"), changes.removeRules.join(" · ")]);
+  if (changes.addResources?.length) rows.push([t("Añadir recursos"), changes.addResources.map(({ title, url }) => `${title} (${url})`).join(" · ")]);
+  if (changes.removeResources?.length) rows.push([t("Quitar recursos"), changes.removeResources.join(" · ")]);
+  return rows;
+}
 
 function normalizedName(value: string) {
   return value.trim().toLocaleLowerCase("es");
@@ -51,8 +61,16 @@ export function TaskSuggestionCard({
   const isAddTags = (suggestion.kind ?? "create") === "add-tags";
   const isAddSubtasks = suggestion.kind === "add-subtasks";
   const isEdit = suggestion.kind === "edit";
-  const isExisting = isAddTags || isAddSubtasks || isEdit;
-  const changeRows = isEdit && suggestion.changes ? describeChanges(suggestion.changes, t) : [];
+  const isContext = suggestion.kind === "context";
+  const isExisting = isAddTags || isAddSubtasks || isEdit || isContext;
+  const changeRows = isEdit && suggestion.changes ? describeChanges(suggestion.changes, t)
+    : isContext && suggestion.contextChanges ? describeContextChanges(suggestion.contextChanges, t) : [];
+  const createRows: [string, string][] = isExisting ? [] : [
+    ...(suggestion.startDate ? [[t("Inicio"), suggestion.startDate] as [string, string]] : []),
+    ...(suggestion.endDate ? [[t("Fin"), suggestion.endDate] as [string, string]] : []),
+    ...(suggestion.column !== undefined ? [[t("Columna"), t(columnNames[suggestion.column])] as [string, string]] : []),
+    ...(suggestion.attachments?.length ? [[t("Adjuntos y enlaces"), suggestion.attachments.join(" · ")] as [string, string]] : []),
+  ];
   const targetLabel = suggestion.targetTaskId ? targetTaskTitle || t("Tarea #{0}", suggestion.targetTaskId) : "";
   const [reviewing, setReviewing] = useState(false);
   const [title, setTitle] = useState(suggestion.title);
@@ -95,6 +113,11 @@ export function TaskSuggestionCard({
     setTags((current) => [...current, { name, color: newTagColor }]);
     setNewTagName("");
     setError("");
+  }
+
+  async function acceptContext() {
+    const failure = await onAccept(suggestion, { contextChanges: suggestion.contextChanges ?? {} });
+    if (failure) setError(failure);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -156,17 +179,17 @@ export function TaskSuggestionCard({
     (!isExisting && (!title.trim() || title.trim().length > 255 || description.length > 2000));
 
   return (
-    <section className={styles.card} data-suggestion-id={suggestion.id} aria-label={isAddTags ? t("Etiquetas sugeridas para {0}", targetLabel) : isAddSubtasks ? t("Subtareas sugeridas para {0}", targetLabel) : isEdit ? t("Cambios sugeridos para {0}", targetLabel) : t("Tarea sugerida: {0}", suggestion.title)}>
+    <section className={styles.card} data-suggestion-id={suggestion.id} aria-label={isAddTags ? t("Etiquetas sugeridas para {0}", targetLabel) : isAddSubtasks ? t("Subtareas sugeridas para {0}", targetLabel) : isEdit ? t("Cambios sugeridos para {0}", targetLabel) : isContext ? t("Cambios sugeridos en el contexto del proyecto") : t("Tarea sugerida: {0}", suggestion.title)}>
       <div className={styles.heading}>
-        <h3>{isAddTags ? t("Etiquetas para {0}", targetLabel) : isAddSubtasks ? t("Subtareas para {0}", targetLabel) : isEdit ? t("Cambios en {0}", targetLabel) : suggestion.title}</h3>
+        <h3>{isAddTags ? t("Etiquetas para {0}", targetLabel) : isAddSubtasks ? t("Subtareas para {0}", targetLabel) : isEdit ? t("Cambios en {0}", targetLabel) : isContext ? t("Contexto del proyecto") : suggestion.title}</h3>
         {!isExisting && <span className={styles.priority}>
           <i style={{ backgroundColor: priorityColor }} aria-hidden="true" />
           {priorityLabel}
         </span>}
       </div>
       {!isExisting && suggestion.description && <p className={styles.description}>{suggestion.description}</p>}
-      {isEdit && <dl className={styles.changes} aria-label={t("Cambios propuestos")}>
-        {changeRows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+      {(isEdit || isContext || createRows.length > 0) && <dl className={styles.changes} aria-label={t("Cambios propuestos")}>
+        {[...changeRows, ...createRows].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
       </dl>}
       {(isAddSubtasks || !isExisting) && suggestion.subtasks.length > 0 && (
         <ul className={styles.previewList} aria-label={t("Subtareas propuestas")}>
@@ -191,15 +214,15 @@ export function TaskSuggestionCard({
         </ul>
       )}
       <div className={styles.footer}>
-        {!isAddTags && !isEdit && <span className={styles.count}>
+        {!isAddTags && !isEdit && !isContext && <span className={styles.count}>
           <i aria-hidden="true" className="bi bi-list-check" />
           {suggestion.subtasks.length} {t(suggestion.subtasks.length === 1 ? "subtarea" : "subtareas")}
         </span>}
         {suggestion.status === "pending" && pending ? (
-          <span role="status" className={styles.discarded}>{isAddTags ? t("Aplicando etiquetas…") : isAddSubtasks ? t("Añadiendo subtareas…") : isEdit ? t("Aplicando cambios…") : t("Creando tarea…")}</span>
+          <span role="status" className={styles.discarded}>{isAddTags ? t("Aplicando etiquetas…") : isAddSubtasks ? t("Añadiendo subtareas…") : isEdit || isContext ? t("Aplicando cambios…") : t("Creando tarea…")}</span>
         ) : suggestion.status === "pending" ? (
           <div className={styles.actions}>
-            <button type="button" disabled={actionsDisabled} onClick={openReview}>{t("Aceptar")}</button>
+            <button type="button" disabled={actionsDisabled} onClick={isContext ? () => void acceptContext() : openReview}>{t("Aceptar")}</button>
             <button type="button" disabled={actionsDisabled} onClick={() => onDiscard(suggestion)}>{t("Descartar")}</button>
           </div>
         ) : suggestion.status === "discarded" ? (
@@ -211,7 +234,7 @@ export function TaskSuggestionCard({
           </div>
         ) : (
           <span role="status" className={suggestion.status === "accepted" ? styles.accepted : styles.discarded}>
-            {suggestion.status === "accepted" ? isAddTags ? t("Etiquetas aplicadas") : isAddSubtasks ? t("Subtareas añadidas") : isEdit ? t("Cambios aplicados") : t("Tarea creada") : t("Descartada")}
+            {suggestion.status === "accepted" ? isAddTags ? t("Etiquetas aplicadas") : isAddSubtasks ? t("Subtareas añadidas") : isEdit || isContext ? t("Cambios aplicados") : t("Tarea creada") : t("Descartada")}
           </span>
         )}
       </div>

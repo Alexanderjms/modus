@@ -78,6 +78,10 @@ export function optimisticPatch(suggestion: TaskSuggestionView, draft: TaskSugge
         next.priority = priorityName(changes.priority);
         next.priorityColor = null;
       }
+      if (changes.addAttachments?.length) {
+        const current = (task.attachments ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        next.attachments = [...current, ...changes.addAttachments.filter((entry) => !current.some((line) => norm(line) === norm(entry)))].join("\n");
+      }
       if (changes.startDate !== undefined) next.startDate = changes.startDate;
       if (changes.endDate !== undefined) next.endDate = changes.endDate;
       if (changes.column !== undefined && changes.column !== task.column) {

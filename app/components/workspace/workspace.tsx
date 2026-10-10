@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "../app-shell";
-import type { Project } from "../projects-data";
+import { markProjectOpened, type Project } from "../projects-data";
 import styles from "../workspace.module.css";
 import chatStyles from "./chat.module.css";
 import { Board } from "./board";
@@ -44,6 +44,11 @@ export function Workspace({
   const focusContextPanel = useRef(false);
   const focusContextTrigger = useRef(false);
   const selectedProject = projects.find((item) => item.name === project) ?? null;
+  const selectedProjectId = selectedProject?.id;
+
+  useEffect(() => {
+    if (selectedProjectId) markProjectOpened(selectedProjectId);
+  }, [selectedProjectId]);
 
   useEffect(() => {
     const controller = new AbortController();

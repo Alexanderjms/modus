@@ -46,6 +46,15 @@ export type TaskSuggestionChanges = {
   completeSubtasks?: string[];
   reopenSubtasks?: string[];
   renameSubtasks?: { from: string; to: string }[];
+  addAttachments?: string[];
+};
+
+export type ContextSuggestionChanges = {
+  context?: string;
+  addRules?: string[];
+  removeRules?: string[];
+  addResources?: { title: string; url: string }[];
+  removeResources?: string[];
 };
 
 export type TaskSuggestion = {
@@ -56,10 +65,16 @@ export type TaskSuggestion = {
   subtasks: { title: string }[];
   status: "pending" | "accepted" | "discarded";
   taskId?: number | null;
-  kind?: "create" | "add-tags" | "add-subtasks" | "edit";
+  kind?: "create" | "add-tags" | "add-subtasks" | "edit" | "context";
   targetTaskId?: number;
   tags?: TaskSuggestionTag[];
   changes?: TaskSuggestionChanges;
+  previous?: TaskSuggestionChanges;
+  contextChanges?: ContextSuggestionChanges;
+  startDate?: string;
+  endDate?: string;
+  column?: 0 | 1 | 2;
+  attachments?: string[];
 };
 
 export type ChatAttachment = { id: string; name: string; type: string; size: number };

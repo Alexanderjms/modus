@@ -45,6 +45,7 @@ export function describeChanges(changes: TaskSuggestionChanges, t: (key: string)
   if (changes.removeSubtasks?.length) rows.push([t("Quitar subtareas"), changes.removeSubtasks.join(" · ")]);
   if (changes.completeSubtasks?.length) rows.push([t("Completar subtareas"), changes.completeSubtasks.join(" · ")]);
   if (changes.reopenSubtasks?.length) rows.push([t("Reabrir subtareas"), changes.reopenSubtasks.join(" · ")]);
+  if (changes.addAttachments?.length) rows.push([t("Añadir adjuntos y enlaces"), changes.addAttachments.join(" · ")]);
   if (changes.renameSubtasks?.length) rows.push([t("Renombrar subtareas"), changes.renameSubtasks.map(({ from, to }) => `${from} → ${to}`).join(" · ")]);
   return rows;
 }
@@ -237,6 +238,7 @@ export function TaskEditReview({
     if (renameSubtasks.length) diff.renameSubtasks = renameSubtasks;
     if (completeSubtasks.length) diff.completeSubtasks = completeSubtasks;
     if (reopenSubtasks.length) diff.reopenSubtasks = reopenSubtasks;
+    if (changes.addAttachments?.length) diff.addAttachments = changes.addAttachments;
 
     if (Object.keys(diff).length === 0) return setError(t("No hay cambios que aplicar."));
     const failure = await onSubmit(diff);

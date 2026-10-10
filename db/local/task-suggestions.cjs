@@ -106,9 +106,83 @@ function isValidDateOnly(val) {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === val;
 }
 
+function sanitizeAttachmentEntries(list) {
+  if (!Array.isArray(list) || list.length === 0 || list.length > 10) return null;
+  const entries = [];
+  for (const item of list) {
+    const entry = sanitizeSuggestionTitle(item);
+    if (!entry || entry.length > 500) return null;
+    if (!entries.some((existing) => existing.toLowerCase() === entry.toLowerCase())) entries.push(entry);
+  }
+  return entries;
+}
+
+function sanitizeContextChanges(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const allowed = ["context", "addRules", "removeRules", "addResources", "removeResources"];
+  const keys = Object.keys(raw);
+  if (keys.length === 0 || keys.some((key) => !allowed.includes(key))) return null;
+  const changes = {};
+  if (raw.context !== undefined) {
+    if (typeof raw.context !== "string" || raw.context.length > 20000) return null;
+    changes.context = raw.context.trim();
+  }
+  for (const key of ["addRules", "removeRules"]) {
+    if (raw[key] === undefined) continue;
+    const list = raw[key];
+    if (!Array.isArray(list) || list.length === 0 || list.length > 20) return null;
+    const rules = [];
+    for (const item of list) {
+      if (typeof item !== "string" || !item.trim() || item.trim().length > 1000) return null;
+      rules.push(item.trim());
+    }
+    changes[key] = rules;
+  }
+  if (raw.addResources !== undefined) {
+    const list = raw.addResources;
+    if (!Array.isArray(list) || list.length === 0 || list.length > 20) return null;
+    const resources = [];
+    for (const item of list) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+      if (Object.keys(item).some((key) => key !== "title" && key !== "url")) return null;
+      const title = sanitizeSuggestionTitle(item.title);
+      const url = typeof item.url === "string" ? item.url.trim() : "";
+      if (!title || !(url.startsWith("https://") || url.startsWith("http://")) || url.length > 2000) return null;
+      resources.push({ title, url });
+    }
+    changes.addResources = resources;
+  }
+  if (raw.removeResources !== undefined) {
+    const titles = sanitizeTitleList(raw.removeResources, 20);
+    if (!titles) return null;
+    changes.removeResources = titles;
+  }
+  return changes;
+}
+
+function sanitizeCreateExtras(item) {
+  const extras = {};
+  for (const key of ["startDate", "endDate"]) {
+    if (item[key] === undefined) continue;
+    if (!isValidDateOnly(item[key])) return null;
+    extras[key] = item[key];
+  }
+  if (extras.startDate && extras.endDate && extras.startDate > extras.endDate) return null;
+  if (item.column !== undefined) {
+    if (item.column !== 0 && item.column !== 1 && item.column !== 2) return null;
+    extras.column = item.column;
+  }
+  if (item.attachments !== undefined) {
+    const attachments = sanitizeAttachmentEntries(item.attachments);
+    if (!attachments) return null;
+    extras.attachments = attachments;
+  }
+  return extras;
+}
+
 function sanitizeTaskChanges(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const allowed = ["title", "description", "priority", "startDate", "endDate", "column", "addTags", "addSubtasks", "removeTags", "removeSubtasks", "completeSubtasks", "reopenSubtasks", "renameSubtasks"];
+  const allowed = ["title", "description", "priority", "startDate", "endDate", "column", "addTags", "addSubtasks", "removeTags", "removeSubtasks", "completeSubtasks", "reopenSubtasks", "renameSubtasks", "addAttachments"];
   const keys = Object.keys(raw);
   if (keys.length === 0 || keys.some((key) => !allowed.includes(key))) return null;
 
@@ -159,6 +233,11 @@ function sanitizeTaskChanges(raw) {
     if (!titles) return null;
     changes[key] = titles;
   }
+  if (raw.addAttachments !== undefined) {
+    const entries = sanitizeAttachmentEntries(raw.addAttachments);
+    if (!entries) return null;
+    changes.addAttachments = entries;
+  }
   if (raw.renameSubtasks !== undefined) {
     const list = raw.renameSubtasks;
     if (!Array.isArray(list) || list.length === 0 || list.length > MAX_SUBTASKS_PER_SUGGESTION) return null;
@@ -187,7 +266,7 @@ function sanitizeProposalList(rawSuggestions) {
   if (!Array.isArray(rawSuggestions)) return null;
   if (rawSuggestions.length > MAX_SUGGESTIONS_PER_MESSAGE) return null;
 
-  const allowedKeys = ["title", "description", "priority", "subtasks", "kind", "targetTaskId", "tags", "changes"];
+  const allowedKeys = ["title", "description", "priority", "subtasks", "kind", "targetTaskId", "tags", "changes", "contextChanges", "startDate", "endDate", "column", "attachments"];
   const proposals = [];
 
   for (const item of rawSuggestions) {
@@ -195,11 +274,11 @@ function sanitizeProposalList(rawSuggestions) {
     if (Object.keys(item).some((key) => !allowedKeys.includes(key))) return null;
 
     const kind = item.kind === undefined ? "create" : item.kind;
-    if (kind !== "create" && kind !== "add-tags" && kind !== "add-subtasks" && kind !== "edit") return null;
-    if (kind === "create" && item.targetTaskId !== undefined) return null;
+    if (kind !== "create" && kind !== "add-tags" && kind !== "add-subtasks" && kind !== "edit" && kind !== "context") return null;
+    if ((kind === "create" || kind === "context") && item.targetTaskId !== undefined) return null;
     if (item.priority !== undefined && (typeof item.priority !== "string" || !ALLOWED_PRIORITIES.has(item.priority.trim().toLowerCase()))) return null;
 
-    const title = sanitizeSuggestionTitle(item.title);
+    const title = sanitizeSuggestionTitle(item.title) ?? (kind === "context" ? "Contexto del proyecto" : null);
     if (!title) return null;
 
     const description = sanitizeSuggestionDescription(item.description);
@@ -209,6 +288,23 @@ function sanitizeProposalList(rawSuggestions) {
 
     const subtasks = sanitizeSubtasks(item.subtasks);
     if (subtasks === null) return null;
+
+    if (kind === "context") {
+      const contextChanges = sanitizeContextChanges(item.contextChanges);
+      if (!contextChanges) return null;
+      proposals.push({
+        id: crypto.randomUUID(),
+        kind: "context",
+        title,
+        description: "",
+        priority: "sin prioridad",
+        subtasks: [],
+        contextChanges,
+        status: "pending",
+        taskId: null,
+      });
+      continue;
+    }
 
     if (kind === "edit") {
       if (!Number.isSafeInteger(item.targetTaskId) || item.targetTaskId <= 0) return null;
@@ -272,6 +368,9 @@ function sanitizeProposalList(rawSuggestions) {
       if (tags === null) return null;
     }
 
+    const extras = sanitizeCreateExtras(item);
+    if (extras === null) return null;
+
     proposals.push({
       id: crypto.randomUUID(),
       title,
@@ -279,6 +378,7 @@ function sanitizeProposalList(rawSuggestions) {
       priority,
       subtasks,
       ...(tags !== undefined ? { tags } : {}),
+      ...extras,
       status: "pending",
       taskId: null,
     });
@@ -295,7 +395,7 @@ function validatePersistedSuggestions(suggestions) {
     return { error: `Máximo ${MAX_SUGGESTIONS_PER_MESSAGE} sugerencias permitidas por mensaje` };
   }
 
-  const allowedKeys = ["id", "title", "description", "priority", "subtasks", "status", "taskId", "kind", "targetTaskId", "tags", "changes"];
+  const allowedKeys = ["id", "title", "description", "priority", "subtasks", "status", "taskId", "kind", "targetTaskId", "tags", "changes", "previous", "contextChanges", "startDate", "endDate", "column", "attachments"];
   const result = [];
   const seenIds = new Set();
 
@@ -346,17 +446,23 @@ function validatePersistedSuggestions(suggestions) {
     }
 
     const kind = s.kind === undefined ? "create" : s.kind;
-    if (kind !== "create" && kind !== "add-tags" && kind !== "add-subtasks" && kind !== "edit") {
+    if (kind !== "create" && kind !== "add-tags" && kind !== "add-subtasks" && kind !== "edit" && kind !== "context") {
       return { error: "kind de sugerencia inválido" };
     }
-    if (kind === "create" && s.targetTaskId !== undefined) {
+    if ((kind === "create" || kind === "context") && s.targetTaskId !== undefined) {
       return { error: "Una propuesta de creación no puede indicar una tarea objetivo" };
     }
 
     let targetTaskId = null;
     let tags;
     let changes;
-    if (kind === "edit") {
+    let previous;
+    let contextChanges;
+    let extras = {};
+    if (kind === "context") {
+      contextChanges = sanitizeContextChanges(s.contextChanges);
+      if (!contextChanges) return { error: "contextChanges de sugerencia inválidos" };
+    } else if (kind === "edit") {
       if (!Number.isSafeInteger(s.targetTaskId) || s.targetTaskId <= 0) {
         return { error: "targetTaskId es obligatorio para sugerencias edit" };
       }
@@ -364,6 +470,10 @@ function validatePersistedSuggestions(suggestions) {
       changes = sanitizeTaskChanges(s.changes);
       if (!changes) {
         return { error: "changes de sugerencia edit inválidos" };
+      }
+      if (s.previous !== undefined) {
+        previous = sanitizeTaskChanges(s.previous);
+        if (!previous) return { error: "previous de sugerencia edit inválidos" };
       }
     } else if (kind === "add-subtasks") {
       if (!Number.isSafeInteger(s.targetTaskId) || s.targetTaskId <= 0) {
@@ -379,7 +489,12 @@ function validatePersistedSuggestions(suggestions) {
       if (tags === null) {
         return { error: "tags de sugerencia add-tags inválidas o exceden el máximo de 10" };
       }
-    } else if (s.tags !== undefined) {
+    } else {
+      const parsedExtras = sanitizeCreateExtras(s);
+      if (parsedExtras === null) return { error: "Datos extra de la propuesta inválidos" };
+      extras = parsedExtras;
+    }
+    if (kind === "create" && s.tags !== undefined) {
       tags = sanitizeProposalTags(s.tags, { required: false });
       if (tags === null) {
         return { error: "tags de sugerencia inválidas o exceden el máximo de 10" };
@@ -396,8 +511,10 @@ function validatePersistedSuggestions(suggestions) {
       ...(taskId ? { taskId } : {}),
       ...(kind === "add-tags" ? { kind: "add-tags", targetTaskId, tags } : {}),
       ...(kind === "add-subtasks" ? { kind: "add-subtasks", targetTaskId } : {}),
-      ...(kind === "edit" ? { kind: "edit", targetTaskId, changes } : {}),
+      ...(kind === "edit" ? { kind: "edit", targetTaskId, changes, ...(previous ? { previous } : {}) } : {}),
+      ...(kind === "context" ? { kind: "context", contextChanges } : {}),
       ...(kind === "create" && tags !== undefined ? { tags } : {}),
+      ...(kind === "create" ? extras : {}),
     });
   }
 
@@ -416,6 +533,12 @@ function validateSuggestionAcceptReview(body) {
     const changes = sanitizeTaskChanges(body.changes);
     if (!changes) return { error: "changes contiene cambios inválidos o vacíos" };
     return { mode: "edit", data: { changes } };
+  }
+
+  if (keys.length === 1 && keys[0] === "contextChanges") {
+    const contextChanges = sanitizeContextChanges(body.contextChanges);
+    if (!contextChanges) return { error: "contextChanges contiene cambios inválidos o vacíos" };
+    return { mode: "context", data: { contextChanges } };
   }
 
   if (keys.length === 1 && keys[0] === "subtasks") {
@@ -502,6 +625,9 @@ module.exports = {
   sanitizeProposalTag,
   sanitizeProposalTags,
   sanitizeModelProposals,
+  sanitizeTaskChanges,
+  sanitizeContextChanges,
+  sanitizeAttachmentEntries,
   validatePersistedSuggestions,
   validateSuggestionAcceptReview,
   ensureSuggestionTasksTable,

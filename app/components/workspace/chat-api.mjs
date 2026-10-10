@@ -3,7 +3,7 @@ import { maxAttachments, validAttachment } from "../../chat-attachments.mjs";
 
 const providerIds = new Set(providers.map(({ id }) => id));
 const protocolIds = new Set(protocols.map(({ id }) => id));
-const suggestionKeys = new Set(["id", "kind", "targetTaskId", "tags", "title", "description", "priority", "subtasks", "status", "taskId", "changes"]);
+const suggestionKeys = new Set(["id", "kind", "targetTaskId", "tags", "title", "description", "priority", "subtasks", "status", "taskId", "changes", "previous", "contextChanges", "startDate", "endDate", "column", "attachments"]);
 
 function validSuggestionTags(value) {
   return Array.isArray(value) && value.length <= 10 && value.every((tag) =>
@@ -17,11 +17,12 @@ function validSuggestionTags(value) {
 function validSuggestion(value) {
   return typeof value === "object" && value !== null && Object.keys(value).every((key) => suggestionKeys.has(key)) &&
     typeof value.id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.id) &&
-    (value.kind === undefined || value.kind === "create" || value.kind === "add-tags" || value.kind === "add-subtasks" || value.kind === "edit") &&
+    (value.kind === undefined || value.kind === "create" || value.kind === "add-tags" || value.kind === "add-subtasks" || value.kind === "edit" || value.kind === "context") &&
     (value.targetTaskId === undefined || (Number.isSafeInteger(value.targetTaskId) && value.targetTaskId > 0)) &&
     ((value.kind !== "add-tags" && value.kind !== "add-subtasks" && value.kind !== "edit") || (Number.isSafeInteger(value.targetTaskId) && value.targetTaskId > 0)) &&
     (value.tags === undefined || validSuggestionTags(value.tags)) &&
     ((value.kind === "edit") === (value.changes !== undefined) && (value.changes === undefined || (typeof value.changes === "object" && value.changes !== null && !Array.isArray(value.changes)))) &&
+    (value.previous === undefined || (value.kind === "edit" && typeof value.previous === "object" && value.previous !== null && !Array.isArray(value.previous))) &&
     typeof value.title === "string" && value.title.length <= 255 &&
     typeof value.description === "string" && value.description.length <= 2000 &&
     ["alta", "media", "baja", "sin prioridad"].includes(value.priority) &&
