@@ -72,6 +72,7 @@ function startServer(port) {
       HOSTNAME: "127.0.0.1",
       PORT: String(port),
       MODUS_DATA_DIR: dataDir,
+      MODUS_DESKTOP: "1",
       NEXT_TELEMETRY_DISABLED: "1",
     },
   });
@@ -138,36 +139,6 @@ function openExternal(url) {
   if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
 }
 
-const OAUTH_URL = /^https:\/\/auth\.openai\.com\/api\/accounts\/authorize(?:[?#]|$)/;
-
-// La cookie de la conexión vive en la sesión de Electron: el login debe completarse aquí, no en el navegador del sistema.
-function openOAuthWindow(url) {
-  if (!mainWindow) return;
-  const login = new BrowserWindow({
-    parent: mainWindow,
-    modal: true,
-    width: 520,
-    height: 720,
-    autoHideMenuBar: true,
-    backgroundColor: backgroundColor(),
-    title: "ChatGPT",
-    icon: path.join(__dirname, "icon.png"),
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
-  });
-  const { webContents } = login;
-  webContents.setUserAgent(webContents.getUserAgent().replace(/\s(?:Electron|Modus)\/\S+/g, ""));
-  webContents.setWindowOpenHandler(({ url: target }) => {
-    if (/^https:\/\//i.test(target)) void webContents.loadURL(target);
-    return { action: "deny" };
-  });
-  webContents.on("did-navigate", (_event, target) => {
-    if (!isInternal(target) || new URL(target).pathname === "/auth/callback") return;
-    if (mainWindow) void mainWindow.loadURL(target);
-    login.close();
-  });
-  void login.loadURL(url);
-}
-
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -186,18 +157,13 @@ function createWindow() {
   mainWindow.on("closed", () => { mainWindow = null; });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (isInternal(url)) return { action: "allow" };
-    if (OAUTH_URL.test(url)) {
-      openOAuthWindow(url);
-      return { action: "deny" };
-    }
     openExternal(url);
     return { action: "deny" };
   });
   mainWindow.webContents.on("will-navigate", (event, url) => {
     if (isInternal(url) || url.startsWith("data:")) return;
     event.preventDefault();
-    if (OAUTH_URL.test(url)) openOAuthWindow(url);
-    else openExternal(url);
+    openExternal(url);
   });
   void mainWindow.loadFile(path.join(__dirname, "splash.html"), { query: { lang: app.getLocale().toLowerCase().startsWith("es") ? "es" : "en" } });
 }

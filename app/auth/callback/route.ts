@@ -7,14 +7,16 @@ export const dynamic = "force-dynamic";
 
 type CallbackStatus = "connected" | "permission_required" | "error";
 
+const desktop = () => !!process.env.MODUS_DESKTOP;
+
 function html(status: CallbackStatus): Response {
   const target = `/inicio?chatgpt=${status}`;
   const message = status === "connected"
-    ? "ChatGPT conectado. Volviendo a Modus…"
+    ? desktop() ? "ChatGPT conectado. Ya puedes cerrar esta pestaña y volver a Modus." : "ChatGPT conectado. Volviendo a Modus…"
     : status === "permission_required"
     ? "Autoriza el uso de tu plan de ChatGPT para continuar."
     : "No se pudo completar la conexión con ChatGPT. Vuelve a intentarlo.";
-  const body = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="0;url=${target}"><title>Modus</title></head><body><p>${message}</p><p><a href="${target}">Volver a Modus</a></p></body></html>`;
+  const body = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${desktop() ? "" : `<meta http-equiv="refresh" content="0;url=${target}">`}<title>Modus</title></head><body><p>${message}</p>${desktop() ? "" : `<p><a href="${target}">Volver a Modus</a></p>`}</body></html>`;
   return new Response(body, {
     status: 200,
     headers: {
@@ -34,7 +36,8 @@ export async function GET(request: Request) {
   const callbackUrl = new URL(request.url);
   callbackUrl.host = host;
   const jar = await cookies();
-  const cookie = jar.get(COOKIE)?.value;
+  const shared = globalThis as { __modusOAuthCookie?: string };
+  const cookie = jar.get(COOKIE)?.value ?? (desktop() ? shared.__modusOAuthCookie : undefined);
 
   const status = await (async (): Promise<CallbackStatus> => {
     try {
@@ -62,6 +65,7 @@ export async function GET(request: Request) {
     } catch {
       return "error";
     } finally {
+      if (desktop()) delete shared.__modusOAuthCookie;
       jar.set({ name: COOKIE, value: "", path: "/auth/callback", maxAge: 0, httpOnly: true, sameSite: "lax", secure: false });
     }
   })();

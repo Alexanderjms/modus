@@ -56,6 +56,7 @@ export async function POST(request: Request) {
     url.host = request.headers.get("host")!;
     const origin = url.origin;
     const { authorizationUrl, cookie } = await beginAuthorization(profile, origin, token);
+    if (process.env.MODUS_DESKTOP) (globalThis as { __modusOAuthCookie?: string }).__modusOAuthCookie = cookie;
     (await cookies()).set({
       name: COOKIE,
       value: cookie,
