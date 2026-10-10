@@ -1,0 +1,31 @@
+name: Backfill release notes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Update notes of existing releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prev=v0.1.0
+          for tag in $(git tag --list 'v*' --sort=version:refname | grep -vx v0.1.0); do
+            {
+              echo "## What's changed"
+              echo
+              git log "$prev..$tag" --no-merges --pretty='- %s' | grep -vE '^- chore' || true
+              echo
+              echo "Windows x64 only. Not code-signed: if SmartScreen appears, click More info -> Run anyway."
+            } > notes.md
+            gh release edit "$tag" --notes-file notes.md
+            prev=$tag
+          done
